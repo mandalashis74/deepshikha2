@@ -14,13 +14,15 @@ from reportlab.lib.units import inch
 
 try:
     import pandas as pd
-except ImportError:
+except Exception as e:
+    print(f"Warning: Failed to import pandas ({e}). Owner Excel support will be disabled.")
     pd = None
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
-DB_PATH = "deepsikha_residency_clean.db"
-OWNERS_EXCEL = "owners.xlsx"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "deepsikha_residency_clean.db")
+OWNERS_EXCEL = os.path.join(BASE_DIR, "owners.xlsx")
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -66,10 +68,10 @@ def get_owners_map():
     # Try loading from owners.xlsx
     if pd is not None:
         excel_file = None
-        # Check current directory for owners.xlsx
-        for filename in os.listdir("."):
+        # Check base directory for owners.xlsx
+        for filename in os.listdir(BASE_DIR):
             if filename.lower().startswith("owners") and (filename.endswith(".xlsx") or filename.endswith(".xls")):
-                excel_file = filename
+                excel_file = os.path.join(BASE_DIR, filename)
                 break
 
         if excel_file and os.path.exists(excel_file):
