@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepsikha Residency - Ledger Manager</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="logo-area">
+                <i class="fa-solid fa-building-columns brand-icon"></i>
+                <div class="logo-text">
+                    <h1>DEEPSIKHA RESIDENCY</h1>
+                    <span class="sub-title">BLOCK 2 LEDGER MANAGER</span>
+                </div>
+            </div>
+            <div class="sync-actions">
+                <button class="btn btn-teal" onclick="openHistoryModal()">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Ledger History
+                </button>
+                <button class="btn btn-emerald" onclick="openModal('importModal')">
+                    <i class="fa-solid fa-file-import"></i> Import Ledger
+                </button>
+                <button class="btn btn-indigo" onclick="openModal('ownersModal')">
+                    <i class="fa-solid fa-users-gear"></i> Upload Owners
+                </button>
+                <a href="/api/export-ledger" class="btn btn-slate" id="btn-export">
+                    <i class="fa-solid fa-file-export"></i> Export Ledger
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="workspace">
+            <!-- Filter & KPI Control Bar -->
+            <section class="control-panel card animate-fade-in">
+                <div class="filter-group">
+                    <div class="input-field">
+                        <label for="filter-year">Year</label>
+                        <select id="filter-year">
+                            <option value="2025">2025</option>
+                            <option value="2026" selected>2026</option>
+                            <option value="2027">2027</option>
+                            <option value="2028">2028</option>
+                            <option value="2029">2029</option>
+                            <option value="2030">2030</option>
+                        </select>
+                    </div>
+                    <div class="input-field">
+                        <label for="filter-month">Month</label>
+                        <select id="filter-month">
+                            <option value="January">January</option>
+                            <option value="February">February</option>
+                            <option value="March">March</option>
+                            <option value="April">April</option>
+                            <option value="May" selected>May</option>
+                            <option value="June">June</option>
+                            <option value="July">July</option>
+                            <option value="August">August</option>
+                            <option value="September">September</option>
+                            <option value="October">October</option>
+                            <option value="November">November</option>
+                            <option value="December">December</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Live stats -->
+                <div class="kpi-grid">
+                    <div class="kpi-card kpi-income">
+                        <div class="kpi-info">
+                            <span class="kpi-title">Monthly Income</span>
+                            <h3 id="stat-income">Rs. 0.00</h3>
+                        </div>
+                        <div class="kpi-icon-wrapper">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi-expense">
+                        <div class="kpi-info">
+                            <span class="kpi-title">Monthly Expenses</span>
+                            <h3 id="stat-expense">Rs. 0.00</h3>
+                        </div>
+                        <div class="kpi-icon-wrapper">
+                            <i class="fa-solid fa-arrow-trend-down"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi-cash">
+                        <div class="kpi-info">
+                            <span class="kpi-title">Cash in Hand</span>
+                            <h3 id="stat-cash">Rs. 0.00</h3>
+                        </div>
+                        <div class="kpi-icon-wrapper">
+                            <i class="fa-solid fa-wallet"></i>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Data Entries Workspace -->
+            <div class="grid-columns">
+                <!-- Collect Fee Form -->
+                <section class="card form-card animate-slide-up">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-hand-holding-dollar icon-emerald"></i> Collect Maintenance Fee (Income)</h2>
+                    </div>
+                    <form id="income-form" onsubmit="handleIncomeSubmit(event)">
+                        <div class="input-field">
+                            <label for="inc-flat">Flat Profiler</label>
+                            <select id="inc-flat" required>
+                                <option value="" disabled selected>Select Room & Tenant</option>
+                            </select>
+                        </div>
+                        <div class="grid-two-cols">
+                            <div class="input-field">
+                                <label for="inc-year">Year</label>
+                                <select id="inc-year">
+                                    <option value="2025">2025</option>
+                                    <option value="2026" selected>2026</option>
+                                    <option value="2027">2027</option>
+                                    <option value="2028">2028</option>
+                                    <option value="2029">2029</option>
+                                    <option value="2030">2030</option>
+                                </select>
+                            </div>
+                            <div class="input-field">
+                                <label for="inc-month">Month</label>
+                                <select id="inc-month">
+                                    <option value="January">January</option>
+                                    <option value="February">February</option>
+                                    <option value="March">March</option>
+                                    <option value="April">April</option>
+                                    <option value="May" selected>May</option>
+                                    <option value="June">June</option>
+                                    <option value="July">July</option>
+                                    <option value="August">August</option>
+                                    <option value="September">September</option>
+                                    <option value="October">October</option>
+                                    <option value="November">November</option>
+                                    <option value="December">December</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="inc-amount">Amount Paid (Rs.)</label>
+                            <input type="number" step="0.01" id="inc-amount" placeholder="e.g. 1000" required>
+                        </div>
+                        <div class="input-field">
+                            <label for="inc-date">Receipt Date</label>
+                            <input type="date" id="inc-date" required>
+                        </div>
+                        <button type="submit" class="btn btn-emerald btn-full">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Collection Entry
+                        </button>
+                    </form>
+                </section>
+
+                <!-- Record Outflow Form -->
+                <section class="card form-card animate-slide-up" style="animation-delay: 0.1s;">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-money-bill-transfer icon-rose"></i> Maintenance Outflow (Expenses)</h2>
+                    </div>
+                    <form id="expense-form" onsubmit="handleExpenseSubmit(event)">
+                        <div class="grid-two-cols">
+                            <div class="input-field">
+                                <label for="exp-year">Billing Year</label>
+                                <select id="exp-year">
+                                    <option value="2025">2025</option>
+                                    <option value="2026" selected>2026</option>
+                                    <option value="2027">2027</option>
+                                    <option value="2028">2028</option>
+                                    <option value="2029">2029</option>
+                                    <option value="2030">2030</option>
+                                </select>
+                            </div>
+                            <div class="input-field">
+                                <label for="exp-month">Billing Month</label>
+                                <select id="exp-month">
+                                    <option value="January">January</option>
+                                    <option value="February">February</option>
+                                    <option value="March">March</option>
+                                    <option value="April">April</option>
+                                    <option value="May" selected>May</option>
+                                    <option value="June">June</option>
+                                    <option value="July">July</option>
+                                    <option value="August">August</option>
+                                    <option value="September">September</option>
+                                    <option value="October">October</option>
+                                    <option value="November">November</option>
+                                    <option value="December">December</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="exp-desc">Voucher Details / Description</label>
+                            <input type="text" id="exp-desc" placeholder="e.g. Electric Bill, Lift Maintenance" required>
+                        </div>
+                        <div class="input-field">
+                            <label for="exp-amount">Amount Spent (Rs.)</label>
+                            <input type="number" step="0.01" id="exp-amount" placeholder="e.g. 2500" required>
+                        </div>
+                        <div class="input-field">
+                            <label for="exp-date">Payment Date</label>
+                            <input type="date" id="exp-date" required>
+                        </div>
+                        <button type="submit" class="btn btn-rose btn-full">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Expense Entry
+                        </button>
+                    </form>
+                </section>
+            </div>
+
+            <!-- Ledger Table Section -->
+            <section class="card table-card animate-slide-up" style="animation-delay: 0.2s;">
+                <div class="card-header table-header">
+                    <h2><i class="fa-solid fa-list-check icon-indigo"></i> Live Ledger Statement</h2>
+                    <div class="table-actions">
+                        <input type="text" id="table-search" placeholder="Search flat or description..." oninput="filterTable()">
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table class="ledger-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th>Ledger Period</th>
+                                <th class="text-right">Amount (Rs.)</th>
+                                <th class="text-center">Record Date</th>
+                                <th class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ledger-body">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- NOTIFICATION SYSTEM -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- MODAL: IMPORT LEDGER EXCEL -->
+    <div id="importModal" class="modal">
+        <div class="modal-content animate-zoom">
+            <div class="modal-header">
+                <h3>📥 Import Ledger Spreadsheet</h3>
+                <span class="close-btn" onclick="closeModal('importModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p class="warning-text"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Warning:</strong> Importing a new ledger will completely overwrite current database entries with the spreadsheet's values.</p>
+                <form id="import-form" onsubmit="handleImportSubmit(event)">
+                    <div class="file-dropzone">
+                        <i class="fa-solid fa-file-excel dropzone-icon"></i>
+                        <span class="dropzone-text">Click or drag Excel file here</span>
+                        <input type="file" id="import-file" accept=".xlsx, .xls" required onchange="updateDropzoneText(this)">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('importModal')">Cancel</button>
+                        <button type="submit" class="btn btn-emerald" id="btn-import-submit">Upload & Parse</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: UPLOAD OWNERS EXCEL -->
+    <div id="ownersModal" class="modal">
+        <div class="modal-content animate-zoom">
+            <div class="modal-header">
+                <h3>👥 Update Owner Mapping</h3>
+                <span class="close-btn" onclick="closeModal('ownersModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Upload your <code>owners.xlsx</code> spreadsheet to refresh the building's flat number and tenant names list.</p>
+                <form id="owners-form" onsubmit="handleOwnersSubmit(event)">
+                    <div class="file-dropzone">
+                        <i class="fa-solid fa-users dropzone-icon"></i>
+                        <span class="dropzone-text">Click or drag owners.xlsx file here</span>
+                        <input type="file" id="owners-file" accept=".xlsx, .xls" required onchange="updateDropzoneText(this)">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('ownersModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo" id="btn-owners-submit">Upload Mapping</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: LEDGER HISTORY EXPLORER -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content modal-content-large animate-zoom">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-clock-rotate-left icon-teal"></i> Ledger History Explorer</h3>
+                <span class="close-btn" onclick="closeModal('historyModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Filters Grid inside Modal -->
+                <div class="modal-filters-grid">
+                    <div class="input-field">
+                        <label for="hist-type">Entry Type</label>
+                        <select id="hist-type" onchange="fetchHistory()">
+                            <option value="ALL">All Entries</option>
+                            <option value="INCOME">Collections (Income)</option>
+                            <option value="EXPENSE">Expenses (Outflow)</option>
+                        </select>
+                    </div>
+                    <div class="input-field">
+                        <label for="hist-flat">Flat / Room</label>
+                        <select id="hist-flat" onchange="fetchHistory()">
+                            <option value="ALL">All Flats</option>
+                            <!-- Populated dynamically via JS -->
+                        </select>
+                    </div>
+                    <div class="input-field">
+                        <label for="hist-year">Year</label>
+                        <select id="hist-year" onchange="fetchHistory()">
+                            <option value="ALL">All Years</option>
+                            <option value="2025">2025</option>
+                            <option value="2026">2026</option>
+                            <option value="2027">2027</option>
+                            <option value="2028">2028</option>
+                            <option value="2029">2029</option>
+                            <option value="2030">2030</option>
+                        </select>
+                    </div>
+                    <div class="input-field">
+                        <label for="hist-month">Month</label>
+                        <select id="hist-month" onchange="fetchHistory()">
+                            <option value="ALL">All Months</option>
+                            <option value="January">January</option>
+                            <option value="February">February</option>
+                            <option value="March">March</option>
+                            <option value="April">April</option>
+                            <option value="May">May</option>
+                            <option value="June">June</option>
+                            <option value="July">July</option>
+                            <option value="August">August</option>
+                            <option value="September">September</option>
+                            <option value="October">October</option>
+                            <option value="November">November</option>
+                            <option value="December">December</option>
+                        </select>
+                    </div>
+                    <div class="input-field">
+                        <label for="hist-start-date">Start Date</label>
+                        <input type="date" id="hist-start-date" onchange="fetchHistory()">
+                    </div>
+                    <div class="input-field">
+                        <label for="hist-end-date">End Date</label>
+                        <input type="date" id="hist-end-date" onchange="fetchHistory()">
+                    </div>
+                    <div class="input-field span-search">
+                        <label for="hist-search">Search Keyword</label>
+                        <input type="text" id="hist-search" placeholder="Search description, name, amount..." oninput="fetchHistory()">
+                    </div>
+                </div>
+
+                <!-- History Results Table -->
+                <div class="table-scroll history-table-scroll">
+                    <table class="ledger-table history-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th class="text-right">Amount (Rs.)</th>
+                                <th class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body">
+                            <!-- Populated dynamically via AJAX -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-slate" onclick="closeModal('historyModal')">Close Explorer</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

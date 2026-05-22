@@ -1,0 +1,25 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build/Dist (PyInstaller etc)
+build/
+dist/
+*.spec
+
+# Test files
+temp_test_run.xlsx
+receipt_test.pdf
+*.log
