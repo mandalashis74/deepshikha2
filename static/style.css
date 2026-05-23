@@ -207,8 +207,9 @@ body {
 
 .action-group {
     display: flex;
-    gap: 12px;
-    align-items: center;
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
 }
 
 .btn-action {
@@ -216,6 +217,7 @@ body {
     font-size: 0.95rem;
     font-weight: 600;
     white-space: nowrap;
+    text-align: center;
 }
 
 @media (max-width: 1200px) {
@@ -224,7 +226,9 @@ body {
         gap: 20px;
     }
     .action-group {
-        justify-content: flex-start;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
     }
 }
 
