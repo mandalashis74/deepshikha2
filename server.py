@@ -168,13 +168,43 @@ def number_to_words(number):
         
     return words.strip() + " Only"
 
+def normalize_date(date_str):
+    if not date_str:
+        return ""
+    date_str = date_str.strip()
+    # If already YYYY-MM-DD
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+        return date_str
+    # If DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+    for sep in ("-", "/", "."):
+        parts = date_str.split(sep)
+        if len(parts) == 3:
+            if len(parts[0]) == 4:
+                year, month, day = parts[0], parts[1], parts[2]
+            else:
+                day, month, year = parts[0], parts[1], parts[2]
+            if len(day) < 2: day = "0" + day
+            if len(month) < 2: month = "0" + month
+            if len(year) == 2: year = f"20{year}"
+            if len(day) == 2 and len(month) == 2 and len(year) == 4:
+                try:
+                    d, m, y = int(day), int(month), int(year)
+                    if 1 <= d <= 31 and 1 <= m <= 12 and 1900 <= y <= 2100:
+                        return f"{year}-{month}-{day}"
+                except ValueError:
+                    pass
+    return date_str
+
 def get_owner_name_for_flat(flat_no):
+    if not flat_no:
+        return "Unknown Flat"
+    flat_no_str = str(flat_no).strip().upper()
     owners = get_owners_map()
-    flat_prefix = f"{flat_no.strip().upper()} - "
+    flat_prefix = f"{flat_no_str} - "
     for o in owners:
         if o.startswith(flat_prefix):
             return o[len(flat_prefix):].strip()
-    return f"Flat {flat_no}"
+    return f"Flat {flat_no_str}"
 
 def draw_receipt_background(canvas, doc):
     canvas.saveState()
@@ -447,116 +477,122 @@ def get_receipt(entry_id):
 
 @app.route('/api/history', methods=['GET'])
 def get_history():
-    search_query = request.args.get('search', '').strip()
-    flat_no = request.args.get('flat_no', '').strip()
-    entry_type = request.args.get('type', 'ALL').strip().upper()
-    year = request.args.get('year', '').strip()
-    month = request.args.get('month', '').strip()
-    start_date = request.args.get('start_date', '').strip()
-    end_date = request.args.get('end_date', '').strip()
+    try:
+        search_query = request.args.get('search', '').strip()
+        flat_no = request.args.get('flat_no', '').strip()
+        entry_type = request.args.get('type', 'ALL').strip().upper()
+        year = request.args.get('year', '').strip()
+        month = request.args.get('month', '').strip()
+        start_date = request.args.get('start_date', '').strip()
+        end_date = request.args.get('end_date', '').strip()
 
-    if flat_no and " - " in flat_no:
-        flat_no = flat_no.split(" - ")[0].strip()
-    if flat_no.upper() == "ALL":
-        flat_no = ""
+        start_date = normalize_date(start_date)
+        end_date = normalize_date(end_date)
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+        if flat_no and " - " in flat_no:
+            flat_no = flat_no.split(" - ")[0].strip()
+        if flat_no.upper() == "ALL":
+            flat_no = ""
 
-    entries = []
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-    if entry_type in ('ALL', 'INCOME'):
-        income_query = "SELECT id, flat_no, year, month, amount, date_received FROM income WHERE 1=1"
-        income_args = []
+        entries = []
 
-        if flat_no:
-            income_query += " AND flat_no = ?"
-            income_args.append(flat_no)
-        if year and year.upper() != "ALL":
-            income_query += " AND year = ?"
-            income_args.append(year)
-        if month and month.upper() != "ALL":
-            income_query += " AND month = ?"
-            income_args.append(month)
-        if start_date:
-            income_query += " AND date_received >= ?"
-            income_args.append(start_date)
-        if end_date:
-            income_query += " AND date_received <= ?"
-            income_args.append(end_date)
-        if search_query:
-            search_clauses = ["flat_no LIKE ?", "amount LIKE ?", "date_received LIKE ?", "month LIKE ?", "year LIKE ?"]
-            search_args = [f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"]
-            
-            matching_flats = []
-            for item in get_owners_map():
-                if search_query.lower() in item.lower():
-                    parts = item.split(" - ")
-                    if parts:
-                        matching_flats.append(parts[0].strip())
-            
-            if matching_flats:
-                placeholders = ",".join("?" for _ in matching_flats)
-                search_clauses.append(f"flat_no IN ({placeholders})")
-                search_args.extend(matching_flats)
+        if entry_type in ('ALL', 'INCOME'):
+            income_query = "SELECT id, flat_no, year, month, amount, date_received FROM income WHERE 1=1"
+            income_args = []
 
-            income_query += f" AND ({' OR '.join(search_clauses)})"
-            income_args.extend(search_args)
+            if flat_no:
+                income_query += " AND flat_no = ?"
+                income_args.append(flat_no)
+            if year and year.upper() != "ALL":
+                income_query += " AND year = ?"
+                income_args.append(year)
+            if month and month.upper() != "ALL":
+                income_query += " AND month = ?"
+                income_args.append(month)
+            if start_date:
+                income_query += " AND date_received >= ?"
+                income_args.append(start_date)
+            if end_date:
+                income_query += " AND date_received <= ?"
+                income_args.append(end_date)
+            if search_query:
+                search_clauses = ["flat_no LIKE ?", "amount LIKE ?", "date_received LIKE ?", "month LIKE ?", "year LIKE ?"]
+                search_args = [f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"]
+                
+                matching_flats = []
+                for item in get_owners_map():
+                    if search_query.lower() in item.lower():
+                        parts = item.split(" - ")
+                        if parts:
+                            matching_flats.append(parts[0].strip())
+                
+                if matching_flats:
+                    placeholders = ",".join("?" for _ in matching_flats)
+                    search_clauses.append(f"flat_no IN ({placeholders})")
+                    search_args.extend(matching_flats)
 
-        cursor.execute(income_query, tuple(income_args))
-        for r in cursor.fetchall():
-            entries.append({
-                "id": r["id"],
-                "type": "INCOME",
-                "flat_no": r["flat_no"],
-                "owner_name": get_owner_name_for_flat(r["flat_no"]),
-                "description": f"Flat {r['flat_no']} Maintenance Fee",
-                "year": r["year"],
-                "month": r["month"],
-                "amount": r["amount"],
-                "date": r["date_received"]
-            })
+                income_query += f" AND ({' OR '.join(search_clauses)})"
+                income_args.extend(search_args)
 
-    if entry_type in ('ALL', 'EXPENSE') and not flat_no:
-        expense_query = "SELECT id, year, month, description, amount, date_spent FROM expenses WHERE 1=1"
-        expense_args = []
+            cursor.execute(income_query, tuple(income_args))
+            for r in cursor.fetchall():
+                entries.append({
+                    "id": r["id"],
+                    "type": "INCOME",
+                    "flat_no": r["flat_no"],
+                    "owner_name": get_owner_name_for_flat(r["flat_no"]),
+                    "description": f"Flat {r['flat_no']} Maintenance Fee",
+                    "year": r["year"],
+                    "month": r["month"],
+                    "amount": r["amount"],
+                    "date": r["date_received"]
+                })
 
-        if year and year.upper() != "ALL":
-            expense_query += " AND year = ?"
-            expense_args.append(year)
-        if month and month.upper() != "ALL":
-            expense_query += " AND month = ?"
-            expense_args.append(month)
-        if start_date:
-            expense_query += " AND date_spent >= ?"
-            expense_args.append(start_date)
-        if end_date:
-            expense_query += " AND date_spent <= ?"
-            expense_args.append(end_date)
-        if search_query:
-            search_clauses = ["description LIKE ?", "amount LIKE ?", "date_spent LIKE ?", "month LIKE ?", "year LIKE ?"]
-            search_args = [f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"]
-            
-            expense_query += f" AND ({' OR '.join(search_clauses)})"
-            expense_args.extend(search_args)
+        if entry_type in ('ALL', 'EXPENSE') and not flat_no:
+            expense_query = "SELECT id, year, month, description, amount, date_spent FROM expenses WHERE 1=1"
+            expense_args = []
 
-        cursor.execute(expense_query, tuple(expense_args))
-        for r in cursor.fetchall():
-            entries.append({
-                "id": r["id"],
-                "type": "EXPENSE",
-                "flat_no": "",
-                "owner_name": "",
-                "description": r["description"],
-                "year": r["year"],
-                "month": r["month"],
-                "amount": r["amount"],
-                "date": r["date_spent"]
-            })
+            if year and year.upper() != "ALL":
+                expense_query += " AND year = ?"
+                expense_args.append(year)
+            if month and month.upper() != "ALL":
+                expense_query += " AND month = ?"
+                expense_args.append(month)
+            if start_date:
+                expense_query += " AND date_spent >= ?"
+                expense_args.append(start_date)
+            if end_date:
+                expense_query += " AND date_spent <= ?"
+                expense_args.append(end_date)
+            if search_query:
+                search_clauses = ["description LIKE ?", "amount LIKE ?", "date_spent LIKE ?", "month LIKE ?", "year LIKE ?"]
+                search_args = [f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"]
+                
+                expense_query += f" AND ({' OR '.join(search_clauses)})"
+                expense_args.extend(search_args)
 
-    conn.close()
-    entries.sort(key=lambda x: x["date"], reverse=True)
-    return jsonify(entries)
+            cursor.execute(expense_query, tuple(expense_args))
+            for r in cursor.fetchall():
+                entries.append({
+                    "id": r["id"],
+                    "type": "EXPENSE",
+                    "flat_no": "",
+                    "owner_name": "",
+                    "description": r["description"],
+                    "year": r["year"],
+                    "month": r["month"],
+                    "amount": r["amount"],
+                    "date": r["date_spent"]
+                })
+
+        conn.close()
+        entries.sort(key=lambda x: x["date"] or "", reverse=True)
+        return jsonify(entries)
+    except Exception as e:
+        return jsonify({"error": f"Database query failed: {str(e)}"}), 500
 
 @app.route('/api/dashboard', methods=['GET'])
 def get_dashboard():
@@ -625,6 +661,7 @@ def add_income():
     month = data.get('month', '')
     amount = data.get('amount')
     date_str = data.get('date', datetime.date.today().strftime("%Y-%m-%d"))
+    date_str = normalize_date(date_str)
 
     if not flat or flat == "Select Room & Tenant" or not amount or not date_str:
         return jsonify({"error": "Please fill out all fields."}), 400
@@ -657,6 +694,7 @@ def add_expense():
     desc = data.get('description', '').strip()
     amount = data.get('amount')
     date_str = data.get('date', datetime.date.today().strftime("%Y-%m-%d"))
+    date_str = normalize_date(date_str)
 
     if not desc or not amount or not date_str:
         return jsonify({"error": "Please fill out all fields."}), 400
@@ -995,6 +1033,222 @@ def export_ledger():
         return send_file(temp_path, as_attachment=True, download_name=fn)
     except Exception as e:
         return jsonify({"error": f"Could not export ledger: {str(e)}"}), 500
+
+@app.route('/api/reports/cashbook/datewise', methods=['GET'])
+def get_cashbook_datewise():
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    
+    start_date = normalize_date(start_date)
+    end_date = normalize_date(end_date)
+    
+    if not start_date or not end_date:
+        return jsonify({"error": "Start date and end date are required."}), 400
+        
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Calculate opening balance before start_date
+        cursor.execute("SELECT SUM(amount) FROM income WHERE date_received < ?", (start_date,))
+        inc_before = cursor.fetchone()[0] or 0.0
+        
+        cursor.execute("SELECT SUM(amount) FROM expenses WHERE date_spent < ?", (start_date,))
+        exp_before = cursor.fetchone()[0] or 0.0
+        
+        opening_balance = inc_before - exp_before
+        
+        # Fetch income in range
+        cursor.execute("SELECT id, flat_no, year, amount, date_received FROM income WHERE date_received >= ? AND date_received <= ?", (start_date, end_date))
+        incomes = cursor.fetchall()
+        
+        # Fetch expenses in range
+        cursor.execute("SELECT id, description, amount, date_spent FROM expenses WHERE date_spent >= ? AND date_spent <= ?", (start_date, end_date))
+        expenses = cursor.fetchall()
+        
+        conn.close()
+        
+        transactions = []
+        for r in incomes:
+            flat_no = r["flat_no"]
+            owner_name = get_owner_name_for_flat(flat_no)
+            try:
+                y_int = int(r["year"][:4])
+                receipt_year = f"{y_int}-{str(y_int+1)[2:]}"
+            except Exception:
+                receipt_year = r["year"]
+            receipt_id = f"DR-{receipt_year}-{r['id']:04d}"
+            
+            transactions.append({
+                "id": r["id"],
+                "date": r["date_received"],
+                "type": "INCOME",
+                "particulars": f"Flat {flat_no} - {owner_name}",
+                "ref_no": receipt_id,
+                "debit": r["amount"],
+                "credit": 0.0
+            })
+            
+        for r in expenses:
+            transactions.append({
+                "id": r["id"],
+                "date": r["date_spent"],
+                "type": "EXPENSE",
+                "particulars": r["description"],
+                "ref_no": f"EXP-{r['id']:04d}",
+                "debit": 0.0,
+                "credit": r["amount"]
+            })
+            
+        # Sort chronologically, then by type (INCOME first if dates match)
+        transactions.sort(key=lambda x: (x["date"] or "", 0 if x["type"] == "INCOME" else 1))
+        
+        total_debit = sum(t["debit"] for t in transactions)
+        total_credit = sum(t["credit"] for t in transactions)
+        
+        return jsonify({
+            "start_date": start_date,
+            "end_date": end_date,
+            "opening_balance": opening_balance,
+            "transactions": transactions,
+            "total_debit": total_debit,
+            "total_credit": total_credit,
+            "closing_balance": opening_balance + total_debit - total_credit
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate cash book report: {str(e)}"}), 500
+
+@app.route('/api/reports/cashbook/monthwise', methods=['GET'])
+def get_cashbook_monthwise():
+    year = request.args.get('year', '').strip()
+    if not year:
+        return jsonify({"error": "Year is required."}), 400
+        
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Calculate opening balance before Jan 1st of that year
+        start_of_year = f"{year}-01-01"
+        cursor.execute("SELECT SUM(amount) FROM income WHERE date_received < ?", (start_of_year,))
+        inc_before = cursor.fetchone()[0] or 0.0
+        
+        cursor.execute("SELECT SUM(amount) FROM expenses WHERE date_spent < ?", (start_of_year,))
+        exp_before = cursor.fetchone()[0] or 0.0
+        
+        opening_balance = inc_before - exp_before
+        
+        # Fetch income grouped by month for that year
+        cursor.execute("SELECT month, SUM(amount) FROM income WHERE year = ? GROUP BY month", (year,))
+        inc_by_month = {r[0]: r[1] for r in cursor.fetchall()}
+        
+        # Fetch expenses grouped by month for that year
+        cursor.execute("SELECT month, SUM(amount) FROM expenses WHERE year = ? GROUP BY month", (year,))
+        exp_by_month = {r[0]: r[1] for r in cursor.fetchall()}
+        
+        conn.close()
+        
+        months_list = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+        
+        monthly_summaries = []
+        running_bal = opening_balance
+        
+        for m in months_list:
+            receipts = inc_by_month.get(m, 0.0) or 0.0
+            payments = exp_by_month.get(m, 0.0) or 0.0
+            
+            m_opening = running_bal
+            m_closing = m_opening + receipts - payments
+            running_bal = m_closing
+            
+            monthly_summaries.append({
+                "month": m,
+                "opening_balance": m_opening,
+                "receipts": receipts,
+                "payments": payments,
+                "closing_balance": m_closing
+            })
+            
+        return jsonify({
+            "year": year,
+            "opening_balance_year": opening_balance,
+            "monthly_summaries": monthly_summaries,
+            "total_receipts": sum(m["receipts"] for m in monthly_summaries),
+            "total_payments": sum(m["payments"] for m in monthly_summaries),
+            "closing_balance_year": running_bal
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate monthly summary report: {str(e)}"}), 500
+
+@app.route('/api/reports/income-expenditure', methods=['GET'])
+def get_income_expenditure():
+    year = request.args.get('year', '').strip()
+    if not year:
+        return jsonify({"error": "Year is required."}), 400
+        
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Query total maintenance collections by flat
+        cursor.execute("SELECT flat_no, SUM(amount) FROM income WHERE year = ? GROUP BY flat_no", (year,))
+        income_rows = cursor.fetchall()
+        
+        # Query expenses grouped by description
+        cursor.execute("SELECT description, SUM(amount) FROM expenses WHERE year = ? GROUP BY description", (year,))
+        expense_rows = cursor.fetchall()
+        
+        conn.close()
+        
+        income_details = []
+        total_income = 0.0
+        for r in income_rows:
+            flat_no = r[0]
+            amount = r[1] or 0.0
+            total_income += amount
+            income_details.append({
+                "flat_no": flat_no,
+                "owner_name": get_owner_name_for_flat(flat_no),
+                "amount": amount
+            })
+            
+        # Sort income details by flat_no
+        income_details.sort(key=lambda x: x["flat_no"])
+        
+        expenditures = []
+        total_expenditure = 0.0
+        for r in expense_rows:
+            desc = r[0]
+            amount = r[1] or 0.0
+            total_expenditure += amount
+            expenditures.append({
+                "category": desc,
+                "amount": amount
+            })
+            
+        # Sort expenditures by category/description
+        expenditures.sort(key=lambda x: x["category"])
+        
+        incomes = []
+        if total_income > 0:
+            incomes.append({
+                "category": "Maintenance Charge Collections",
+                "amount": total_income
+            })
+            
+        surplus = total_income - total_expenditure
+        
+        return jsonify({
+            "year": year,
+            "incomes": incomes,
+            "income_details": income_details,
+            "expenditures": expenditures,
+            "total_income": total_income,
+            "total_expenditure": total_expenditure,
+            "surplus_deficit": surplus
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate Income & Expenditure report: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

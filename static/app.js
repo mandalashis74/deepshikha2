@@ -160,7 +160,7 @@ function renderTable(entries) {
             <td class="text-center">${entry.date}</td>
             <td class="text-center">
                 ${actions}
-                <button class="btn-delete" title="Delete entry" onclick="deleteEntry('${entry.type}', ${entry.id}, '${entry.description.replace(/'/g, "\\'")}')">
+                <button class="btn-delete" title="Delete entry" onclick="deleteEntry('${entry.type}', ${entry.id}, '${entry.description.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
             </td>
@@ -389,6 +389,15 @@ window.onclick = function(event) {
 async function openHistoryModal() {
     openModal('historyModal');
     
+    // Set default dates to start of current year and today
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const todayStr = now.toISOString().split('T')[0];
+    const startOfYearStr = `${currentYear}-01-01`;
+    
+    document.getElementById("hist-start-date").value = startOfYearStr;
+    document.getElementById("hist-end-date").value = todayStr;
+    
     // Load flats dropdown in history modal as well
     try {
         const response = await fetch('/api/flats');
@@ -482,7 +491,7 @@ function renderHistoryTable(entries) {
             </td>
             <td class="text-center">
                 ${receiptBtn}
-                <button class="btn-delete" title="Delete entry" onclick="deleteHistoryEntry('${entry.type}', ${entry.id}, '${entry.description.replace(/'/g, "\\'")}')">
+                <button class="btn-delete" title="Delete entry" onclick="deleteHistoryEntry('${entry.type}', ${entry.id}, '${entry.description.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
             </td>
@@ -517,4 +526,373 @@ async function deleteHistoryEntry(type, id, desc) {
     } catch (err) {
         showToast(err.message, "error");
     }
+}
+
+// --- FINANCIAL REPORTS CONTROLLERS ---
+
+let activeReportTab = 'date-wise-cashbook';
+
+function openReportsModal() {
+    openModal('reportsModal');
+    
+    // Set default dates: first day of current month to today
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const todayStr = now.toISOString().split('T')[0];
+    const currentMonthPad = String(now.getMonth() + 1).padStart(2, '0');
+    const startOfMonthStr = `${currentYear}-${currentMonthPad}-01`;
+    
+    document.getElementById("rep-start-date").value = startOfMonthStr;
+    document.getElementById("rep-end-date").value = todayStr;
+    document.getElementById("rep-year").value = currentYear.toString();
+    
+    // Default tab
+    switchReportTab('date-wise-cashbook');
+}
+
+function switchReportTab(tabId) {
+    activeReportTab = tabId;
+    
+    // Toggle active state in tabs
+    document.querySelectorAll('.report-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+    
+    // Toggle filter panel visibility
+    if (tabId === 'date-wise-cashbook') {
+        document.getElementById('rep-filter-dates').classList.remove('hidden');
+        document.getElementById('rep-filter-year').classList.add('hidden');
+    } else {
+        document.getElementById('rep-filter-dates').classList.add('hidden');
+        document.getElementById('rep-filter-year').classList.remove('hidden');
+    }
+    
+    loadActiveReport();
+}
+
+async function loadActiveReport() {
+    const sheet = document.getElementById("report-sheet");
+    sheet.innerHTML = `
+        <div class="text-center" style="padding: 40px; color: var(--text-muted);">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i>
+            Generating report, please wait...
+        </div>
+    `;
+    
+    try {
+        if (activeReportTab === 'date-wise-cashbook') {
+            const startDate = document.getElementById("rep-start-date").value;
+            const endDate = document.getElementById("rep-end-date").value;
+            if (!startDate || !endDate) {
+                sheet.innerHTML = `<div class="text-center" style="padding: 30px; color: #e11d48;">Please select both Start and End dates.</div>`;
+                return;
+            }
+            const res = await fetch(`/api/reports/cashbook/datewise?start_date=${startDate}&end_date=${endDate}`);
+            if (!res.ok) throw new Error("API error");
+            const data = await res.json();
+            renderDateWiseCashbook(data);
+        } else if (activeReportTab === 'month-wise-cashbook') {
+            const year = document.getElementById("rep-year").value;
+            const res = await fetch(`/api/reports/cashbook/monthwise?year=${year}`);
+            if (!res.ok) throw new Error("API error");
+            const data = await res.json();
+            renderMonthWiseCashbook(data);
+        } else if (activeReportTab === 'income-expenditure') {
+            const year = document.getElementById("rep-year").value;
+            const res = await fetch(`/api/reports/income-expenditure?year=${year}`);
+            if (!res.ok) throw new Error("API error");
+            const data = await res.json();
+            renderIncomeExpenditure(data);
+        }
+    } catch (err) {
+        console.error(err);
+        sheet.innerHTML = `<div class="text-center" style="padding: 30px; color: #e11d48;"><i class="fa-solid fa-triangle-exclamation"></i> Error loading report. Please try again.</div>`;
+    }
+}
+
+function formatDateDisplay(dateStr) {
+    if (!dateStr) return "";
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+}
+
+function renderDateWiseCashbook(data) {
+    const sheet = document.getElementById("report-sheet");
+    
+    let rowsHTML = "";
+    let runningBal = data.opening_balance;
+    
+    // Add opening balance row
+    rowsHTML += `
+        <tr class="row-opening">
+            <td>${formatDateDisplay(data.start_date)}</td>
+            <td>-</td>
+            <td>Opening Balance B/F</td>
+            <td class="text-right">-</td>
+            <td class="text-right">-</td>
+            <td class="text-right rep-bal">${formatCurrency(runningBal)}</td>
+        </tr>
+    `;
+    
+    if (data.transactions.length === 0) {
+        rowsHTML += `
+            <tr>
+                <td colspan="6" class="text-center" style="color: #64748b; padding: 20px;">
+                    No transactions recorded during this period.
+                </td>
+            </tr>
+        `;
+    } else {
+        data.transactions.forEach(t => {
+            runningBal = runningBal + t.debit - t.credit;
+            
+            const drText = t.debit > 0 ? formatCurrency(t.debit) : "-";
+            const crText = t.credit > 0 ? formatCurrency(t.credit) : "-";
+            
+            rowsHTML += `
+                <tr>
+                    <td>${formatDateDisplay(t.date)}</td>
+                    <td><code>${t.ref_no}</code></td>
+                    <td>${t.particulars}</td>
+                    <td class="text-right ${t.debit > 0 ? 'amt-dr' : ''}">${drText}</td>
+                    <td class="text-right ${t.credit > 0 ? 'amt-cr' : ''}">${crText}</td>
+                    <td class="text-right rep-bal">${formatCurrency(runningBal)}</td>
+                </tr>
+            `;
+        });
+    }
+    
+    // Add closing balance row
+    rowsHTML += `
+        <tr class="row-closing">
+            <td>${formatDateDisplay(data.end_date)}</td>
+            <td>-</td>
+            <td>Closing Balance C/F</td>
+            <td class="text-right">-</td>
+            <td class="text-right">-</td>
+            <td class="text-right rep-bal">${formatCurrency(data.closing_balance)}</td>
+        </tr>
+    `;
+    
+    sheet.innerHTML = `
+        <div class="report-header">
+            <h2>DEEPSIKHA RESIDENCY (BLOCK - 2)</h2>
+            <p><strong>DATE-WISE CASH BOOK</strong></p>
+            <p>Period: ${formatDateDisplay(data.start_date)} to ${formatDateDisplay(data.end_date)}</p>
+        </div>
+        
+        <div class="report-summary-cards">
+            <div class="report-sum-card">
+                <h4>Opening Balance</h4>
+                <p>${formatCurrency(data.opening_balance)}</p>
+            </div>
+            <div class="report-sum-card sum-debit">
+                <h4>Total Receipts (+)</h4>
+                <p>${formatCurrency(data.total_debit)}</p>
+            </div>
+            <div class="report-sum-card sum-credit">
+                <h4>Total Payments (-)</h4>
+                <p>${formatCurrency(data.total_credit)}</p>
+            </div>
+        </div>
+        
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Voucher/Ref No</th>
+                    <th>Particulars</th>
+                    <th class="text-right">Receipts (Dr)</th>
+                    <th class="text-right">Payments (Cr)</th>
+                    <th class="text-right">Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rowsHTML}
+            </tbody>
+        </table>
+    `;
+}
+
+function renderMonthWiseCashbook(data) {
+    const sheet = document.getElementById("report-sheet");
+    
+    let rowsHTML = "";
+    data.monthly_summaries.forEach(m => {
+        const rcptText = m.receipts > 0 ? formatCurrency(m.receipts) : "-";
+        const pymtText = m.payments > 0 ? formatCurrency(m.payments) : "-";
+        
+        rowsHTML += `
+            <tr>
+                <td><strong>${m.month}</strong></td>
+                <td class="text-right">${formatCurrency(m.opening_balance)}</td>
+                <td class="text-right amt-dr">${rcptText}</td>
+                <td class="text-right amt-cr">${pymtText}</td>
+                <td class="text-right rep-bal">${formatCurrency(m.closing_balance)}</td>
+            </tr>
+        `;
+    });
+    
+    sheet.innerHTML = `
+        <div class="report-header">
+            <h2>DEEPSIKHA RESIDENCY (BLOCK - 2)</h2>
+            <p><strong>MONTH-WISE CASH BOOK SUMMARY</strong></p>
+            <p>Year: ${data.year}</p>
+        </div>
+        
+        <div class="report-summary-cards">
+            <div class="report-sum-card">
+                <h4>Year Opening</h4>
+                <p>${formatCurrency(data.opening_balance_year)}</p>
+            </div>
+            <div class="report-sum-card sum-debit">
+                <h4>Total Receipts</h4>
+                <p>${formatCurrency(data.total_receipts)}</p>
+            </div>
+            <div class="report-sum-card sum-credit">
+                <h4>Total Payments</h4>
+                <p>${formatCurrency(data.total_payments)}</p>
+            </div>
+        </div>
+        
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th class="text-right">Opening Balance</th>
+                    <th class="text-right">Receipts (Dr)</th>
+                    <th class="text-right">Payments (Cr)</th>
+                    <th class="text-right">Closing Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rowsHTML}
+            </tbody>
+        </table>
+    `;
+}
+
+function renderIncomeExpenditure(data) {
+    const sheet = document.getElementById("report-sheet");
+    
+    // Build Incomes column rows
+    let incRowsHTML = "";
+    if (data.incomes.length === 0) {
+        incRowsHTML += `<tr><td colspan="2" class="text-center" style="color: #64748b;">No Income Recorded</td></tr>`;
+    } else {
+        data.incomes.forEach(inc => {
+            incRowsHTML += `
+                <tr>
+                    <td>${inc.category}</td>
+                    <td class="text-right amt-dr">${formatCurrency(inc.amount)}</td>
+                </tr>
+            `;
+        });
+    }
+    
+    // Build Expenditures column rows
+    let expRowsHTML = "";
+    if (data.expenditures.length === 0) {
+        expRowsHTML += `<tr><td colspan="2" class="text-center" style="color: #64748b;">No Expenditures Recorded</td></tr>`;
+    } else {
+        data.expenditures.forEach(exp => {
+            expRowsHTML += `
+                <tr>
+                    <td>${exp.category}</td>
+                    <td class="text-right amt-cr">${formatCurrency(exp.amount)}</td>
+                </tr>
+            `;
+        });
+    }
+    
+    // surplus card class
+    const isSurplus = data.surplus_deficit >= 0;
+    const absVal = Math.abs(data.surplus_deficit);
+    
+    // Build Income Details (flat-wise breakdown)
+    let detailsRowsHTML = "";
+    if (data.income_details.length === 0) {
+        detailsRowsHTML += `<tr><td colspan="3" class="text-center" style="color: #64748b;">No Flat collections found.</td></tr>`;
+    } else {
+        data.income_details.forEach(det => {
+            detailsRowsHTML += `
+                <tr>
+                    <td><strong>Flat ${det.flat_no}</strong></td>
+                    <td>${det.owner_name}</td>
+                    <td class="text-right amt-dr">${formatCurrency(det.amount)}</td>
+                </tr>
+            `;
+        });
+    }
+    
+    sheet.innerHTML = `
+        <div class="report-header">
+            <h2>DEEPSIKHA RESIDENCY (BLOCK - 2)</h2>
+            <p><strong>INCOME AND EXPENDITURE ACCOUNT</strong></p>
+            <p>For the Year Ended: 31st December ${data.year}</p>
+        </div>
+        
+        <div class="inc-exp-grid">
+            <!-- Expenditures Column -->
+            <div class="inc-exp-column col-expense">
+                <h3>Expenditure (Debit)</h3>
+                <table class="inc-exp-table">
+                    <tbody>
+                        ${expRowsHTML}
+                        <tr class="total-row">
+                            <td><strong>Total Expenditure</strong></td>
+                            <td class="text-right">${formatCurrency(data.total_expenditure)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Incomes Column -->
+            <div class="inc-exp-column col-income">
+                <h3>Income (Credit)</h3>
+                <table class="inc-exp-table">
+                    <tbody>
+                        ${incRowsHTML}
+                        <tr class="total-row">
+                            <td><strong>Total Income</strong></td>
+                            <td class="text-right">${formatCurrency(data.total_income)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="surplus-card ${isSurplus ? 'positive' : 'negative'}">
+            ${isSurplus 
+                ? `<i class="fa-solid fa-circle-arrow-up"></i> Excess of Income over Expenditure (Surplus): <strong>${formatCurrency(absVal)}</strong>`
+                : `<i class="fa-solid fa-circle-arrow-down"></i> Excess of Expenditure over Income (Deficit): <strong>${formatCurrency(absVal)}</strong>`
+            }
+        </div>
+        
+        <div style="margin-top: 30px;">
+            <h4 style="color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 12px; font-weight: 700;">
+                <i class="fa-solid fa-list-ul"></i> Flat Collections Detailed breakdown:
+            </h4>
+            <table class="report-table" style="font-size: 0.8rem;">
+                <thead>
+                    <tr>
+                        <th>Flat No</th>
+                        <th>Owner / Tenant Name</th>
+                        <th class="text-right">Total Maintenance Paid (Rs.)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${detailsRowsHTML}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function printActiveReport() {
+    window.print();
 }

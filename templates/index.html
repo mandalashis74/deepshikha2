@@ -28,6 +28,9 @@
                 <button class="btn btn-teal" onclick="openHistoryModal()">
                     <i class="fa-solid fa-clock-rotate-left"></i> Ledger History
                 </button>
+                <button class="btn btn-violet" onclick="openReportsModal()">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> Financial Reports
+                </button>
                 <button class="btn btn-emerald" onclick="openModal('importModal')">
                     <i class="fa-solid fa-file-import"></i> Import Ledger
                 </button>
@@ -390,6 +393,77 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-slate" onclick="closeModal('historyModal')">Close Explorer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: FINANCIAL REPORTS CENTER -->
+    <div id="reportsModal" class="modal">
+        <div class="modal-content modal-content-large animate-zoom">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-invoice-dollar icon-violet"></i> Financial Reports Center</h3>
+                <span class="close-btn" onclick="closeModal('reportsModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Tab Navigation -->
+                <div class="report-tabs">
+                    <button id="tab-date-wise-cashbook" class="report-tab-btn active" onclick="switchReportTab('date-wise-cashbook')">
+                        <i class="fa-solid fa-calendar-days"></i> Date-Wise Cash Book
+                    </button>
+                    <button id="tab-month-wise-cashbook" class="report-tab-btn" onclick="switchReportTab('month-wise-cashbook')">
+                        <i class="fa-solid fa-calendar-check"></i> Month-Wise Cash Book
+                    </button>
+                    <button id="tab-income-expenditure" class="report-tab-btn" onclick="switchReportTab('income-expenditure')">
+                        <i class="fa-solid fa-building-columns"></i> Income & Expenditure Account
+                    </button>
+                </div>
+
+                <!-- Filters Control Area for Reports -->
+                <div class="report-filter-bar">
+                    <!-- Date Range Filter (Visible for Date-wise Cashbook) -->
+                    <div id="rep-filter-dates" class="report-filter-item">
+                        <div class="input-field-inline">
+                            <label for="rep-start-date">Start Date</label>
+                            <input type="date" id="rep-start-date" onchange="loadActiveReport()">
+                        </div>
+                        <div class="input-field-inline">
+                            <label for="rep-end-date">End Date</label>
+                            <input type="date" id="rep-end-date" onchange="loadActiveReport()">
+                        </div>
+                    </div>
+
+                    <!-- Year Selector Filter (Visible for Month-wise Cashbook and Income & Expenditure) -->
+                    <div id="rep-filter-year" class="report-filter-item hidden">
+                        <div class="input-field-inline">
+                            <label for="rep-year">Select Year</label>
+                            <select id="rep-year" onchange="loadActiveReport()">
+                                <option value="2025">2025</option>
+                                <option value="2026" selected>2026</option>
+                                <option value="2027">2027</option>
+                                <option value="2028">2028</option>
+                                <option value="2029">2029</option>
+                                <option value="2030">2030</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div class="report-actions">
+                        <button class="btn btn-teal" onclick="printActiveReport()">
+                            <i class="fa-solid fa-print"></i> Print Report
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Render Area (Styled as a clean white ledger sheet) -->
+                <div class="report-sheet-wrapper">
+                    <div id="report-sheet" class="report-sheet">
+                        <!-- Dynamic Report Content goes here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-slate" onclick="closeModal('reportsModal')">Close Reports</button>
             </div>
         </div>
     </div>
