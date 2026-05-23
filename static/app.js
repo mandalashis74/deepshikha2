@@ -214,6 +214,7 @@ async function handleIncomeSubmit(e) {
             callback: () => generateReceipt(data.id)
         });
         document.getElementById("inc-amount").value = "";
+        closeModal('incomeModal');
         refreshDashboard();
     } catch (err) {
         showToast(err.message, "error");
@@ -249,6 +250,7 @@ async function handleExpenseSubmit(e) {
         showToast(data.message);
         document.getElementById("exp-desc").value = "";
         document.getElementById("exp-amount").value = "";
+        closeModal('expenseModal');
         refreshDashboard();
     } catch (err) {
         showToast(err.message, "error");

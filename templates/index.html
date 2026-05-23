@@ -108,120 +108,19 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Quick Transactions Actions -->
+                <div class="action-group">
+                    <button class="btn btn-emerald btn-action animate-fade-in" onclick="openModal('incomeModal')">
+                        <i class="fa-solid fa-hand-holding-dollar"></i> Collect Fee
+                    </button>
+                    <button class="btn btn-rose btn-action animate-fade-in" onclick="openModal('expenseModal')">
+                        <i class="fa-solid fa-money-bill-transfer"></i> Record Expense
+                    </button>
+                </div>
             </section>
 
-            <!-- Data Entries Workspace -->
-            <div class="grid-columns">
-                <!-- Collect Fee Form -->
-                <section class="card form-card animate-slide-up">
-                    <div class="card-header">
-                        <h2><i class="fa-solid fa-hand-holding-dollar icon-emerald"></i> Collect Maintenance Fee (Income)</h2>
-                    </div>
-                    <form id="income-form" onsubmit="handleIncomeSubmit(event)">
-                        <div class="input-field">
-                            <label for="inc-flat">Flat Profiler</label>
-                            <select id="inc-flat" required>
-                                <option value="" disabled selected>Select Room & Tenant</option>
-                            </select>
-                        </div>
-                        <div class="grid-two-cols">
-                            <div class="input-field">
-                                <label for="inc-year">Year</label>
-                                <select id="inc-year">
-                                    <option value="2025">2025</option>
-                                    <option value="2026" selected>2026</option>
-                                    <option value="2027">2027</option>
-                                    <option value="2028">2028</option>
-                                    <option value="2029">2029</option>
-                                    <option value="2030">2030</option>
-                                </select>
-                            </div>
-                            <div class="input-field">
-                                <label for="inc-month">Month</label>
-                                <select id="inc-month">
-                                    <option value="January">January</option>
-                                    <option value="February">February</option>
-                                    <option value="March">March</option>
-                                    <option value="April">April</option>
-                                    <option value="May" selected>May</option>
-                                    <option value="June">June</option>
-                                    <option value="July">July</option>
-                                    <option value="August">August</option>
-                                    <option value="September">September</option>
-                                    <option value="October">October</option>
-                                    <option value="November">November</option>
-                                    <option value="December">December</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="input-field">
-                            <label for="inc-amount">Amount Paid (Rs.)</label>
-                            <input type="number" step="0.01" id="inc-amount" placeholder="e.g. 1000" required>
-                        </div>
-                        <div class="input-field">
-                            <label for="inc-date">Receipt Date</label>
-                            <input type="date" id="inc-date" required>
-                        </div>
-                        <button type="submit" class="btn btn-emerald btn-full">
-                            <i class="fa-solid fa-floppy-disk"></i> Save Collection Entry
-                        </button>
-                    </form>
-                </section>
 
-                <!-- Record Outflow Form -->
-                <section class="card form-card animate-slide-up" style="animation-delay: 0.1s;">
-                    <div class="card-header">
-                        <h2><i class="fa-solid fa-money-bill-transfer icon-rose"></i> Maintenance Outflow (Expenses)</h2>
-                    </div>
-                    <form id="expense-form" onsubmit="handleExpenseSubmit(event)">
-                        <div class="grid-two-cols">
-                            <div class="input-field">
-                                <label for="exp-year">Billing Year</label>
-                                <select id="exp-year">
-                                    <option value="2025">2025</option>
-                                    <option value="2026" selected>2026</option>
-                                    <option value="2027">2027</option>
-                                    <option value="2028">2028</option>
-                                    <option value="2029">2029</option>
-                                    <option value="2030">2030</option>
-                                </select>
-                            </div>
-                            <div class="input-field">
-                                <label for="exp-month">Billing Month</label>
-                                <select id="exp-month">
-                                    <option value="January">January</option>
-                                    <option value="February">February</option>
-                                    <option value="March">March</option>
-                                    <option value="April">April</option>
-                                    <option value="May" selected>May</option>
-                                    <option value="June">June</option>
-                                    <option value="July">July</option>
-                                    <option value="August">August</option>
-                                    <option value="September">September</option>
-                                    <option value="October">October</option>
-                                    <option value="November">November</option>
-                                    <option value="December">December</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="input-field">
-                            <label for="exp-desc">Voucher Details / Description</label>
-                            <input type="text" id="exp-desc" placeholder="e.g. Electric Bill, Lift Maintenance" required>
-                        </div>
-                        <div class="input-field">
-                            <label for="exp-amount">Amount Spent (Rs.)</label>
-                            <input type="number" step="0.01" id="exp-amount" placeholder="e.g. 2500" required>
-                        </div>
-                        <div class="input-field">
-                            <label for="exp-date">Payment Date</label>
-                            <input type="date" id="exp-date" required>
-                        </div>
-                        <button type="submit" class="btn btn-rose btn-full">
-                            <i class="fa-solid fa-floppy-disk"></i> Save Expense Entry
-                        </button>
-                    </form>
-                </section>
-            </div>
 
             <!-- Ledger Table Section -->
             <section class="card table-card animate-slide-up" style="animation-delay: 0.2s;">
@@ -464,6 +363,132 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-slate" onclick="closeModal('reportsModal')">Close Reports</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: COLLECT FEE (INCOME) -->
+    <div id="incomeModal" class="modal">
+        <div class="modal-content animate-zoom">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-hand-holding-dollar icon-emerald"></i> Collect Maintenance Fee</h3>
+                <span class="close-btn" onclick="closeModal('incomeModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="income-form" onsubmit="handleIncomeSubmit(event)">
+                    <div class="input-field">
+                        <label for="inc-flat">Flat Profiler</label>
+                        <select id="inc-flat" required>
+                            <option value="" disabled selected>Select Room & Tenant</option>
+                        </select>
+                    </div>
+                    <div class="grid-two-cols">
+                        <div class="input-field">
+                            <label for="inc-year">Year</label>
+                            <select id="inc-year">
+                                <option value="2025">2025</option>
+                                <option value="2026" selected>2026</option>
+                                <option value="2027">2027</option>
+                                <option value="2028">2028</option>
+                                <option value="2029">2029</option>
+                                <option value="2030">2030</option>
+                            </select>
+                        </div>
+                        <div class="input-field">
+                            <label for="inc-month">Month</label>
+                            <select id="inc-month">
+                                <option value="January">January</option>
+                                <option value="February">February</option>
+                                <option value="March">March</option>
+                                <option value="April">April</option>
+                                <option value="May" selected>May</option>
+                                <option value="June">June</option>
+                                <option value="July">July</option>
+                                <option value="August">August</option>
+                                <option value="September">September</option>
+                                <option value="October">October</option>
+                                <option value="November">November</option>
+                                <option value="December">December</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="input-field">
+                        <label for="inc-amount">Amount Paid (Rs.)</label>
+                        <input type="number" step="0.01" id="inc-amount" placeholder="e.g. 1000" required>
+                    </div>
+                    <div class="input-field">
+                        <label for="inc-date">Receipt Date</label>
+                        <input type="date" id="inc-date" required>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('incomeModal')">Cancel</button>
+                        <button type="submit" class="btn btn-emerald">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Collection
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: RECORD OUTFLOW (EXPENSES) -->
+    <div id="expenseModal" class="modal">
+        <div class="modal-content animate-zoom">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-money-bill-transfer icon-rose"></i> Maintenance Outflow</h3>
+                <span class="close-btn" onclick="closeModal('expenseModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="expense-form" onsubmit="handleExpenseSubmit(event)">
+                    <div class="grid-two-cols">
+                        <div class="input-field">
+                            <label for="exp-year">Billing Year</label>
+                            <select id="exp-year">
+                                <option value="2025">2025</option>
+                                <option value="2026" selected>2026</option>
+                                <option value="2027">2027</option>
+                                <option value="2028">2028</option>
+                                <option value="2029">2029</option>
+                                <option value="2030">2030</option>
+                            </select>
+                        </div>
+                        <div class="input-field">
+                            <label for="exp-month">Billing Month</label>
+                            <select id="exp-month">
+                                <option value="January">January</option>
+                                <option value="February">February</option>
+                                <option value="March">March</option>
+                                <option value="April">April</option>
+                                <option value="May" selected>May</option>
+                                <option value="June">June</option>
+                                <option value="July">July</option>
+                                <option value="August">August</option>
+                                <option value="September">September</option>
+                                <option value="October">October</option>
+                                <option value="November">November</option>
+                                <option value="December">December</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="input-field">
+                        <label for="exp-desc">Voucher Details / Description</label>
+                        <input type="text" id="exp-desc" placeholder="e.g. Electric Bill, Lift Maintenance" required>
+                    </div>
+                    <div class="input-field">
+                        <label for="exp-amount">Amount Spent (Rs.)</label>
+                        <input type="number" step="0.01" id="exp-amount" placeholder="e.g. 2500" required>
+                    </div>
+                    <div class="input-field">
+                        <label for="exp-date">Payment Date</label>
+                        <input type="date" id="exp-date" required>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('expenseModal')">Cancel</button>
+                        <button type="submit" class="btn btn-rose">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Expense
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

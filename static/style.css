@@ -200,14 +200,31 @@ body {
 
 .control-panel {
     display: grid;
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: 320px 1fr auto;
     gap: 30px;
     align-items: center;
 }
 
-@media (max-width: 992px) {
+.action-group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.btn-action {
+    padding: 12px 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
     .control-panel {
         grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    .action-group {
+        justify-content: flex-start;
     }
 }
 
