@@ -4369,7 +4369,7 @@ window.openUsersModal = async function() {
             ).join('');
             
             // Prevent changing own role via UI for safety
-            const disableSelect = p.id === currentUser.id ? 'disabled title="Cannot change your own role"' : '';
+            const disableSelect = p.id === currentUserId ? 'disabled title="Cannot change your own role"' : '';
             
             tr.innerHTML = `
                 <td>${p.email}</td>
