@@ -4414,3 +4414,40 @@ window.updateUserRole = async function(userId) {
         showToast("Failed to update user role.", "error");
     }
 };
+
+window.openPasswordModal = function() {
+    document.getElementById("new-password").value = "";
+    document.getElementById("confirm-new-password").value = "";
+    openModal("passwordModal");
+};
+
+window.updateUserPassword = async function() {
+    const newPassword = document.getElementById("new-password").value;
+    const confirmPassword = document.getElementById("confirm-new-password").value;
+    
+    if (newPassword.length < 6) {
+        showToast("Password must be at least 6 characters.", "error");
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        showToast("Passwords do not match.", "error");
+        return;
+    }
+    
+    if (!sbClient) return;
+    
+    try {
+        const { error } = await sbClient.auth.updateUser({
+            password: newPassword
+        });
+        
+        if (error) throw error;
+        
+        showToast("Password updated successfully!", "success");
+        closeModal("passwordModal");
+    } catch (err) {
+        console.error("Error updating password:", err);
+        showToast("Failed to update password: " + err.message, "error");
+    }
+};

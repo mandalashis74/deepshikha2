@@ -42,6 +42,9 @@
                     <i class="fa-solid fa-circle-user" style="font-size: 1.1rem; color: var(--color-indigo);"></i>
                     <span id="user-email-text" style="font-weight: 500; font-size: 0.85rem; color: var(--text-primary); text-transform: lowercase;"></span>
                     <span id="user-role-text" class="badge" style="padding: 1px 6px; font-size: 0.6rem; font-weight: 800;"></span>
+                    <button class="btn-delete" title="Change Password" onclick="openPasswordModal()" style="margin-left: 4px; padding: 2px; color: var(--color-indigo); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none;">
+                        <i class="fa-solid fa-key" style="font-size: 0.95rem;"></i>
+                    </button>
                     <button class="btn-delete" title="Sign Out" onclick="handleLogout()" style="margin-left: 4px; padding: 2px; color: var(--color-rose); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none;">
                         <i class="fa-solid fa-right-from-bracket" style="font-size: 0.95rem;"></i>
                     </button>
@@ -233,6 +236,27 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-slate" onclick="closeModal('usersModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content animate-zoom" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-key"></i> Change Password</h2>
+                <span class="close" onclick="closeModal('passwordModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="input-field">
+                    <label>New Password</label>
+                    <input type="password" id="new-password" placeholder="Min 6 characters">
+                </div>
+                <div class="input-field" style="margin-top: 16px;">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="confirm-new-password" placeholder="Type password again">
+                </div>
+                <button class="btn btn-indigo" onclick="updateUserPassword()" style="width: 100%; margin-top: 16px;">Update Password</button>
             </div>
         </div>
     </div>
@@ -910,6 +934,10 @@
             </div>
         </div>
     </div>
+
+    <footer style="text-align: center; padding: 20px; font-size: 0.85rem; color: var(--text-secondary); margin-top: auto;">
+        &copy; 2026 AI-AnchIt. All rights reserved.
+    </footer>
 
     <script type="module" src="/static/app.js"></script>
 </body>
