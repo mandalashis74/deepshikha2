@@ -67,6 +67,9 @@
                 <button class="btn btn-slate" id="btn-export" onclick="exportLedgerToExcel()">
                     <i class="fa-solid fa-file-export"></i> Export Ledger
                 </button>
+                <button class="btn btn-rose" id="btn-manage-users" onclick="openUsersModal()" style="display: none;">
+                    <i class="fa-solid fa-user-shield"></i> Manage Users
+                </button>
             </div>
         </header>
 
@@ -200,6 +203,36 @@
                         <button type="submit" class="btn btn-emerald" id="btn-import-submit">Upload & Parse</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users Management Modal -->
+    <div id="usersModal" class="modal">
+        <div class="modal-content animate-zoom" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-user-shield"></i> Manage Users & Roles</h2>
+                <span class="close" onclick="closeModal('usersModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Current Role</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <!-- Populated dynamically -->
+                            <tr><td colspan="3" style="text-align: center;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-slate" onclick="closeModal('usersModal')">Close</button>
             </div>
         </div>
     </div>

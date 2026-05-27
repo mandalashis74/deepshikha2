@@ -284,6 +284,7 @@ function applyRbacRestrictions(role) {
     
     const collectFeeBtn = document.querySelector("button[onclick=\"openModal('incomeModal')\"]");
     const recordExpenseBtn = document.querySelector("button[onclick=\"openModal('expenseModal')\"]");
+    const manageUsersBtn = document.getElementById("btn-manage-users");
     
     if (role === 'admin') {
         if (importBtn) importBtn.style.display = "inline-flex";
@@ -297,6 +298,7 @@ function applyRbacRestrictions(role) {
         document.querySelector("button[onclick=\"openHistoryModal()\"]").style.display = "inline-flex";
         document.querySelector("button[onclick=\"openReportsModal()\"]").style.display = "inline-flex";
         document.getElementById("btn-export").style.display = "inline-flex";
+        if (manageUsersBtn) manageUsersBtn.style.display = "inline-flex";
     } else if (role === 'editor') {
         if (importBtn) importBtn.style.display = "none";
         if (ownersBtn) ownersBtn.style.display = "none";
@@ -309,6 +311,7 @@ function applyRbacRestrictions(role) {
         document.querySelector("button[onclick=\"openHistoryModal()\"]").style.display = "inline-flex";
         document.querySelector("button[onclick=\"openReportsModal()\"]").style.display = "inline-flex";
         document.getElementById("btn-export").style.display = "inline-flex";
+        if (manageUsersBtn) manageUsersBtn.style.display = "none";
     } else {
         // viewer (resident soft login) - Only Owners Directory and Support Helpdesk allowed
         if (importBtn) importBtn.style.display = "none";
@@ -328,6 +331,8 @@ function applyRbacRestrictions(role) {
         
         const exportBtn = document.getElementById("btn-export");
         if (exportBtn) exportBtn.style.display = "none";
+        
+        if (manageUsersBtn) manageUsersBtn.style.display = "none";
     }
     
     // Refresh ledger lists so that edit buttons disappear or appear
