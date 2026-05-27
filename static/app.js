@@ -2443,7 +2443,12 @@ function cleanSpreadsheetDate(rawVal, year, monthName) {
     if (!rawVal) return fallback;
     
     if (rawVal instanceof Date) {
-        return rawVal.toISOString().split('T')[0];
+        // Add 12 hours to safely push past any precision-related midnight issues from Excel floats
+        const safeDate = new Date(rawVal.getTime() + 12 * 60 * 60 * 1000);
+        const y = safeDate.getFullYear();
+        const m = String(safeDate.getMonth() + 1).padStart(2, '0');
+        const d = String(safeDate.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
     }
     
     const valStr = String(rawVal).trim();
@@ -2570,8 +2575,25 @@ window.handleImportSubmit = async function(e) {
             const incRows = XLSX.utils.sheet_to_json(incSheet, { header: 1 });
             
             let headerRowIdx = -1;
+            let isSimpleIncome = false;
+            let simpleFlatIdx = -1, simpleDateIdx = -1, simpleAmtIdx = -1;
+
             for (let r = 0; r < incRows.length; r++) {
-                const rowCells = incRows[r].map(v => String(v || '').toUpperCase());
+                const rowCells = incRows[r].map(v => String(v || '').toUpperCase().trim());
+                
+                const fIdx = rowCells.findIndex(v => v === "FLAT NO" || v === "FLAT NO.");
+                const dIdx = rowCells.findIndex(v => v === "DATE RECEIVED" || v === "DATE");
+                const aIdx = rowCells.findIndex(v => v === "AMOUNT");
+                
+                if (fIdx !== -1 && dIdx !== -1 && aIdx !== -1) {
+                    isSimpleIncome = true;
+                    simpleFlatIdx = fIdx;
+                    simpleDateIdx = dIdx;
+                    simpleAmtIdx = aIdx;
+                    headerRowIdx = r;
+                    break;
+                }
+                
                 if (rowCells.includes("FLAT NO.") || rowCells.includes("FLAT NO")) {
                     headerRowIdx = r;
                     break;
@@ -2581,6 +2603,7 @@ window.handleImportSubmit = async function(e) {
             if (headerRowIdx !== -1) {
                 const columnsRow = incRows[headerRowIdx];
                 const dataRows = incRows.slice(headerRowIdx + 1);
+                const incomeInserts = [];
                 
                 let flatColIdx = -1;
                 for (let c = 0; c < columnsRow.length; c++) {
@@ -2633,11 +2656,33 @@ window.handleImportSubmit = async function(e) {
                     ];
                 }
                 
-                if (flatColIdx !== -1) {
-                    const incomeInserts = [];
+                if (isSimpleIncome) {
+                    dataRows.forEach(row => {
+                        const flatVal = String(row[simpleFlatIdx] || '').trim().toUpperCase().replace(/\s+/g, '');
+                        if (!flatVal || flatVal === "NAN" || flatVal.includes("FLOOR") || flatVal.length > 8) return;
+                        
+                        const rawAmt = row[simpleAmtIdx];
+                        const rawDt = row[simpleDateIdx];
+                        let amtVal = parseFloat(rawAmt);
+                        if (!isNaN(amtVal) && amtVal > 0) {
+                            const dateStr = cleanSpreadsheetDate(rawDt, "2026", "May");
+                            const parsedD = new Date(dateStr);
+                            const actualYear = String(parsedD.getFullYear());
+                            const monthsArr = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                            const actualMonth = monthsArr[parsedD.getMonth()] || "May";
+                            incomeInserts.push({
+                                flat_no: flatVal,
+                                year: actualYear,
+                                month: actualMonth,
+                                amount: amtVal,
+                                date_received: dateStr
+                            });
+                        }
+                    });
+                } else if (flatColIdx !== -1) {
                     dataRows.forEach(row => {
                         const flatVal = String(row[flatColIdx] || '').trim().toUpperCase().replace(/\s+/g, '');
-                        if (!flatVal || flatVal === "NAN" || flatVal.includes("FLOOR") || flatVal.length > 4) {
+                        if (!flatVal || flatVal === "NAN" || flatVal.includes("FLOOR") || flatVal.length > 8) {
                             return;
                         }
                         
@@ -2653,10 +2698,14 @@ window.handleImportSubmit = async function(e) {
                                 
                                 if (amtVal > 0) {
                                     const dateStr = cleanSpreadsheetDate(rawDt, mp.year, mp.month);
+                                    const parsedD = new Date(dateStr);
+                                    const actualYear = String(parsedD.getFullYear());
+                                    const monthsArr = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                                    const actualMonth = monthsArr[parsedD.getMonth()] || mp.month;
                                     incomeInserts.push({
                                         flat_no: flatVal,
-                                        year: mp.year,
-                                        month: mp.month,
+                                        year: actualYear,
+                                        month: actualMonth,
                                         amount: amtVal,
                                         date_received: dateStr
                                     });
@@ -2664,8 +2713,14 @@ window.handleImportSubmit = async function(e) {
                             }
                         });
                     });
+                }
                     
                     if (incomeInserts.length > 0) {
+                        const uniqueFlats = [...new Set(incomeInserts.map(i => i.flat_no))];
+                        const ownerUpserts = uniqueFlats.map(f => ({ flat_no: f, owner_name: `Flat ${f}` }));
+                        const { error: ownErr } = await sbClient.from('owners').upsert(ownerUpserts, { onConflict: 'flat_no', ignoreDuplicates: true });
+                        if (ownErr) console.warn("Owner upsert warning:", ownErr);
+
                         const chunkSize = 200;
                         for (let i = 0; i < incomeInserts.length; i += chunkSize) {
                             const chunk = incomeInserts.slice(i, i + chunkSize);
@@ -2674,7 +2729,6 @@ window.handleImportSubmit = async function(e) {
                         }
                         importedIncomeCount = incomeInserts.length;
                     }
-                }
             }
             
             // --- 2. PARSE EXPENSE SHEET ---
@@ -2683,7 +2737,25 @@ window.handleImportSubmit = async function(e) {
                 const expRows = XLSX.utils.sheet_to_json(expSheet, { header: 1 });
                 
                 let expHeaderIdx = -1;
+                let isSimpleExpense = false;
+                let expDescIdx = -1, expDateIdx = -1, expAmtIdx = -1;
+
                 for (let r = 0; r < expRows.length; r++) {
+                    const rowCells = expRows[r].map(v => String(v || '').toUpperCase().trim());
+                    
+                    const dIdx = rowCells.findIndex(v => v === "DESCRIPTION");
+                    const dateIdx = rowCells.findIndex(v => v === "DATE SPENT" || v === "DATE");
+                    const aIdx = rowCells.findIndex(v => v === "AMOUNT");
+
+                    if (dIdx !== -1 && dateIdx !== -1 && aIdx !== -1) {
+                        isSimpleExpense = true;
+                        expDescIdx = dIdx;
+                        expDateIdx = dateIdx;
+                        expAmtIdx = aIdx;
+                        expHeaderIdx = r;
+                        break;
+                    }
+
                     const rowTxt = expRows[r].map(v => String(v || '')).join('').toUpperCase();
                     if (rowTxt.includes("DESCRIPTION")) {
                         expHeaderIdx = r;
@@ -2691,8 +2763,9 @@ window.handleImportSubmit = async function(e) {
                     }
                 }
                 
-                if (expHeaderIdx !== -1 && expRows.length > 2) {
+                if (expHeaderIdx !== -1 && (isSimpleExpense || expRows.length > 2)) {
                     const dfExpData = expRows.slice(expHeaderIdx + 1);
+                    const expenseInserts = [];
                     const row1 = expRows[1] || [];
                     const row2 = expRows[2] || [];
                     
@@ -2733,38 +2806,68 @@ window.handleImportSubmit = async function(e) {
                         }
                     }
                     
-                    const expenseInserts = [];
-                    dfExpData.forEach(row => {
-                        if (row.length < 3) return;
-                        const desc = String(row[1] || '').trim();
-                        if (!desc || desc.toUpperCase().includes("SR.") || desc.toUpperCase().includes("TOTAL") || desc.length < 3) {
-                            return;
-                        }
-                        
-                        expMonthCols.forEach(emc => {
-                            if (emc.amtCol < row.length) {
-                                const amtValRaw = row[emc.amtCol];
-                                const dtValRaw = (emc.dtCol !== null && emc.dtCol < row.length) ? row[emc.dtCol] : "";
-                                
-                                let parsedAmt = parseFloat(amtValRaw);
-                                if (isNaN(parsedAmt)) {
-                                    parsedAmt = 0.0;
-                                }
-                                
-                                if (parsedAmt > 0) {
-                                    const dateStr = cleanSpreadsheetDate(dtValRaw, emc.year, emc.month);
-                                    expenseInserts.push({
-                                        year: emc.year,
-                                        month: emc.month,
-                                        expense_head: 'Uncategorized',
-                                        description: desc,
-                                        amount: parsedAmt,
-                                        date_spent: dateStr
-                                    });
-                                }
+                    if (isSimpleExpense) {
+                        dfExpData.forEach(row => {
+                            const desc = String(row[expDescIdx] || '').trim();
+                            if (!desc || desc.toUpperCase().includes("SR.") || desc.toUpperCase().includes("TOTAL") || desc.length < 3) return;
+                            
+                            const rawAmt = row[expAmtIdx];
+                            const rawDt = row[expDateIdx];
+                            let parsedAmt = parseFloat(rawAmt);
+                            
+                            if (!isNaN(parsedAmt) && parsedAmt > 0) {
+                                const dateStr = cleanSpreadsheetDate(rawDt, "2026", "May");
+                                const parsedD = new Date(dateStr);
+                                const actualYear = String(parsedD.getFullYear());
+                                const monthsArr = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                                const actualMonth = monthsArr[parsedD.getMonth()] || "May";
+                                expenseInserts.push({
+                                    year: actualYear,
+                                    month: actualMonth,
+                                    expense_head: 'Uncategorized',
+                                    description: desc,
+                                    amount: parsedAmt,
+                                    date_spent: dateStr
+                                });
                             }
                         });
-                    });
+                    } else {
+                        dfExpData.forEach(row => {
+                            if (row.length < 3) return;
+                            const desc = String(row[1] || '').trim();
+                            if (!desc || desc.toUpperCase().includes("SR.") || desc.toUpperCase().includes("TOTAL") || desc.length < 3) {
+                                return;
+                            }
+                            
+                            expMonthCols.forEach(emc => {
+                                if (emc.amtCol < row.length) {
+                                    const amtValRaw = row[emc.amtCol];
+                                    const dtValRaw = (emc.dtCol !== null && emc.dtCol < row.length) ? row[emc.dtCol] : "";
+                                    
+                                    let parsedAmt = parseFloat(amtValRaw);
+                                    if (isNaN(parsedAmt)) {
+                                        parsedAmt = 0.0;
+                                    }
+                                    
+                                    if (parsedAmt > 0) {
+                                        const dateStr = cleanSpreadsheetDate(dtValRaw, emc.year, emc.month);
+                                        const parsedD = new Date(dateStr);
+                                        const actualYear = String(parsedD.getFullYear());
+                                        const monthsArr = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                                        const actualMonth = monthsArr[parsedD.getMonth()] || emc.month;
+                                        expenseInserts.push({
+                                            year: actualYear,
+                                            month: actualMonth,
+                                            expense_head: 'Uncategorized',
+                                            description: desc,
+                                            amount: parsedAmt,
+                                            date_spent: dateStr
+                                        });
+                                    }
+                                }
+                            });
+                        });
+                    }
                     
                     if (expenseInserts.length > 0) {
                         const chunkSize = 200;
