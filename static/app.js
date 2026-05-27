@@ -2738,6 +2738,7 @@ window.handleImportSubmit = async function(e) {
                                     expenseInserts.push({
                                         year: emc.year,
                                         month: emc.month,
+                                        expense_head: 'Uncategorized',
                                         description: desc,
                                         amount: parsedAmt,
                                         date_spent: dateStr
