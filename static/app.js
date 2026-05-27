@@ -4325,3 +4325,92 @@ async function autoLoginSharedAccount(flatNo) {
         }
     }
 }
+
+// ==========================================
+// USERS AND ROLES MANAGEMENT
+// ==========================================
+
+window.openUsersModal = async function() {
+    if (currentUserRole !== 'admin') {
+        showToast("Access Denied. Only Admins can manage users.", "error");
+        return;
+    }
+    
+    openModal("usersModal");
+    const tbody = document.getElementById("users-table-body");
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Loading users...</td></tr>';
+    
+    try {
+        const { data: profiles, error } = await sbClient
+            .from('profiles')
+            .select('id, email, role')
+            .order('email');
+            
+        if (error) throw error;
+        
+        if (!profiles || profiles.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No registered users found.</td></tr>';
+            return;
+        }
+        
+        const roles = [
+            { value: 'admin', label: 'Admin' },
+            { value: 'floor_manager', label: 'Floor Manager' },
+            { value: 'committee_member', label: 'Committee Member' },
+            { value: 'editor', label: 'Editor' },
+            { value: 'viewer', label: 'Viewer' }
+        ];
+        
+        tbody.innerHTML = '';
+        profiles.forEach(p => {
+            const tr = document.createElement("tr");
+            let roleOptions = roles.map(r => 
+                `<option value="${r.value}" ${r.value === p.role ? 'selected' : ''}>${r.label}</option>`
+            ).join('');
+            
+            // Prevent changing own role via UI for safety
+            const disableSelect = p.id === currentUser.id ? 'disabled title="Cannot change your own role"' : '';
+            
+            tr.innerHTML = `
+                <td>${p.email}</td>
+                <td>
+                    <select id="role-select-${p.id}" class="filter-select" ${disableSelect}>
+                        ${roleOptions}
+                    </select>
+                </td>
+                <td>
+                    <button class="btn btn-emerald" style="padding: 4px 8px; font-size: 0.8rem;" ${disableSelect} onclick="updateUserRole('${p.id}')">Save Role</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+    } catch (err) {
+        console.error("Error fetching users:", err);
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: red;">Failed to load users.</td></tr>';
+        showToast("Error loading users.", "error");
+    }
+};
+
+window.updateUserRole = async function(userId) {
+    if (currentUserRole !== 'admin') {
+        showToast("Access Denied.", "error");
+        return;
+    }
+    
+    const select = document.getElementById(`role-select-${userId}`);
+    const newRole = select.value;
+    
+    try {
+        const { error } = await sbClient
+            .from('profiles')
+            .update({ role: newRole })
+            .eq('id', userId);
+            
+        if (error) throw error;
+        showToast("User role updated successfully!", "success");
+    } catch (err) {
+        console.error("Error updating user role:", err);
+        showToast("Failed to update user role.", "error");
+    }
+};
