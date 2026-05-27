@@ -1658,8 +1658,11 @@ window.fetchHistory = async function() {
 // Render history entries inside the modal table
 function renderHistoryTable(entries) {
     const tbody = document.getElementById("history-body");
+    const totalEl = document.getElementById("history-total");
     if (!tbody) return;
     tbody.innerHTML = "";
+    
+    let netTotal = 0;
 
     if (entries.length === 0) {
         tbody.innerHTML = `
@@ -1670,11 +1673,19 @@ function renderHistoryTable(entries) {
                 </td>
             </tr>
         `;
+        if (totalEl) totalEl.innerHTML = `₹0.00`;
         return;
     }
 
     entries.forEach(entry => {
         const tr = document.createElement("tr");
+        
+        const amt = Number(entry.amount) || 0;
+        if (entry.type === "INCOME") {
+            netTotal += amt;
+        } else {
+            netTotal -= amt;
+        }
         
         const typeBadge = entry.type === "INCOME" 
             ? `<span class="badge badge-income">Income</span>`
@@ -1697,7 +1708,7 @@ function renderHistoryTable(entries) {
             <td>${typeBadge}</td>
             <td><strong>${entry.description}</strong></td>
             <td class="text-right ${entry.type === "INCOME" ? "icon-emerald" : "icon-rose"}" style="font-weight: 600;">
-                ${entry.type === "INCOME" ? "+" : "-"} ${Number(entry.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                ${entry.type === "INCOME" ? "+" : "-"} ${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </td>
             <td class="text-center">
                 ${receiptBtn}
@@ -1706,6 +1717,13 @@ function renderHistoryTable(entries) {
         `;
         tbody.appendChild(tr);
     });
+    
+    if (totalEl) {
+        const sign = netTotal >= 0 ? "+" : "-";
+        const colorClass = netTotal >= 0 ? "icon-emerald" : "icon-rose";
+        totalEl.className = `text-right ${colorClass}`;
+        totalEl.innerHTML = `${sign} ₹${Math.abs(netTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    }
 }
 
 // Delete entry in history and reload history list + main dashboard
