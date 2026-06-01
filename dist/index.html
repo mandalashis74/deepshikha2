@@ -20,8 +20,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- SheetJS for Excel Reading and Writing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script type="module" crossorigin src="/assets/index-zDpmfGsb.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-kA5teSvO.css">
+  <script type="module" crossorigin src="/assets/index-CsZF3gRM.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-Kkla_jgK.css">
 </head>
 
 <body>
@@ -56,8 +56,12 @@
             <div class="sidebar-section-label">Navigation</div>
             <nav class="sidebar-nav">
                 <button class="sidebar-btn active" id="side-dashboard" onclick="scrollToTop()">
-                    <i class="fa-solid fa-chart-pie"></i>
+                    <i class="fa-solid fa-house-chimney"></i>
                     <span>Dashboard</span>
+                </button>
+                <button class="sidebar-btn" id="side-finance" onclick="openFinancePage()">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Finance</span>
                 </button>
                 <button class="sidebar-btn" id="side-history" onclick="openHistoryModal()">
                     <i class="fa-solid fa-clock-rotate-left"></i>
@@ -74,6 +78,10 @@
                 <button class="sidebar-btn" id="side-helpdesk" onclick="openTicketsModal()">
                     <i class="fa-solid fa-ticket"></i>
                     <span>Support Helpdesk</span>
+                </button>
+                <button class="sidebar-btn" id="side-events" onclick="openEventsModal()">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <span>Cultural Events</span>
                 </button>
             </nav>
 
@@ -137,111 +145,120 @@
         <!-- Main Content Area -->
         <div class="main-area">
 
-            <!-- Main Workspace -->
+            <!-- Main Workspace (Lavish Dashboard Landing Page) -->
             <main class="workspace" id="workspace">
-                <!-- Filter & KPI Control Bar -->
-                <section class="control-panel card animate-fade-in">
-                    <div class="filter-group">
-                        <div class="input-field">
-                            <label for="filter-year">Year</label>
-                            <select id="filter-year">
-                                <option value="2025">2025</option>
-                                <option value="2026" selected>2026</option>
-                                <option value="2027">2027</option>
-                                <option value="2028">2028</option>
-                                <option value="2029">2029</option>
-                                <option value="2030">2030</option>
-                            </select>
+                <div id="dashboard-hero" style="background: linear-gradient(135deg, var(--color-indigo), #1e1b4b); padding: 28px 24px; border-radius: var(--border-radius-lg); position: relative; overflow: hidden; margin-bottom: 20px;">
+                    <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.04);"></div>
+                    <div style="position: absolute; bottom: -30px; left: -30px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,0.03);"></div>
+                    <div style="position: relative; z-index: 1;">
+                        <p style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 4px;" id="dashboard-greeting"></p>
+                        <h1 style="font-size: 1.6rem; font-weight: 800; color: #fff; margin: 0;" id="dashboard-building-name"></h1>
+                        <p style="font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-top: 6px;" id="dashboard-date-time"></p>
+                    </div>
+                </div>
+
+                <!-- Hero Stats Row -->
+                <div class="dash-stat-grid">
+                    <div class="dash-stat-card" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
+                        <div class="dash-stat-icon"><i class="fa-solid fa-building"></i></div>
+                        <div>
+                            <div class="dash-stat-value" id="dash-total-flats">-</div>
+                            <div class="dash-stat-label">Total Flats</div>
                         </div>
-                        <div class="input-field">
-                            <label for="filter-month">Month</label>
-                            <select id="filter-month">
-                                <option value="January">January</option>
-                                <option value="February">February</option>
-                                <option value="March">March</option>
-                                <option value="April">April</option>
-                                <option value="May" selected>May</option>
-                                <option value="June">June</option>
-                                <option value="July">July</option>
-                                <option value="August">August</option>
-                                <option value="September">September</option>
-                                <option value="October">October</option>
-                                <option value="November">November</option>
-                                <option value="December">December</option>
-                            </select>
+                    </div>
+                    <div class="dash-stat-card" style="background: linear-gradient(135deg, #10b981, #059669);">
+                        <div class="dash-stat-icon"><i class="fa-solid fa-house-circle-check"></i></div>
+                        <div>
+                            <div class="dash-stat-value" id="dash-occupied-flats">-</div>
+                            <div class="dash-stat-label">Occupied</div>
+                        </div>
+                    </div>
+                    <div class="dash-stat-card" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                        <div class="dash-stat-icon"><i class="fa-solid fa-calendar-days"></i></div>
+                        <div>
+                            <div class="dash-stat-value" id="dash-active-events">-</div>
+                            <div class="dash-stat-label">Active Events</div>
+                        </div>
+                    </div>
+                    <div class="dash-stat-card" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+                        <div class="dash-stat-icon"><i class="fa-solid fa-ticket"></i></div>
+                        <div>
+                            <div class="dash-stat-value" id="dash-open-tickets">-</div>
+                            <div class="dash-stat-label">Open Tickets</div>
+                        </div>
+                    </div>
+                    <div class="dash-stat-card" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+                        <div class="dash-stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+                        <div>
+                            <div class="dash-stat-value" id="dash-month-income">-</div>
+                            <div class="dash-stat-label">This Month Income</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Two-column layout -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <!-- Left Column -->
+                    <div>
+                        <div class="dash-section-title"><i class="fa-solid fa-bolt"></i> Quick Actions</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                            <button class="dash-action-card" onclick="openModal('incomeModal')">
+                                <i class="fa-solid fa-hand-holding-dollar" style="color: var(--color-emerald);"></i>
+                                <span>Collect Fee</span>
+                            </button>
+                            <button class="dash-action-card" onclick="openModal('expenseModal')">
+                                <i class="fa-solid fa-money-bill-transfer" style="color: var(--color-rose);"></i>
+                                <span>Record Expense</span>
+                            </button>
+                            <button class="dash-action-card" onclick="openEventsModal()">
+                                <i class="fa-solid fa-calendar-days" style="color: var(--color-indigo);"></i>
+                                <span>Cultural Events</span>
+                            </button>
+                            <button class="dash-action-card" onclick="openTicketsModal()">
+                                <i class="fa-solid fa-ticket" style="color: var(--color-yellow);"></i>
+                                <span>Helpdesk</span>
+                            </button>
+                        </div>
+
+                        <div class="dash-section-title"><i class="fa-solid fa-calendar-days"></i> Upcoming Events</div>
+                        <div id="dash-events-list" style="margin-bottom: 20px;">
+                            <div style="color: var(--text-muted); font-size: 0.85rem; padding: 12px; text-align: center;">Loading...</div>
                         </div>
                     </div>
 
-                    <!-- Live stats -->
-                    <div class="kpi-grid">
-                        <div class="kpi-card kpi-income">
-                            <div class="kpi-info">
-                                <span class="kpi-title">Monthly Income</span>
-                                <h3 id="stat-income">Rs. 0.00</h3>
-                            </div>
-                            <div class="kpi-icon-wrapper">
-                                <i class="fa-solid fa-arrow-trend-up"></i>
-                            </div>
+                    <!-- Right Column -->
+                    <div>
+                        <div class="dash-section-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</div>
+                        <div id="dash-recent-activity" style="margin-bottom: 20px;">
+                            <div style="color: var(--text-muted); font-size: 0.85rem; padding: 12px; text-align: center;">Loading...</div>
                         </div>
-                        <div class="kpi-card kpi-expense">
-                            <div class="kpi-info">
-                                <span class="kpi-title">Monthly Expenses</span>
-                                <h3 id="stat-expense">Rs. 0.00</h3>
-                            </div>
-                            <div class="kpi-icon-wrapper">
-                                <i class="fa-solid fa-arrow-trend-down"></i>
-                            </div>
-                        </div>
-                        <div class="kpi-card kpi-cash">
-                            <div class="kpi-info">
-                                <span class="kpi-title">Cash in Hand</span>
-                                <h3 id="stat-cash">Rs. 0.00</h3>
-                            </div>
-                            <div class="kpi-icon-wrapper">
-                                <i class="fa-solid fa-wallet"></i>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Quick Transactions Actions -->
-                    <div class="action-group">
-                        <button class="btn btn-emerald btn-action animate-fade-in" onclick="openModal('incomeModal')">
-                            <i class="fa-solid fa-hand-holding-dollar"></i> Collect Fee
-                        </button>
-                        <button class="btn btn-rose btn-action animate-fade-in" onclick="openModal('expenseModal')">
-                            <i class="fa-solid fa-money-bill-transfer"></i> Record Expense
-                        </button>
-                    </div>
-                </section>
-
-                <!-- Ledger Table Section -->
-                <section class="card table-card animate-slide-up" style="animation-delay: 0.2s;">
-                    <div class="card-header table-header">
-                        <h2><i class="fa-solid fa-list-check icon-indigo"></i> Live Ledger Statement</h2>
-                        <div class="table-actions">
-                            <input type="text" id="table-search" placeholder="Search flat or description..."
-                                oninput="filterTable()">
+                        <div class="dash-section-title"><i class="fa-solid fa-chart-simple"></i> Occupancy Overview</div>
+                        <div id="dash-occupancy-chart" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 16px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">Owner Occupied</span>
+                                <span id="dash-owner-pct" style="font-weight: 700; color: var(--color-emerald);">0%</span>
+                            </div>
+                            <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
+                                <div id="dash-owner-bar" style="height: 100%; background: var(--color-emerald); border-radius: 3px; width: 0%;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">Tenant Occupied</span>
+                                <span id="dash-tenant-pct" style="font-weight: 700; color: var(--color-yellow);">0%</span>
+                            </div>
+                            <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
+                                <div id="dash-tenant-bar" style="height: 100%; background: var(--color-yellow); border-radius: 3px; width: 0%;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">Vacant</span>
+                                <span id="dash-vacant-pct" style="font-weight: 700; color: var(--text-muted);">0%</span>
+                            </div>
+                            <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-top: 8px;">
+                                <div id="dash-vacant-bar" style="height: 100%; background: var(--text-muted); border-radius: 3px; width: 0%;"></div>
+                            </div>
                         </div>
                     </div>
-                    <div class="table-scroll">
-                        <table class="ledger-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Type</th>
-                                    <th>Description</th>
-                                    <th>Ledger Period</th>
-                                    <th class="text-right">Amount (Rs.)</th>
-                                    <th class="text-center">Record Date</th>
-                                    <th class="text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ledger-body">
-                                <!-- Populated dynamically via JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+                </div>
             </main>
         </div>
 
@@ -1223,6 +1240,706 @@
                         <button type="button" class="btn btn-indigo" onclick="saveFloorAssignment()">
                             <i class="fa-solid fa-floppy-disk"></i> Save Assignments
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: CULTURAL EVENTS LIST -->
+        <div id="eventsModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 900px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-calendar-days"></i> Cultural Events</h2>
+                    <span class="close" onclick="closeModal('eventsModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
+                        <button class="btn btn-indigo" onclick="openCreateEventModal()" id="btn-create-event" style="display:none;">
+                            <i class="fa-solid fa-plus"></i> New Event
+                        </button>
+                        <div style="flex:1;"></div>
+                        <div class="input-field" style="margin:0; min-width:180px;">
+                            <select id="events-filter-status" onchange="loadEventsList()">
+                                <option value="">All Events</option>
+                                <option value="upcoming">Upcoming</option>
+                                <option value="active">Active</option>
+                                <option value="ongoing">Ongoing</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="events-list-container">
+                        <div style="text-align:center; padding:40px; color:var(--text-muted);">Loading events...</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-slate" onclick="closeModal('eventsModal')">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: CREATE/EDIT EVENT -->
+        <div id="createEventModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-calendar-plus"></i> <span id="create-event-title">New Event</span></h2>
+                    <span class="close" onclick="closeModal('createEventModal')">&times;</span>
+                </div>
+                <form id="create-event-form" onsubmit="saveEvent(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="edit-event-id" value="">
+                        <div class="input-field">
+                            <label for="event-name">Event Name</label>
+                            <input type="text" id="event-name" required placeholder="e.g. Durga Puja 2026">
+                        </div>
+                        <div class="input-field">
+                            <label for="event-description">Description</label>
+                            <textarea id="event-description" rows="3" placeholder="Brief about the event..."></textarea>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="input-field">
+                                <label for="event-start-date">Start Date</label>
+                                <input type="date" id="event-start-date" required>
+                            </div>
+                            <div class="input-field">
+                                <label for="event-end-date">End Date</label>
+                                <input type="date" id="event-end-date" required>
+                            </div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="input-field">
+                                <label for="event-contribution">Contribution Amount (₹)</label>
+                                <input type="number" id="event-contribution" step="0.01" min="0" placeholder="e.g. 2500">
+                            </div>
+                            <div class="input-field">
+                                <label for="event-target">Target Collection (₹)</label>
+                                <input type="number" id="event-target" step="0.01" min="0" placeholder="e.g. 500000">
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="event-banner">Banner Image URL</label>
+                            <input type="url" id="event-banner" placeholder="https://example.com/banner.jpg">
+                        </div>
+                        <div class="input-field">
+                            <label for="event-status">Status</label>
+                            <select id="event-status">
+                                <option value="upcoming">Upcoming</option>
+                                <option value="active">Active</option>
+                                <option value="ongoing">Ongoing</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                        <div class="input-field">
+                            <label for="event-notes">Committee Notes</label>
+                            <textarea id="event-notes" rows="2" placeholder="Internal notes..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('createEventModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-floppy-disk"></i> Save Event</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: EVENT DETAIL / CONTRIBUTE -->
+        <div id="eventDetailModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-calendar-day"></i> <span id="event-detail-name">Event</span></h2>
+                    <span class="close" onclick="closeModal('eventDetailModal')">&times;</span>
+                </div>
+                <div class="modal-body" id="event-detail-body">
+                    Loading...
+                </div>
+                <div class="modal-footer" id="event-detail-footer">
+                    <button type="button" class="btn btn-slate" onclick="closeModal('eventDetailModal')">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: PAY CONTRIBUTION -->
+        <div id="payContributionModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-hand-holding-heart"></i> Pay Contribution</h2>
+                    <span class="close" onclick="closeModal('payContributionModal')">&times;</span>
+                </div>
+                <form id="contribution-form" onsubmit="submitContribution(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="contrib-event-id" value="">
+                        <div id="contrib-details">
+                            <div style="text-align:center; margin-bottom:16px;">
+                                <h3 id="contrib-event-name" style="color:var(--color-indigo);"></h3>
+                                <p id="contrib-flat-info" style="font-size:0.85rem; color:var(--text-secondary);"></p>
+                            </div>
+                            <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; padding:16px; margin-bottom:12px;">
+                                <div style="display:flex; justify-content:space-between; padding:4px 0;">
+                                    <span>Contribution Amount</span>
+                                    <span id="contrib-amount-display" style="font-weight:700;">₹0</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; padding:4px 0;">
+                                    <span>Late Fee</span>
+                                    <span id="contrib-late-fee" style="font-weight:700;">₹0</span>
+                                </div>
+                                <hr style="border-color:var(--border-color); margin:8px 0;">
+                                <div style="display:flex; justify-content:space-between; padding:4px 0;">
+                                    <span style="font-weight:700;">Total Payable</span>
+                                    <span id="contrib-total" style="font-weight:700; color:var(--color-indigo);">₹0</span>
+                                </div>
+                            </div>
+                            <div class="input-field">
+                                <label>
+                                    <input type="checkbox" id="contrib-voluntary-check" onchange="toggleVoluntary()">
+                                    I want to add a voluntary donation
+                                </label>
+                            </div>
+                            <div id="contrib-voluntary-row" style="display:none;">
+                                <div class="input-field">
+                                    <label for="contrib-voluntary-amount">Voluntary Donation (₹)</label>
+                                    <input type="number" id="contrib-voluntary-amount" step="0.01" min="0" placeholder="e.g. 500" oninput="updateContributionTotal()">
+                                </div>
+                            </div>
+                            <div class="input-field">
+                                <label for="contrib-payment-mode">Payment Mode</label>
+                                <select id="contrib-payment-mode">
+                                    <option value="UPI">UPI (GPay / PhonePe / PayTM)</option>
+                                    <option value="Net Banking">Net Banking</option>
+                                    <option value="Credit Card">Credit Card</option>
+                                    <option value="Debit Card">Debit Card</option>
+                                    <option value="Cash">Cash</option>
+                                </select>
+                            </div>
+                            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:8px;">
+                                <i class="fa-solid fa-circle-info"></i> Contributions are non-refundable and go directly to the Society Cultural Bank Account.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('payContributionModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo" id="btn-pay-contribution">
+                            <i class="fa-solid fa-lock"></i> Proceed to Pay
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: CONTRIBUTION SUCCESS -->
+        <div id="contribSuccessModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 450px;">
+                <div class="modal-body" style="text-align:center; padding:32px;">
+                    <div style="font-size:4rem; color:var(--color-emerald); margin-bottom:16px;">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <h2 style="margin-bottom:8px;">Payment Successful!</h2>
+                    <p id="contrib-success-amount" style="font-size:1.3rem; font-weight:700; color:var(--color-indigo); margin-bottom:16px;"></p>
+                    <div id="contrib-success-details" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:20px; text-align:left; background:var(--bg-card); padding:12px; border-radius:8px; border:1px solid var(--border-color);"></div>
+                    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                        <button class="btn btn-indigo" onclick="downloadContributionReceipt()" id="btn-download-receipt">
+                            <i class="fa-solid fa-file-pdf"></i> Download Receipt (PDF)
+                        </button>
+                        <button class="btn btn-slate" onclick="closeModal('contribSuccessModal')">Close</button>
+                    </div>
+                    <div style="margin-top:20px; padding:12px; background:rgba(99,102,241,0.08); border-radius:8px; border:1px solid rgba(99,102,241,0.2);">
+                        <p style="font-size:0.85rem; color:var(--color-indigo);">
+                            <i class="fa-solid fa-star"></i> Want to participate in the event?
+                            <br>
+                            <button class="btn btn-slate" style="margin-top:8px; font-size:0.8rem;" onclick="openPerformanceSignup(currentSuccessEventId)">Register for Cultural Performances</button>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: PERFORMANCE SIGNUP -->
+        <div id="performanceModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-palette"></i> Register Performance</h2>
+                    <span class="close" onclick="closeModal('performanceModal')">&times;</span>
+                </div>
+                <form id="performance-form" onsubmit="submitPerformance(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="perf-event-id" value="">
+                        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:12px;">
+                            Register your family or group performance for the cultural night.
+                        </p>
+                        <div class="input-field">
+                            <label for="perf-name">Performer(s) Name</label>
+                            <input type="text" id="perf-name" required placeholder="e.g. Ashis & Family">
+                        </div>
+                        <div class="input-field">
+                            <label for="perf-type">Performance Type</label>
+                            <select id="perf-type">
+                                <option value="dance">Dance</option>
+                                <option value="music">Music / Singing</option>
+                                <option value="skit">Skit / Drama</option>
+                                <option value="comedy">Comedy</option>
+                                <option value="poetry">Poetry / Recitation</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="input-field">
+                            <label for="perf-requirements">Requirements (e.g. mics, speakers)</label>
+                            <textarea id="perf-requirements" rows="2" placeholder="e.g. Need 3 wireless mics"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('performanceModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-check"></i> Register</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: FINANCE PAGE (ex-workspace content) -->
+        <div id="financeModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 1100px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-chart-pie"></i> Finance</h2>
+                    <span class="close" onclick="closeModal('financeModal')">&times;</span>
+                </div>
+                <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+                    <!-- Filter & KPI Control Bar -->
+                    <section class="control-panel card" style="box-shadow: none; border: none; padding: 0; margin-bottom: 16px;">
+                        <div class="filter-group" style="margin-bottom: 16px;">
+                            <div class="input-field">
+                                <label for="filter-year">Year</label>
+                                <select id="filter-year">
+                                    <option value="2025">2025</option>
+                                    <option value="2026" selected>2026</option>
+                                    <option value="2027">2027</option>
+                                    <option value="2028">2028</option>
+                                    <option value="2029">2029</option>
+                                    <option value="2030">2030</option>
+                                </select>
+                            </div>
+                            <div class="input-field">
+                                <label for="filter-month">Month</label>
+                                <select id="filter-month">
+                                    <option value="January">January</option>
+                                    <option value="February">February</option>
+                                    <option value="March">March</option>
+                                    <option value="April">April</option>
+                                    <option value="May" selected>May</option>
+                                    <option value="June">June</option>
+                                    <option value="July">July</option>
+                                    <option value="August">August</option>
+                                    <option value="September">September</option>
+                                    <option value="October">October</option>
+                                    <option value="November">November</option>
+                                    <option value="December">December</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="kpi-grid">
+                            <div class="kpi-card kpi-income">
+                                <div class="kpi-info">
+                                    <span class="kpi-title">Monthly Income</span>
+                                    <h3 id="stat-income">Rs. 0.00</h3>
+                                </div>
+                                <div class="kpi-icon-wrapper">
+                                    <i class="fa-solid fa-arrow-trend-up"></i>
+                                </div>
+                            </div>
+                            <div class="kpi-card kpi-expense">
+                                <div class="kpi-info">
+                                    <span class="kpi-title">Monthly Expenses</span>
+                                    <h3 id="stat-expense">Rs. 0.00</h3>
+                                </div>
+                                <div class="kpi-icon-wrapper">
+                                    <i class="fa-solid fa-arrow-trend-down"></i>
+                                </div>
+                            </div>
+                            <div class="kpi-card kpi-cash">
+                                <div class="kpi-info">
+                                    <span class="kpi-title">Cash in Hand</span>
+                                    <h3 id="stat-cash">Rs. 0.00</h3>
+                                </div>
+                                <div class="kpi-icon-wrapper">
+                                    <i class="fa-solid fa-wallet"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="action-group" style="margin-top: 16px;">
+                            <button class="btn btn-emerald btn-action" onclick="openModal('incomeModal')">
+                                <i class="fa-solid fa-hand-holding-dollar"></i> Collect Fee
+                            </button>
+                            <button class="btn btn-rose btn-action" onclick="openModal('expenseModal')">
+                                <i class="fa-solid fa-money-bill-transfer"></i> Record Expense
+                            </button>
+                        </div>
+
+                    </section>
+
+                    <section class="card table-card" style="box-shadow: none; border: none; padding: 0;">
+                        <div class="card-header table-header" style="padding: 0 0 12px 0;">
+                            <h2><i class="fa-solid fa-list-check icon-indigo"></i> Live Ledger Statement</h2>
+                            <div class="table-actions">
+                                <input type="text" id="table-search" placeholder="Search flat or description..." oninput="filterTable()">
+                            </div>
+                        </div>
+                        <div class="table-scroll">
+                            <table class="ledger-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                        <th>Ledger Period</th>
+                                        <th class="text-right">Amount (Rs.)</th>
+                                        <th class="text-center">Record Date</th>
+                                        <th class="text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ledger-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: SCHEDULE ENTRY -->
+        <div id="scheduleEntryModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-clock"></i> <span id="schedule-modal-title">Add Schedule Entry</span></h2>
+                    <span class="close" onclick="closeModal('scheduleEntryModal')">&times;</span>
+                </div>
+                <form id="schedule-entry-form" onsubmit="saveScheduleEntry(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="schedule-entry-id" value="">
+                        <div class="input-field">
+                            <label for="sched-day">Day / Label</label>
+                            <input type="text" id="sched-day" required placeholder="e.g. Day 1, Inauguration">
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="input-field">
+                                <label for="sched-time-from">Time From</label>
+                                <input type="time" id="sched-time-from">
+                            </div>
+                            <div class="input-field">
+                                <label for="sched-time-to">Time To</label>
+                                <input type="time" id="sched-time-to">
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="sched-activity">Activity</label>
+                            <input type="text" id="sched-activity" required placeholder="e.g. Inaugural Ceremony">
+                        </div>
+                        <div class="input-field">
+                            <label for="sched-location">Location</label>
+                            <input type="text" id="sched-location" placeholder="e.g. Main Stage">
+                        </div>
+                        <div class="input-field">
+                            <label for="sched-notes">Notes</label>
+                            <textarea id="sched-notes" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('scheduleEntryModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: VENDOR ENTRY -->
+        <div id="vendorModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-shop"></i> <span id="vendor-modal-title">Add Vendor / Stall</span></h2>
+                    <span class="close" onclick="closeModal('vendorModal')">&times;</span>
+                </div>
+                <form id="vendor-form" onsubmit="saveVendor(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="vendor-id" value="">
+                        <div class="input-field">
+                            <label for="vendor-name">Vendor Name</label>
+                            <input type="text" id="vendor-name" required placeholder="e.g. Annapurna Caterers">
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="input-field">
+                                <label for="vendor-stall-no">Stall No</label>
+                                <input type="text" id="vendor-stall-no" placeholder="e.g. S1">
+                            </div>
+                            <div class="input-field">
+                                <label for="vendor-category">Category</label>
+                                <select id="vendor-category">
+                                    <option value="food">Food</option>
+                                    <option value="decor">Decoration</option>
+                                    <option value="sound">Sound / Light</option>
+                                    <option value="games">Games / Activities</option>
+                                    <option value="craft">Craft / Shopping</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="input-field">
+                                <label for="vendor-amount">Amount (₹)</label>
+                                <input type="number" id="vendor-amount" step="0.01" min="0" placeholder="0">
+                            </div>
+                            <div class="input-field">
+                                <label for="vendor-contact">Contact</label>
+                                <input type="text" id="vendor-contact" placeholder="Phone">
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="vendor-status">Status</label>
+                            <select id="vendor-status">
+                                <option value="pending">Pending</option>
+                                <option value="confirmed">Confirmed</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('vendorModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: COMPETITION -->
+        <div id="competitionModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-trophy"></i> <span id="competition-modal-title">New Competition</span></h2>
+                    <span class="close" onclick="closeModal('competitionModal')">&times;</span>
+                </div>
+                <form id="competition-form" onsubmit="saveCompetition(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="competition-id" value="">
+                        <div class="input-field">
+                            <label for="comp-name">Competition Name</label>
+                            <input type="text" id="comp-name" required placeholder="e.g. Best Rangoli">
+                        </div>
+                        <div class="input-field">
+                            <label for="comp-desc">Description</label>
+                            <textarea id="comp-desc" rows="2" placeholder="Rules and guidelines..."></textarea>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="input-field">
+                                <label for="comp-judge-type">Judging Type</label>
+                                <select id="comp-judge-type">
+                                    <option value="residents">Resident Voting</option>
+                                    <option value="judges">Judges Only</option>
+                                    <option value="both">Both</option>
+                                </select>
+                            </div>
+                            <div class="input-field">
+                                <label for="comp-max-score">Max Score</label>
+                                <input type="number" id="comp-max-score" step="0.1" min="1" value="10">
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="comp-status">Status</label>
+                            <select id="comp-status">
+                                <option value="open">Open</option>
+                                <option value="closed">Closed</option>
+                                <option value="declared">Results Declared</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('competitionModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: JUDGE SCORING -->
+        <div id="scoreModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-star"></i> Score Entry</h2>
+                    <span class="close" onclick="closeModal('scoreModal')">&times;</span>
+                </div>
+                <form id="score-form" onsubmit="submitScore(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="score-competition-id" value="">
+                        <input type="hidden" id="score-judge-id" value="">
+                        <p id="score-comp-name" style="font-weight:600; margin-bottom:12px;"></p>
+                        <div class="input-field">
+                            <label for="score-participant-name">Participant Name</label>
+                            <input type="text" id="score-participant-name" required placeholder="e.g. Mrs. Sharma">
+                        </div>
+                        <div class="input-field">
+                            <label for="score-participant-flat">Flat No</label>
+                            <input type="text" id="score-participant-flat" placeholder="e.g. 3A">
+                        </div>
+                        <div class="input-field">
+                            <label for="score-value">Score</label>
+                            <input type="number" id="score-value" step="0.1" min="0" max="10" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('scoreModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-check"></i> Submit Score</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: VISITOR PASS -->
+        <div id="visitorPassModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-passport"></i> Generate Visitor Pass</h2>
+                    <span class="close" onclick="closeModal('visitorPassModal')">&times;</span>
+                </div>
+                <form id="visitor-pass-form" onsubmit="generateVisitorPass(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="pass-event-id" value="">
+                        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:12px;">
+                            Generate a festival pass for guests so security can verify them at the gate.
+                        </p>
+                        <div class="input-field">
+                            <label for="pass-guest-name">Guest Name</label>
+                            <input type="text" id="pass-guest-name" required placeholder="e.g. Rajesh Kumar">
+                        </div>
+                        <div class="input-field">
+                            <label for="pass-guest-contact">Guest Contact (optional)</label>
+                            <input type="text" id="pass-guest-contact" placeholder="Phone number">
+                        </div>
+                        <div class="input-field">
+                            <label for="pass-date">Visit Date</label>
+                            <input type="date" id="pass-date" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('visitorPassModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-ticket"></i> Generate Pass</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: LAVISH DASHBOARD -->
+        <div id="lavishDashboardModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 1000px; padding: 0; overflow: hidden; border-radius: var(--border-radius-lg);">
+                <div id="dashboard-hero" style="background: linear-gradient(135deg, var(--color-indigo), #1e1b4b); padding: 32px; position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.04);"></div>
+                    <div style="position: absolute; bottom: -30px; left: -30px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,0.03);"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 1;">
+                        <div>
+                            <p style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 4px;" id="dashboard-greeting"></p>
+                            <h1 style="font-size: 1.8rem; font-weight: 800; color: #fff; margin: 0;" id="dashboard-building-name"></h1>
+                            <p style="font-size: 0.9rem; color: rgba(255,255,255,0.7); margin-top: 6px;" id="dashboard-date-time"></p>
+                        </div>
+                        <button class="close" onclick="closeModal('lavishDashboardModal')" style="color: rgba(255,255,255,0.7); font-size: 1.8rem; position: relative;">&times;</button>
+                    </div>
+                </div>
+                <div style="padding: 24px; max-height: 70vh; overflow-y: auto;">
+                    <!-- Hero Stats Row -->
+                    <div class="dash-stat-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px;">
+                        <div class="dash-stat-card" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
+                            <div class="dash-stat-icon"><i class="fa-solid fa-building"></i></div>
+                            <div>
+                                <div class="dash-stat-value" id="dash-total-flats">-</div>
+                                <div class="dash-stat-label">Total Flats</div>
+                            </div>
+                        </div>
+                        <div class="dash-stat-card" style="background: linear-gradient(135deg, #10b981, #059669);">
+                            <div class="dash-stat-icon"><i class="fa-solid fa-house-circle-check"></i></div>
+                            <div>
+                                <div class="dash-stat-value" id="dash-occupied-flats">-</div>
+                                <div class="dash-stat-label">Occupied</div>
+                            </div>
+                        </div>
+                        <div class="dash-stat-card" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                            <div class="dash-stat-icon"><i class="fa-solid fa-calendar-days"></i></div>
+                            <div>
+                                <div class="dash-stat-value" id="dash-active-events">-</div>
+                                <div class="dash-stat-label">Active Events</div>
+                            </div>
+                        </div>
+                        <div class="dash-stat-card" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+                            <div class="dash-stat-icon"><i class="fa-solid fa-ticket"></i></div>
+                            <div>
+                                <div class="dash-stat-value" id="dash-open-tickets">-</div>
+                                <div class="dash-stat-label">Open Tickets</div>
+                            </div>
+                        </div>
+                        <div class="dash-stat-card" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+                            <div class="dash-stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+                            <div>
+                                <div class="dash-stat-value" id="dash-month-income">-</div>
+                                <div class="dash-stat-label">This Month Income</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Two-column layout -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <!-- Left Column -->
+                        <div>
+                            <div class="dash-section-title"><i class="fa-solid fa-bolt"></i> Quick Actions</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                                <button class="dash-action-card" onclick="openModal('incomeModal'); closeModal('lavishDashboardModal')">
+                                    <i class="fa-solid fa-hand-holding-dollar" style="color: var(--color-emerald);"></i>
+                                    <span>Collect Fee</span>
+                                </button>
+                                <button class="dash-action-card" onclick="openModal('expenseModal'); closeModal('lavishDashboardModal')">
+                                    <i class="fa-solid fa-money-bill-transfer" style="color: var(--color-rose);"></i>
+                                    <span>Record Expense</span>
+                                </button>
+                                <button class="dash-action-card" onclick="openEventsModal(); closeModal('lavishDashboardModal')">
+                                    <i class="fa-solid fa-calendar-days" style="color: var(--color-indigo);"></i>
+                                    <span>Cultural Events</span>
+                                </button>
+                                <button class="dash-action-card" onclick="openTicketsModal(); closeModal('lavishDashboardModal')">
+                                    <i class="fa-solid fa-ticket" style="color: var(--color-yellow);"></i>
+                                    <span>Helpdesk</span>
+                                </button>
+                            </div>
+
+                            <div class="dash-section-title"><i class="fa-solid fa-calendar-days"></i> Upcoming Events</div>
+                            <div id="dash-events-list" style="margin-bottom: 20px;">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; padding: 12px; text-align: center;">Loading...</div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column -->
+                        <div>
+                            <div class="dash-section-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</div>
+                            <div id="dash-recent-activity" style="margin-bottom: 20px;">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; padding: 12px; text-align: center;">Loading...</div>
+                            </div>
+
+                            <div class="dash-section-title"><i class="fa-solid fa-chart-simple"></i> Occupancy Overview</div>
+                            <div id="dash-occupancy-chart" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 16px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Owner Occupied</span>
+                                    <span id="dash-owner-pct" style="font-weight: 700; color: var(--color-emerald);">0%</span>
+                                </div>
+                                <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
+                                    <div id="dash-owner-bar" style="height: 100%; background: var(--color-emerald); border-radius: 3px; width: 0%;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Tenant Occupied</span>
+                                    <span id="dash-tenant-pct" style="font-weight: 700; color: var(--color-yellow);">0%</span>
+                                </div>
+                                <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
+                                    <div id="dash-tenant-bar" style="height: 100%; background: var(--color-yellow); border-radius: 3px; width: 0%;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Vacant</span>
+                                    <span id="dash-vacant-pct" style="font-weight: 700; color: var(--text-muted);">0%</span>
+                                </div>
+                                <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-top: 8px;">
+                                    <div id="dash-vacant-bar" style="height: 100%; background: var(--text-muted); border-radius: 3px; width: 0%;"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

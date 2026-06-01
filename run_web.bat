@@ -1,8 +1,8 @@
 @echo off
 title Building Residence Management Web App Launcher (Vite + Supabase)
 echo ======================================================
-echo   DEEPSIKHA RESIDENCY - LEDGER MANAGER WEB APP
-echo   (Serverless: Vercel + Supabase Edition)
+echo   BUILDING RESIDENCE MANAGEMENT WEB APP
+echo   (Vite + Supabase)
 echo ======================================================
 echo.
 
@@ -34,18 +34,28 @@ if not exist "node_modules" (
     echo Node.js packages verified successfully.
 )
 
-:: Wait 2 secs and open browser
+:: Wait briefly and open browser
 echo.
 echo [2/3] Preparing to open web browser...
 timeout /t 2 /nobreak >nul
 start http://localhost:5173
 
-:: Start dev server
+:: Start dev server with network host
 echo.
-echo [3/3] Launching Vite development server...
-echo Server running on http://localhost:5173
-echo Close this window to stop the application.
-echo ------------------------------------------------------
-call npm run dev
+echo [3/3] Launching Vite dev server (network-enabled)...
+echo.
+echo ================================================
+echo  Local   : http://localhost:5173
+echo  Network : http://YOUR-IP:5173
+echo ================================================
+echo  To access from phone/tablet/other PC:
+echo  1. Find your PC's IP (run: ipconfig)
+echo  2. Open http://YOUR-IP:5173 on other device
+echo  3. Must be on the same WiFi network
+echo ================================================
+echo  Close this window to stop the app.
+echo ================================================
+echo.
+call npm run dev -- --host
 
 pause
