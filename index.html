@@ -1026,7 +1026,7 @@
 
         <!-- MODAL: ADD/EDIT ROLE -->
         <div id="editRoleModal" class="modal">
-            <div class="modal-content animate-zoom" style="max-width: 600px;">
+            <div class="modal-content animate-zoom" style="max-width: 900px;">
                 <div class="modal-header">
                     <h2 id="edit-role-modal-title"><i class="fa-solid fa-pen"></i> Edit Role</h2>
                     <span class="close" onclick="closeModal('editRoleModal')">&times;</span>
@@ -1036,30 +1036,26 @@
                         <input type="hidden" id="edit-role-mode" value="add">
                         <input type="hidden" id="edit-role-original-name" value="">
 
-                        <div class="grid-two-cols">
-                            <div class="input-field">
-                                <label for="edit-role-name">Role Key (unique, lowercase, no spaces)</label>
+                        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                            <div class="input-field" style="flex:1; min-width:180px;">
+                                <label for="edit-role-name">Role Key</label>
                                 <input type="text" id="edit-role-name" placeholder="e.g. security_guard" required
                                     pattern="[a-z_][a-z0-9_]*" title="Lowercase letters, numbers, and underscores only">
                             </div>
-                            <div class="input-field">
-                                <label for="edit-role-label">Display Label</label>
+                            <div class="input-field" style="flex:1; min-width:180px;">
+                                <label for="edit-role-label">Label</label>
                                 <input type="text" id="edit-role-label" placeholder="e.g. Security Guard" required>
                             </div>
-                        </div>
-                        <div class="input-field">
-                            <label for="edit-role-color">Badge Color (CSS variable or hex)</label>
-                            <input type="text" id="edit-role-color" placeholder="var(--color-emerald) or #10b981"
-                                value="var(--text-secondary)">
+                            <div class="input-field" style="flex:1; min-width:140px;">
+                                <label for="edit-role-color">Badge Color</label>
+                                <input type="text" id="edit-role-color" placeholder="var(--color-emerald)" value="var(--text-secondary)">
+                            </div>
                         </div>
 
                         <div style="margin-top: 16px;">
-                            <label
-                                style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Permissions</label>
-                            <div
-                                style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 12px; background: rgba(0,0,0,0.1);">
-                                <div id="edit-role-permissions">
-                                    <!-- Populated dynamically -->
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Permission Matrix</label>
+                            <div style="overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 8px; background: rgba(0,0,0,0.1);">
+                                <div id="edit-role-permissions" style="min-width:660px;">
                                 </div>
                             </div>
                         </div>

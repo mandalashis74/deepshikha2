@@ -3984,20 +3984,22 @@ window.selectFlatForEdit = function(flatNo) {
     const canEditAny = hasPermission('owners:edit_any');
     const isOwnFlat = localStorage.getItem("isSoftLogin") === "true" && localStorage.getItem("currentFlatNo") === flatNo;
     const canEdit = canEditAny || (hasPermission('owners:edit_own') && isOwnFlat);
-    const disabledAttr = canEdit ? "" : "disabled";
     
+    // Always render fields as disabled initially — user must tap "Enable Editing" to modify
     const statusOptions = [
         { value: 'owner-occupied', label: 'Owner Occupied' },
         { value: 'tenant-occupied', label: 'Tenant Occupied' },
         { value: 'vacant', label: 'Vacant' }
     ];
     
-    let selectHTML = `<select id="edit-status" ${disabledAttr}>`;
+    let selectHTML = `<select id="edit-status" disabled>`;
     statusOptions.forEach(opt => {
         const selected = opt.value === item.occupancy_status ? "selected" : "";
         selectHTML += `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
     });
     selectHTML += `</select>`;
+    
+    const showPasscode = isOwnFlat || canEditAny;
     
     detailSide.innerHTML = `
         <div class="card" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding: 16px;">
@@ -4011,24 +4013,31 @@ window.selectFlatForEdit = function(flatNo) {
                 
                 <div class="input-field">
                     <label for="edit-owner-name">Owner Name</label>
-                    <input type="text" id="edit-owner-name" value="${item.owner_name || ''}" ${disabledAttr} required>
+                    <input type="text" id="edit-owner-name" value="${item.owner_name || ''}" disabled required>
                 </div>
                 
                 <div class="input-field">
                     <label for="edit-contact">Contact No</label>
-                    <input type="text" id="edit-contact" value="${item.contact_no || ''}" ${disabledAttr}>
+                    <input type="text" id="edit-contact" value="${item.contact_no || ''}" disabled>
                 </div>
                 
-                ${isOwnFlat || canEditAny ? `
+                ${showPasscode ? `
                 <div class="input-field">
                     <label for="edit-passcode">Passcode (For Soft Login)</label>
-                    <input type="text" id="edit-passcode" placeholder="e.g. 1234" value="${item.passcode || ''}" ${canEdit ? '' : 'disabled'}>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <input type="password" id="edit-passcode" placeholder="e.g. 1234" value="${item.passcode || ''}" disabled style="flex:1;">
+                        ${canEditAny ? `
+                        <button type="button" class="btn btn-slate" onclick="togglePasscodeVisibility()" style="padding:10px;" title="Show/Hide Passcode">
+                            <i class="fa-solid fa-eye" id="passcode-toggle-icon"></i>
+                        </button>
+                        ` : ''}
+                    </div>
                 </div>
                 ` : ''}
                 
                 <div class="input-field">
                     <label for="edit-parking">Parking Space No</label>
-                    <input type="text" id="edit-parking" value="${item.parking_no || 'None'}" ${disabledAttr}>
+                    <input type="text" id="edit-parking" value="${item.parking_no || 'None'}" disabled>
                 </div>
                 
                 <div class="input-field">
@@ -4038,7 +4047,7 @@ window.selectFlatForEdit = function(flatNo) {
                 
                 <div class="input-field">
                     <label for="edit-flat-type">Flat Type</label>
-                    <select id="edit-flat-type" ${disabledAttr}>
+                    <select id="edit-flat-type" disabled>
                         <option value="">-- Select --</option>
                         ${getFlatTypesList().map(t => `<option value="${t}" ${item.flat_type === t ? 'selected' : ''}>${t}</option>`).join('')}
                     </select>
@@ -4047,40 +4056,91 @@ window.selectFlatForEdit = function(flatNo) {
                 <div class="input-field">
                     <label>Family Members</label>
                     <div id="family-members-container">
-                        ${renderStructuredRows('family', item.family_members, canEdit)}
+                        ${renderStructuredRows('family', item.family_members, false)}
                     </div>
-                    ${canEdit ? '<button type="button" class="btn btn-slate" onclick="addStructuredRow(\'family\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px;"><i class="fa-solid fa-plus"></i> Add Member</button>' : ''}
+                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'family\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Member</button>' : ''}
                 </div>
                 
                 <div class="input-field">
                     <label>Service Person Details</label>
                     <div id="service-person-container">
-                        ${renderStructuredRows('service', item.service_person, canEdit)}
+                        ${renderStructuredRows('service', item.service_person, false)}
                     </div>
-                    ${canEdit ? '<button type="button" class="btn btn-slate" onclick="addStructuredRow(\'service\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px;"><i class="fa-solid fa-plus"></i> Add Person</button>' : ''}
+                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'service\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Person</button>' : ''}
                 </div>
                 
                 <div class="input-field">
                     <label>Vehicle Details</label>
                     <div id="vehicle-container">
-                        ${renderStructuredRows('vehicle', item.vehicle_details, canEdit)}
+                        ${renderStructuredRows('vehicle', item.vehicle_details, false)}
                     </div>
-                    ${canEdit ? '<button type="button" class="btn btn-slate" onclick="addStructuredRow(\'vehicle\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px;"><i class="fa-solid fa-plus"></i> Add Vehicle</button>' : ''}
+                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'vehicle\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Vehicle</button>' : ''}
                 </div>
                 
-                ${canEdit 
-                    ? `<div class="modal-actions" style="margin-top: 16px;">
-                            <button type="submit" class="btn btn-indigo" style="width: 100%;">
-                                <i class="fa-solid fa-floppy-disk"></i> Save Profile
-                            </button>
-                       </div>`
-                    : `<div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-top: 10px;">
+                <div style="display: flex; gap: 8px; margin-top: 16px;">
+                    ${canEdit ? `
+                        <button type="button" class="btn btn-indigo" id="btn-enable-edit" onclick="enableOwnerEditing()" style="flex: 1;">
+                            <i class="fa-solid fa-pen"></i> Enable Editing
+                        </button>
+                    ` : `
+                        <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; width: 100%; padding: 8px;">
                             <i class="fa-solid fa-lock"></i> Edit restricted to Owner or Administrators.
-                       </div>`
-                }
+                        </div>
+                    `}
+                </div>
+                
+                <div class="modal-actions" style="margin-top: 16px; display: none;" id="save-profile-actions">
+                    <button type="submit" class="btn btn-emerald" style="width: 100%;">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Profile
+                    </button>
+                </div>
             </form>
         </div>
     `;
+};
+
+window.togglePasscodeVisibility = function() {
+    const input = document.getElementById("edit-passcode");
+    const icon = document.getElementById("passcode-toggle-icon");
+    if (!input || !icon) return;
+    const isPassword = input.type === "password";
+    input.type = isPassword ? "text" : "password";
+    icon.className = isPassword ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
+};
+
+window.enableOwnerEditing = function() {
+    const form = document.getElementById("edit-owner-form");
+    if (!form) return;
+    
+    const flatNo = document.getElementById("edit-flat-no").value;
+    const item = allOwnersData.find(o => o.flat_no === flatNo);
+    if (!item) return;
+    
+    // Enable all inputs and selects inside the form
+    form.querySelectorAll("input, select, textarea").forEach(el => el.disabled = false);
+    
+    // Re-render structured rows with canEdit=true to get editable fields
+    const familyContainer = document.getElementById("family-members-container");
+    if (familyContainer) familyContainer.innerHTML = renderStructuredRows('family', item.family_members, true);
+    
+    const serviceContainer = document.getElementById("service-person-container");
+    if (serviceContainer) serviceContainer.innerHTML = renderStructuredRows('service', item.service_person, true);
+    
+    const vehicleContainer = document.getElementById("vehicle-container");
+    if (vehicleContainer) vehicleContainer.innerHTML = renderStructuredRows('vehicle', item.vehicle_details, true);
+    
+    // Show save button
+    const saveActions = document.getElementById("save-profile-actions");
+    if (saveActions) saveActions.style.display = "flex";
+    
+    // Hide the enable button
+    const enableBtn = document.getElementById("btn-enable-edit");
+    if (enableBtn) enableBtn.style.display = "none";
+    
+    // Show add buttons for structured rows
+    document.querySelectorAll(".btn-add-structured-row").forEach(btn => btn.style.display = "inline-flex");
+    
+    showToast("Editing enabled. Make your changes and click Save Profile.", "info");
 };
 
 window.saveOwnerProfile = async function(e) {
@@ -7753,47 +7813,112 @@ window.updateUserPassword = async function() {
 // DYNAMIC ROLE MANAGEMENT (CRUD)
 // ==========================================
 
-const ALL_PERMISSIONS = [
-    { id: 'dashboard:view', label: 'View Dashboard' },
-    { id: 'income:create', label: 'Record Income' },
-    { id: 'income:delete', label: 'Delete Income' },
-    { id: 'expense:create', label: 'Record Expense' },
-    { id: 'expense:delete', label: 'Delete Expense' },
-    { id: 'history:view', label: 'View Ledger History' },
-    { id: 'reports:view', label: 'View Reports' },
-    { id: 'ledger:import', label: 'Import Ledger' },
-    { id: 'ledger:export', label: 'Export Ledger' },
-    { id: 'owners:upload', label: 'Upload Owners' },
-    { id: 'owners:edit_any', label: 'Edit Any Owner Profile' },
-    { id: 'owners:edit_own', label: 'Edit Own Profile' },
-    { id: 'expense_heads:manage', label: 'Access Expense Heads' },
-    { id: 'expense_heads:create', label: 'Add Expense Heads' },
-    { id: 'expense_heads:delete', label: 'Delete Expense Heads' },
-    { id: 'users:manage', label: 'View Users List' },
-    { id: 'users:role_change', label: 'Change User Roles' },
-    { id: 'tickets:assign', label: 'Assign Tickets' },
-    { id: 'tickets:recommend', label: 'Recommend Tickets' },
-    { id: 'tickets:approve', label: 'Approve Tickets' },
-    { id: 'tickets:resolve', label: 'Resolve Tickets' },
-    { id: 'tickets:close', label: 'Close Tickets' },
-    { id: 'tickets:reopen', label: 'Reopen Tickets' },
-    { id: 'tickets:archive', label: 'Archive/View Archived' },
-    { id: 'tickets:delete', label: 'Delete Tickets' },
-    { id: 'tickets:comment', label: 'Comment on Tickets' },
-    { id: 'events:view', label: 'View Cultural Events' },
-    { id: 'events:create', label: 'Create/Edit Events' },
-    { id: 'events:delete', label: 'Delete Events' },
-    { id: 'events:contribute', label: 'Contribute to Events' },
-    { id: 'events:perform', label: 'Register Performances' },
-    { id: 'events:manage_vendors', label: 'Manage Vendors/Stalls' },
-    { id: 'events:manage_competitions', label: 'Manage Competitions' },
-    { id: 'events:vote', label: 'Vote in Competitions' },
-    { id: 'events:score', label: 'Score as Judge' },
-    { id: 'events:upload_gallery', label: 'Upload Gallery Photos' },
-    { id: 'events:generate_passes', label: 'Generate Visitor Passes' },
-    { id: 'board:view', label: 'View Community Board' },
-    { id: 'board:create', label: 'Create Board Posts' },
-    { id: 'board:moderate', label: 'Moderate Board (Delete/Close any post)' }
+const PERMISSION_GROUPS = [
+    {
+        label: 'Dashboard', actions: [
+            { perm: 'dashboard:view', col: 'view', label: 'View' }
+        ]
+    },
+    {
+        label: 'Income', actions: [
+            { perm: 'income:create', col: 'add', label: 'Add' },
+            { perm: 'income:delete', col: 'delete', label: 'Delete' }
+        ]
+    },
+    {
+        label: 'Expense', actions: [
+            { perm: 'expense:create', col: 'add', label: 'Add' },
+            { perm: 'expense:delete', col: 'delete', label: 'Delete' }
+        ]
+    },
+    {
+        label: 'History', actions: [
+            { perm: 'history:view', col: 'view', label: 'View' }
+        ]
+    },
+    {
+        label: 'Reports', actions: [
+            { perm: 'reports:view', col: 'view', label: 'View' }
+        ]
+    },
+    {
+        label: 'Ledger', actions: [
+            { perm: 'ledger:import', col: 'other', label: 'Import' },
+            { perm: 'ledger:export', col: 'other', label: 'Export' }
+        ]
+    },
+    {
+        label: 'Owners', actions: [
+            { perm: 'owners:upload', col: 'other', label: 'Upload' },
+            { perm: 'owners:edit_any', col: 'edit', label: 'Edit Any' },
+            { perm: 'owners:edit_own', col: 'other', label: 'Edit Own' }
+        ]
+    },
+    {
+        label: 'Expense Heads', actions: [
+            { perm: 'expense_heads:manage', col: 'other', label: 'Access' },
+            { perm: 'expense_heads:create', col: 'add', label: 'Add' },
+            { perm: 'expense_heads:delete', col: 'delete', label: 'Delete' }
+        ]
+    },
+    {
+        label: 'Users', actions: [
+            { perm: 'users:manage', col: 'other', label: 'View List' },
+            { perm: 'users:role_change', col: 'other', label: 'Change Role' }
+        ]
+    },
+    {
+        label: 'Tickets', actions: [
+            { perm: 'tickets:assign', col: 'other', label: 'Assign' },
+            { perm: 'tickets:recommend', col: 'other', label: 'Recommend' },
+            { perm: 'tickets:approve', col: 'approve', label: 'Approve' },
+            { perm: 'tickets:resolve', col: 'other', label: 'Resolve' },
+            { perm: 'tickets:close', col: 'other', label: 'Close' },
+            { perm: 'tickets:reopen', col: 'other', label: 'Reopen' },
+            { perm: 'tickets:archive', col: 'other', label: 'Archive' },
+            { perm: 'tickets:delete', col: 'delete', label: 'Delete' },
+            { perm: 'tickets:comment', col: 'other', label: 'Comment' }
+        ]
+    },
+    {
+        label: 'Events', actions: [
+            { perm: 'events:view', col: 'view', label: 'View' },
+            { perm: 'events:create', col: 'add', label: 'Create' },
+            { perm: 'events:delete', col: 'delete', label: 'Delete' },
+            { perm: 'events:contribute', col: 'other', label: 'Contribute' },
+            { perm: 'events:perform', col: 'other', label: 'Perform' },
+            { perm: 'events:manage_vendors', col: 'other', label: 'Vendors' },
+            { perm: 'events:manage_competitions', col: 'other', label: 'Competitions' },
+            { perm: 'events:vote', col: 'other', label: 'Vote' },
+            { perm: 'events:score', col: 'other', label: 'Score' },
+            { perm: 'events:upload_gallery', col: 'other', label: 'Gallery' },
+            { perm: 'events:generate_passes', col: 'other', label: 'Passes' }
+        ]
+    },
+    {
+        label: 'Community Board', actions: [
+            { perm: 'board:view', col: 'view', label: 'View' },
+            { perm: 'board:create', col: 'add', label: 'Post' },
+            { perm: 'board:moderate', col: 'other', label: 'Moderate' }
+        ]
+    }
+];
+
+// Flatten for quick lookups
+const ALL_PERMISSIONS = [];
+PERMISSION_GROUPS.forEach(g => {
+    g.actions.forEach(a => {
+        ALL_PERMISSIONS.push({ id: a.perm, label: g.label + ' — ' + a.label, group: g.label, col: a.col });
+    });
+});
+
+const MATRIX_COLUMNS = [
+    { key: 'view', label: 'View' },
+    { key: 'add', label: 'Add' },
+    { key: 'edit', label: 'Edit' },
+    { key: 'delete', label: 'Delete' },
+    { key: 'approve', label: 'Approve' },
+    { key: 'other', label: 'Other' }
 ];
 
 window.openRolesModal = async function() {
@@ -7824,18 +7949,19 @@ function renderRolesManager() {
         card.style.padding = "12px";
         card.style.marginBottom = "8px";
         
-        const permCount = (role.permissions || []).length;
-        const permLabels = role.permissions.map(p => {
-            const found = ALL_PERMISSIONS.find(ap => ap.id === p);
-            return found ? found.label : p;
-        }).join(', ');
+        const permSet = new Set(role.permissions || []);
+        const permCount = permSet.size;
+        const groupSummary = PERMISSION_GROUPS.map(g => {
+            const active = g.actions.filter(a => permSet.has(a.perm));
+            return active.length > 0 ? `${g.label}(${active.map(a => a.label).join(',')})` : null;
+        }).filter(Boolean).join(' · ');
         
         card.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                 <div>
                     <strong style="color: var(--text-primary); font-size: 0.95rem;">${role.label || role.name}</strong>
                     <code style="margin-left: 8px; font-size: 0.7rem; color: var(--text-muted);">${role.name}</code>
-                    <span class="badge badge-income" style="margin-left: 8px; font-size: 0.6rem; padding: 1px 6px;">${permCount} permissions</span>
+                    <span class="badge badge-income" style="margin-left: 8px; font-size: 0.6rem; padding: 1px 6px;">${permCount}</span>
                 </div>
                 <div style="display: flex; gap: 6px;">
                     <button class="btn btn-indigo" style="padding: 4px 10px; font-size: 0.7rem;" onclick="openEditRoleModal('${role.name}')">
@@ -7846,8 +7972,8 @@ function renderRolesManager() {
                     </button>` : ''}
                 </div>
             </div>
-            <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5;">
-                ${permLabels || '<em>No permissions</em>'}
+            <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
+                ${groupSummary || '<em>No permissions</em>'}
             </div>
         `;
         container.appendChild(card);
@@ -7895,15 +8021,59 @@ function renderPermissionCheckboxes(selectedPerms) {
     if (!container) return;
     
     container.innerHTML = '';
-    ALL_PERMISSIONS.forEach(perm => {
-        const checked = selectedPerms.includes(perm.id) ? 'checked' : '';
-        const div = document.createElement("div");
-        div.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 4px 0;';
-        div.innerHTML = `
-            <input type="checkbox" id="perm-${perm.id}" value="${perm.id}" ${checked} style="accent-color: var(--color-indigo);">
-            <label for="perm-${perm.id}" style="font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">${perm.label}</label>
-        `;
-        container.appendChild(div);
+    
+    // Build matrix header
+    let headerHtml = '<div style="display:flex; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-color); font-size:0.7rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">';
+    headerHtml += '<div style="width:130px; flex-shrink:0;">Module</div>';
+    MATRIX_COLUMNS.forEach(col => {
+        headerHtml += `<div style="flex:1; text-align:center;">${col.label}</div>`;
+    });
+    headerHtml += '</div>';
+    container.innerHTML = headerHtml;
+    
+    // Build matrix rows
+    PERMISSION_GROUPS.forEach(group => {
+        const row = document.createElement("div");
+        row.style.cssText = 'display:flex; align-items:stretch; border-bottom:1px solid rgba(255,255,255,0.04);';
+        
+        // Module label cell
+        const labelCell = document.createElement("div");
+        labelCell.style.cssText = 'width:130px; flex-shrink:0; padding:10px 4px; font-size:0.82rem; font-weight:600; color:var(--text-primary); display:flex; align-items:center;';
+        labelCell.textContent = group.label;
+        row.appendChild(labelCell);
+        
+        // Column cells
+        const colMap = {};
+        MATRIX_COLUMNS.forEach(c => { colMap[c.key] = []; });
+        group.actions.forEach(a => {
+            if (colMap[a.col]) colMap[a.col].push(a);
+        });
+        
+        MATRIX_COLUMNS.forEach(col => {
+            const cell = document.createElement("div");
+            cell.style.cssText = 'flex:1; text-align:center; padding:8px 2px; display:flex; flex-direction:column; align-items:center; gap:4px; justify-content:center;';
+            
+            const items = colMap[col.key] || [];
+            if (items.length === 0) {
+                cell.innerHTML = '<span style="color:var(--text-muted); font-size:0.6rem;">—</span>';
+            } else {
+                items.forEach(a => {
+                    const checked = selectedPerms.includes(a.perm) ? 'checked' : '';
+                    const labelId = `perm-${a.perm}`;
+                    const wrapper = document.createElement("label");
+                    wrapper.style.cssText = 'display:inline-flex; align-items:center; gap:3px; cursor:pointer; font-size:0.65rem; color:var(--text-secondary); white-space:nowrap;';
+                    wrapper.htmlFor = labelId;
+                    wrapper.innerHTML = `
+                        <input type="checkbox" id="${labelId}" value="${a.perm}" ${checked} style="accent-color:var(--color-indigo); margin:0; width:12px; height:12px;">
+                        ${a.label}
+                    `;
+                    cell.appendChild(wrapper);
+                });
+            }
+            row.appendChild(cell);
+        });
+        
+        container.appendChild(row);
     });
 }
 
