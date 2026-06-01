@@ -299,9 +299,17 @@ class DeepsikhaTrackerApp:
                                     if "-" in candidate_date or "/" in candidate_date:
                                         date_str = candidate_date
                             
+                            try:
+                                d_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+                                actual_yr = str(d_obj.year)
+                                actual_mn = d_obj.strftime("%B")
+                            except Exception:
+                                actual_yr = yr
+                                actual_mn = mn
+                                
                             self.cursor.execute(
                                 "INSERT INTO income (flat_no, year, month, amount, date_received) VALUES (?, ?, ?, ?, ?)",
-                                (flat_val, yr, mn, amt_val, date_str)
+                                (flat_val, actual_yr, actual_mn, amt_val, date_str)
                             )
                             imported_income += 1
                     except ValueError:
@@ -336,9 +344,18 @@ class DeepsikhaTrackerApp:
                                         continue
                                     num_val = float(clean_str)
                                     if num_val > 0:
+                                        date_spent = "2026-05-01"
+                                        try:
+                                            d_obj = datetime.datetime.strptime(date_spent, "%Y-%m-%d")
+                                            actual_yr = str(d_obj.year)
+                                            actual_mn = d_obj.strftime("%B")
+                                        except Exception:
+                                            actual_yr = "2026"
+                                            actual_mn = "May"
+                                            
                                         self.cursor.execute(
                                             "INSERT INTO expenses (year, month, description, amount, date_spent) VALUES (?, ?, ?, ?, ?)",
-                                            ("2026", "May", desc, num_val, "2026-05-01")
+                                            (actual_yr, actual_mn, desc, num_val, date_spent)
                                         )
                                         imported_expenses += 1
                             except:

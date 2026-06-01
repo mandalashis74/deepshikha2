@@ -289,7 +289,7 @@ class DeepsikhaTrackerApp:
                 if flat_col_idx is not None:
                     for _, row in data_rows.iterrows():
                         flat_val = str(row.iloc[flat_col_idx]).strip().upper().replace(" ", "")
-                        if not flat_val or flat_val == "NAN" or "FLOOR" in flat_val or len(flat_val) > 4:
+                        if not flat_val or flat_val == "NAN" or "FLOOR" in flat_val or len(flat_val) > 8:
                             continue
                             
                         for yr, mn, amt_idx, dt_idx in month_pairs:
@@ -311,9 +311,17 @@ class DeepsikhaTrackerApp:
                                     if len(date_str) < 5 or "ROOM" in date_str.upper() or "TYPE" in date_str.upper():
                                         date_str = f"{yr}-05-01"
                                     
+                                    try:
+                                        d_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+                                        actual_yr = str(d_obj.year)
+                                        actual_mn = d_obj.strftime("%B")
+                                    except Exception:
+                                        actual_yr = yr
+                                        actual_mn = mn
+                                        
                                     self.cursor.execute(
                                         "INSERT INTO income (flat_no, year, month, amount, date_received) VALUES (?, ?, ?, ?, ?)",
-                                        (flat_val, yr, mn, amt_val, date_str)
+                                        (flat_val, actual_yr, actual_mn, amt_val, date_str)
                                     )
                                     imported_income += 1
 
@@ -364,9 +372,17 @@ class DeepsikhaTrackerApp:
                                     if len(date_str) < 4 or "ROOM" in date_str.upper() or "TYPE" in date_str.upper():
                                         date_str = f"{yr}-05-01"
                                         
+                                    try:
+                                        d_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+                                        actual_yr = str(d_obj.year)
+                                        actual_mn = d_obj.strftime("%B")
+                                    except Exception:
+                                        actual_yr = yr
+                                        actual_mn = mn
+                                        
                                     self.cursor.execute(
                                         "INSERT INTO expenses (year, month, description, amount, date_spent) VALUES (?, ?, ?, ?, ?)",
-                                        (yr, mn, desc, parsed_amt, date_str)
+                                        (actual_yr, actual_mn, desc, parsed_amt, date_str)
                                     )
                                     imported_expenses += 1
 
