@@ -486,18 +486,40 @@ window.openCreateEventModal = function(eventData = null) {
     document.getElementById('edit-event-id').value = eventData ? eventData.id : '';
     document.getElementById('event-name').value = eventData ? eventData.name : '';
     document.getElementById('event-description').value = eventData ? (eventData.description || '') : '';
-    document.getElementById('event-start-date').value = eventData ? eventData.start_date : '';
-    document.getElementById('event-end-date').value = eventData ? eventData.end_date : '';
+    
+    const startDateInput = document.getElementById('event-start-date');
+    const endDateInput = document.getElementById('event-end-date');
+    
+    startDateInput.value = eventData ? eventData.start_date : '';
+    endDateInput.value = eventData ? eventData.end_date : '';
+    
+    // Add Date Validation Listeners
+    startDateInput.addEventListener('change', function() {
+        if (this.value) {
+            endDateInput.min = this.value;
+            if (endDateInput.value && endDateInput.value < this.value) {
+                endDateInput.value = this.value;
+            }
+        } else {
+            endDateInput.removeAttribute('min');
+        }
+    });
+    
     document.getElementById('event-contribution').value = eventData ? (eventData.contribution_amount || '') : '';
     document.getElementById('event-target').value = eventData ? (eventData.target_amount || '') : '';
     document.getElementById('event-banner').value = eventData ? (eventData.banner_url || '') : '';
     document.getElementById('event-status').value = eventData ? (eventData.status || 'upcoming') : 'upcoming';
     document.getElementById('event-notes').value = eventData ? (eventData.committee_notes || '') : '';
+    
     // Reset banner preview and trigger preview if URL exists
     const preview = document.getElementById('banner-preview');
     if (preview) preview.style.display = 'none';
     const bannerUrl = document.getElementById('event-banner').value.trim();
     if (bannerUrl) previewBanner();
+    
+    // Trigger validation logic for initial data
+    startDateInput.dispatchEvent(new Event('change'));
+    
     openModal('createEventModal');
 };
 
@@ -668,21 +690,6 @@ window.openEventDetail = async function(event) {
     const hasAdminPerms = hasPermission('events:create');
     const canPerform = hasPermission('events:perform');
     
-    // Fetch schedules, vendors, performances, gallery
-    let schedules = [], vendors = [], performances = [], gallery = [];
-    try {
-        const [schedRes, vendRes, perfRes] = await Promise.all([
-            sbClient.from('event_schedules').select('*').eq('event_id', event.id).order('sort_order'),
-            sbClient.from('event_vendors').select('*').eq('event_id', event.id),
-            sbClient.from('event_performances').select('*').eq('event_id', event.id).order('slot_order')
-        ]);
-        schedules = schedRes.data || [];
-        vendors = vendRes.data || [];
-        performances = perfRes.data || [];
-    } catch (err) {
-        console.error('Error loading event details:', err);
-    }
-    
     document.getElementById('event-detail-name').textContent = event.name;
     
     const now = new Date();
@@ -722,7 +729,7 @@ window.openEventDetail = async function(event) {
             <button class="event-tab" data-tab="gallery" onclick="switchDetailTab('gallery')"><i class="fa-solid fa-image"></i> Gallery</button>
         </div>
         <div id="detail-tab-content">
-            ${renderScheduleTab(schedules)}
+            <div style="text-align:center; padding:20px; color:var(--text-muted);">Loading...</div>
         </div>
     `;
     
@@ -741,10 +748,12 @@ window.openEventDetail = async function(event) {
     if (hasPermission('events:create')) {
         footerHtml += `<button class="btn btn-slate" onclick="openSendNotificationModal(${event.id})"><i class="fa-solid fa-bullhorn"></i> Notify</button>`;
     }
+    footerHtml += `<button class="btn btn-indigo" onclick="generateEventDossier(${event.id})"><i class="fa-solid fa-book"></i> Dossier</button>`;
     footerHtml += `<button type="button" class="btn btn-slate" onclick="closeModal('eventDetailModal')">Close</button>`;
     footer.innerHTML = footerHtml;
     
     openModal('eventDetailModal');
+    switchDetailTab('schedule');
 };
 
 window.switchDetailTab = function(tabName) {
@@ -927,7 +936,7 @@ function renderGalleryTab(photos, canUpload) {
     let html = uploadBtn + '<div class="gallery-grid">';
     photos.forEach(p => {
         html += `<div style="position:relative;">
-            <img src="${p.image_url}" alt="${p.caption || 'Photo'}" onerror="this.parentElement.innerHTML='<div style=\\'text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;\\'><i class=\\'fa-solid fa-image\\'></i><br>Failed to load</div>'">
+            <img src="${p.image_url}" alt="${p.caption || 'Photo'}" style="cursor:pointer;" onclick="openLightbox('${p.image_url}')" onerror="this.parentElement.innerHTML='<div style=\\'text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;\\'><i class=\\'fa-solid fa-image\\'></i><br>Failed to load</div>'">
             ${p.caption ? `<div style="font-size:0.75rem; color:var(--text-secondary); padding:4px 0; text-align:center;">${p.caption}</div>` : ''}
             ${canUpload ? `<button class="btn btn-rose" style="position:absolute; top:4px; right:4px; padding:2px 6px; font-size:0.7rem;" onclick="deleteGalleryPhoto(${p.id})"><i class="fa-solid fa-xmark"></i></button>` : ''}
         </div>`;
@@ -935,6 +944,14 @@ function renderGalleryTab(photos, canUpload) {
     html += '</div>';
     return html;
 }
+
+window.openLightbox = function(url) {
+    const img = document.getElementById('lightbox-img');
+    if (img) {
+        img.src = url;
+        openModal('lightboxModal');
+    }
+};
 
 // === GOOGLE DRIVE PICKER ===
 function getGdriveCredentials() {
@@ -1493,23 +1510,24 @@ window.loadEventContributionsFinance = async function() {
     container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; padding:12px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</p>';
 
     try {
-        const [evtRes, incRes, expRes] = await Promise.all([
+        const [evtRes, finRes, incRes, expRes] = await Promise.all([
             sbClient.from('cultural_events').select('id, name, contribution_amount, target_amount').eq('id', eventId).maybeSingle(),
+            sbClient.rpc('get_event_financials', { p_event_id: eventId }),
             sbClient.from('income').select('flat_no, amount, date_received').eq('category', 'Cultural Event').eq('event_id', eventId).order('date_received', { ascending: false }),
             sbClient.from('event_expenses').select('*').eq('event_id', eventId).order('created_at', { ascending: false })
         ]);
         const event = evtRes.data;
+        const financials = finRes.data ? finRes.data[0] : { total_collected: 0, total_spent: 0 };
         const contributions = incRes.data || [];
         const expenses = expRes.data || [];
-        const totalCollected = contributions.reduce((s, c) => s + Number(c.amount || 0), 0);
-        const totalSpent = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+        
+        // Use backend aggregated numbers instead of frontend reduce
+        const totalCollected = Number(financials.total_collected || 0);
+        const totalSpent = Number(financials.total_spent || 0);
         const balance = totalCollected - totalSpent;
+        
         const count = contributions.length;
         const target = event?.target_amount || 0;
-        const collectFill = target > 0 ? Math.min(100, (totalCollected / target) * 100) : 0;
-        const maxVal = Math.max(totalCollected, totalSpent, target, 1);
-        const spentPct = (totalSpent / maxVal) * 100;
-        const collectPct = (totalCollected / maxVal) * 100;
 
         let html = `
             <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:10px;">
@@ -1526,26 +1544,57 @@ window.loadEventContributionsFinance = async function() {
                     <div style="font-size:0.7rem; color:var(--text-secondary);">Balance</div>
                 </div>
             </div>
-            ${target > 0 ? `
-            <div style="margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:2px;">
-                    <span>Collected: ₹${totalCollected.toLocaleString()}</span>
-                    <span>Target: ₹${target.toLocaleString()}</span>
-                </div>
-                <div style="height:5px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
-                    <div style="height:100%; background:var(--color-emerald); border-radius:3px; width:${collectFill}%;"></div>
-                </div>
-            </div>` : ''}
-            <div style="margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:2px;">
-                    <span>Collected</span>
-                    <span>Spent</span>
-                </div>
-                <div style="height:16px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden; display:flex;">
-                    <div style="height:100%; background:var(--color-emerald); width:${collectPct}%; transition:width 0.5s;"></div>
-                    <div style="height:100%; background:var(--color-rose); width:${spentPct}%; transition:width 0.5s;"></div>
-                </div>
+            
+            <div style="margin-bottom:15px; padding:10px; background:var(--bg-card-alt); border-radius:8px;">
+                <canvas id="financeChart" style="max-height: 250px; width:100%;"></canvas>
             </div>
+        `;
+        
+        // Render html first so canvas is in DOM
+        container.innerHTML = html;
+        
+        setTimeout(() => {
+            const ctx = document.getElementById('financeChart');
+            if (ctx && window.Chart) {
+                // Destroy previous chart if exists to avoid overlay
+                if (window.financeChartInstance) {
+                    window.financeChartInstance.destroy();
+                }
+                window.financeChartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Collected', 'Spent', 'Target Remaining'],
+                        datasets: [{
+                            data: [
+                                totalCollected, 
+                                totalSpent, 
+                                target > totalCollected ? target - totalCollected : 0
+                            ],
+                            backgroundColor: [
+                                '#10b981', // emerald
+                                '#ef4444', // rose
+                                '#4b5563'  // slate for remaining target
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: '#e2e8f0', font: { size: 11 } }
+                            }
+                        }
+                    }
+                });
+            }
+        }, 100);
+
+        // Append rest of the content (expenses and contributions list)
+        const secondaryContainer = document.createElement('div');
+        secondaryContainer.innerHTML = `
             ${canManageExpenses ? `<div style="margin-bottom:10px;"><button class="btn btn-indigo" style="font-size:0.75rem; padding:3px 10px;" onclick="openExpenseModalFromFinance()"><i class="fa-solid fa-plus"></i> Add Expense</button></div>` : ''}
             ${expenses.length > 0 ? `
             <div style="margin-bottom:10px;">
@@ -1575,7 +1624,7 @@ window.loadEventContributionsFinance = async function() {
                 `).join('')}
             </div>
         `;
-        container.innerHTML = html;
+        container.appendChild(secondaryContainer);
     } catch (err) {
         console.error('loadEventContributionsFinance error:', err);
         container.innerHTML = '<p style="color:var(--color-rose); font-size:0.85rem;">Error loading data.</p>';
@@ -1653,6 +1702,455 @@ window.submitContribution = async function(e) {
     } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Proceed to Pay';
+    }
+};
+
+// Generate comprehensive event dossier PDF
+window.generateEventDossier = async function(eventId) {
+    if (!window.jspdf) { showToast('PDF library not loaded.', 'error'); return; }
+    showToast('Generating event dossier...', 'info');
+    try {
+        const [evtRes, schedRes, vendRes, perfRes, compRes, gallRes, expRes, volRes] = await Promise.all([
+            sbClient.from('cultural_events').select('*').eq('id', eventId).single(),
+            sbClient.from('event_schedules').select('*').eq('event_id', eventId).order('sort_order'),
+            sbClient.from('event_vendors').select('*').eq('event_id', eventId),
+            sbClient.from('event_performances').select('*').eq('event_id', eventId).order('slot_order'),
+            sbClient.from('event_competitions').select('*').eq('event_id', eventId),
+            sbClient.from('event_gallery').select('*').eq('event_id', eventId).order('created_at'),
+            sbClient.from('event_expenses').select('*').eq('event_id', eventId).order('created_at'),
+            sbClient.from('event_volunteers').select('*').eq('event_id', eventId)
+        ]);
+        if (evtRes.error) throw evtRes.error;
+        const event = evtRes.data;
+        const schedules = schedRes.data || [];
+        const vendors = vendRes.data || [];
+        const performances = perfRes.data || [];
+        const competitions = compRes.data || [];
+        const gallery = gallRes.data || [];
+        const expenses = expRes.data || [];
+        const volunteers = volRes.data || [];
+
+        // Fetch contributions
+        const { data: contributions } = await sbClient.from('income')
+            .select('flat_no, amount, date_received, remarks')
+            .eq('event_id', eventId)
+            .order('date_received');
+        const totalCollected = (contributions || []).reduce((s, c) => s + Number(c.amount || 0), 0);
+        const contributorCount = (contributions || []).length;
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageW = 210, pageH = 297;
+        const margin = 16;
+        const contentW = pageW - margin * 2;
+        let y = margin;
+        const name = getBuildingName();
+        const block = getBlockName();
+        const fullName = block ? `${name} (${block})` : name;
+
+        const addPage = () => { doc.addPage(); y = margin; };
+        const checkPage = (needed) => { if (y + needed > pageH - margin) addPage(); };
+        const sectionStyle = { r: 99, g: 102, b: 241 };
+        const text = (txt, size, style, x, color) => {
+            if (style) doc.setFont('helvetica', style);
+            else doc.setFont('helvetica', 'normal');
+            doc.setFontSize(size);
+            if (color) doc.setTextColor(color.r, color.g, color.b);
+            else doc.setTextColor(50, 50, 50);
+            doc.text(txt, x || margin, y);
+        };
+        const line = (yPos) => { doc.setDrawColor(220, 220, 220); doc.line(margin, yPos, pageW - margin, yPos); };
+
+        // ---- Cover / Header ----
+        doc.setFillColor(99, 102, 241);
+        doc.rect(0, 0, pageW, 50, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.text('EVENT DOSSIER', pageW / 2, 22, { align: 'center' });
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text(fullName, pageW / 2, 32, { align: 'center' });
+        doc.text(`Generated: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, pageW / 2, 42, { align: 'center' });
+
+        y = 62;
+
+        // ---- 1. Event Overview ----
+        checkPage(60);
+        doc.setFillColor(245, 245, 250);
+        doc.rect(margin, y - 4, contentW, 8, 'F');
+        doc.setTextColor(99, 102, 241);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('1. EVENT OVERVIEW', margin, y + 2);
+        y += 14;
+
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Event Name:', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(event.name, margin + 50, y);
+        y += 7;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Status:', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(event.status, margin + 50, y);
+        y += 7;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Start Date:', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(new Date(event.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), margin + 50, y);
+        y += 7;
+        doc.setFont('helvetica', 'bold');
+        doc.text('End Date:', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(new Date(event.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), margin + 50, y);
+        y += 7;
+        if (event.description) {
+            checkPage(20);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Description:', margin, y);
+            y += 5;
+            doc.setFont('helvetica', 'normal');
+            const descLines = doc.splitTextToSize(event.description, contentW - 10);
+            descLines.forEach(l => { doc.text(l, margin + 2, y); y += 5; });
+            y += 4;
+        }
+
+        // ---- Financial Summary ----
+        checkPage(50);
+        doc.setFillColor(245, 255, 245);
+        doc.rect(margin, y - 4, contentW, 8, 'F');
+        doc.setTextColor(22, 163, 74);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('FINANCIAL SUMMARY', margin, y + 2);
+        y += 14;
+
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Target Amount:', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(event.target_amount ? '₹' + Number(event.target_amount).toLocaleString() : 'Not set', margin + 50, y);
+        y += 7;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Contribution (per person):', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(event.contribution_amount ? '₹' + Number(event.contribution_amount).toLocaleString() : 'Not set', margin + 50, y);
+        y += 7;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Total Collected:', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text('₹' + totalCollected.toLocaleString(), margin + 50, y);
+        y += 7;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Contributors:', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(String(contributorCount), margin + 50, y);
+        y += 7;
+
+        if (contributions && contributions.length > 0) {
+            checkPage(20 + contributions.length * 5);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(100, 100, 100);
+            doc.text('Flat', margin + 2, y);
+            doc.text('Amount', margin + 50, y);
+            doc.text('Date', margin + 90, y);
+            doc.text('Remarks', margin + 140, y);
+            line(y + 1);
+            y += 6;
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(50, 50, 50);
+            contributions.forEach(c => {
+                checkPage(6);
+                doc.text(c.flat_no || '-', margin + 2, y);
+                doc.text('₹' + Number(c.amount || 0).toLocaleString(), margin + 50, y);
+                doc.text(c.date_received ? new Date(c.date_received).toLocaleDateString() : '-', margin + 90, y);
+                const rem = (c.remarks || '').substring(0, 35);
+                doc.text(rem, margin + 140, y);
+                y += 5;
+            });
+            y += 4;
+        }
+
+        // ---- 2. Schedule ----
+        checkPage(30);
+        doc.setFillColor(245, 245, 250);
+        doc.rect(margin, y - 4, contentW, 8, 'F');
+        doc.setTextColor(99, 102, 241);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('2. SCHEDULE', margin, y + 2);
+        y += 14;
+
+        if (schedules.length === 0) {
+            doc.setFontSize(9); doc.setTextColor(150, 150, 150); doc.text('No schedule entries.', margin, y); y += 8;
+        } else {
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(100, 100, 100);
+            doc.text('Day', margin + 2, y);
+            doc.text('Time', margin + 35, y);
+            doc.text('Activity', margin + 65, y);
+            doc.text('Location', margin + 130, y);
+            line(y + 1);
+            y += 6;
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(50, 50, 50);
+            schedules.forEach(s => {
+                checkPage(6);
+                doc.text(s.day_label || '-', margin + 2, y);
+                doc.text((s.time_from || '') + '-' + (s.time_to || ''), margin + 35, y);
+                doc.text((s.activity || '').substring(0, 40), margin + 65, y);
+                doc.text((s.location || '-').substring(0, 20), margin + 130, y);
+                y += 5;
+            });
+            y += 4;
+        }
+
+        // ---- 3. Vendors / Stalls ----
+        checkPage(30);
+        doc.setFillColor(245, 245, 250);
+        doc.rect(margin, y - 4, contentW, 8, 'F');
+        doc.setTextColor(99, 102, 241);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('3. FOOD & STALLS', margin, y + 2);
+        y += 14;
+
+        if (vendors.length === 0) {
+            doc.setFontSize(9); doc.setTextColor(150, 150, 150); doc.text('No vendors registered.', margin, y); y += 8;
+        } else {
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(100, 100, 100);
+            doc.text('Vendor', margin + 2, y);
+            doc.text('Stall No', margin + 55, y);
+            doc.text('Category', margin + 85, y);
+            doc.text('Amount', margin + 125, y);
+            doc.text('Status', margin + 160, y);
+            line(y + 1);
+            y += 6;
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(50, 50, 50);
+            vendors.forEach(v => {
+                checkPage(6);
+                doc.text((v.vendor_name || '').substring(0, 22), margin + 2, y);
+                doc.text(v.stall_no || '-', margin + 55, y);
+                doc.text(v.category || '-', margin + 85, y);
+                doc.text(v.amount ? '₹' + Number(v.amount).toLocaleString() : '-', margin + 125, y);
+                doc.text(v.status || '-', margin + 160, y);
+                y += 5;
+            });
+            y += 4;
+        }
+
+        // ---- 4. Performances ----
+        checkPage(30);
+        doc.setFillColor(245, 245, 250);
+        doc.rect(margin, y - 4, contentW, 8, 'F');
+        doc.setTextColor(99, 102, 241);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('4. PERFORMANCES', margin, y + 2);
+        y += 14;
+
+        if (performances.length === 0) {
+            doc.setFontSize(9); doc.setTextColor(150, 150, 150); doc.text('No performances registered.', margin, y); y += 8;
+        } else {
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(100, 100, 100);
+            doc.text('Performer', margin + 2, y);
+            doc.text('Flat', margin + 60, y);
+            doc.text('Type', margin + 90, y);
+            doc.text('Status', margin + 140, y);
+            line(y + 1);
+            y += 6;
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(50, 50, 50);
+            performances.forEach(p => {
+                checkPage(6);
+                doc.text((p.performer_name || '').substring(0, 22), margin + 2, y);
+                doc.text(p.flat_no || '-', margin + 60, y);
+                doc.text((p.performance_type || '-').substring(0, 18), margin + 90, y);
+                doc.text(p.status || '-', margin + 140, y);
+                y += 5;
+            });
+            y += 4;
+        }
+
+        // ---- 5. Competitions ----
+        checkPage(30);
+        doc.setFillColor(245, 245, 250);
+        doc.rect(margin, y - 4, contentW, 8, 'F');
+        doc.setTextColor(99, 102, 241);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('5. COMPETITIONS', margin, y + 2);
+        y += 14;
+
+        if (competitions.length === 0) {
+            doc.setFontSize(9); doc.setTextColor(150, 150, 150); doc.text('No competitions.', margin, y); y += 8;
+        } else {
+            for (const comp of competitions) {
+                checkPage(15);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(9);
+                doc.setTextColor(50, 50, 50);
+                doc.text(`${comp.name} (${comp.status})`, margin, y); y += 6;
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8);
+                if (comp.description) { doc.text(comp.description.substring(0, 80), margin + 2, y); y += 5; }
+                // Fetch scores
+                try {
+                    const { data: scores } = await sbClient.from('event_scores')
+                        .select('participant_name, participant_flat, score')
+                        .eq('competition_id', comp.id)
+                        .order('score', { ascending: false });
+                    if (scores && scores.length > 0) {
+                        scores.forEach((s, i) => {
+                            checkPage(5);
+                            doc.text(`${i + 1}. ${s.participant_name || s.participant_flat || 'Unknown'} - ${s.score}`, margin + 4, y);
+                            y += 4.5;
+                        });
+                    } else {
+                        doc.setTextColor(150, 150, 150);
+                        doc.text('No scores recorded.', margin + 4, y);
+                        y += 5;
+                        doc.setTextColor(50, 50, 50);
+                    }
+                } catch (e) { doc.text('(error loading scores)', margin + 4, y); y += 5; }
+                y += 2;
+            }
+            y += 2;
+        }
+
+        // ---- 6. Volunteers ----
+        checkPage(30);
+        doc.setFillColor(245, 245, 250);
+        doc.rect(margin, y - 4, contentW, 8, 'F');
+        doc.setTextColor(99, 102, 241);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('6. VOLUNTEERS', margin, y + 2);
+        y += 14;
+
+        if (volunteers.length === 0) {
+            doc.setFontSize(9); doc.setTextColor(150, 150, 150); doc.text('No volunteers.', margin, y); y += 8;
+        } else {
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(100, 100, 100);
+            doc.text('Name', margin + 2, y);
+            doc.text('Flat', margin + 60, y);
+            doc.text('Role', margin + 90, y);
+            doc.text('Contact', margin + 140, y);
+            line(y + 1);
+            y += 6;
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(50, 50, 50);
+            volunteers.forEach(v => {
+                checkPage(6);
+                doc.text((v.volunteer_name || '').substring(0, 22), margin + 2, y);
+                doc.text(v.flat_no || '-', margin + 60, y);
+                doc.text((v.role_preference || '-').substring(0, 18), margin + 90, y);
+                doc.text(v.contact || '-', margin + 140, y);
+                y += 5;
+            });
+            y += 4;
+        }
+
+        // ---- 7. Expenses ----
+        checkPage(30);
+        doc.setFillColor(245, 245, 250);
+        doc.rect(margin, y - 4, contentW, 8, 'F');
+        doc.setTextColor(99, 102, 241);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('7. EXPENSES', margin, y + 2);
+        y += 14;
+
+        if (expenses.length === 0) {
+            doc.setFontSize(9); doc.setTextColor(150, 150, 150); doc.text('No expenses recorded.', margin, y); y += 8;
+        } else {
+            const totalExp = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(100, 100, 100);
+            doc.text('Description', margin + 2, y);
+            doc.text('Category', margin + 70, y);
+            doc.text('Amount', margin + 120, y);
+            doc.text('Vendor', margin + 155, y);
+            line(y + 1);
+            y += 6;
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(50, 50, 50);
+            expenses.forEach(e => {
+                checkPage(6);
+                doc.text((e.description || '').substring(0, 28), margin + 2, y);
+                doc.text(e.category || '-', margin + 70, y);
+                doc.text('₹' + Number(e.amount || 0).toLocaleString(), margin + 120, y);
+                doc.text((e.vendor_name || '-').substring(0, 15), margin + 155, y);
+                y += 5;
+            });
+            line(y - 2);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Total Expenses:', margin + 70, y + 1);
+            doc.text('₹' + totalExp.toLocaleString(), margin + 120, y + 1);
+            y += 8;
+        }
+
+        // ---- 8. Gallery ----
+        checkPage(30);
+        doc.setFillColor(245, 245, 250);
+        doc.rect(margin, y - 4, contentW, 8, 'F');
+        doc.setTextColor(99, 102, 241);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('8. GALLERY', margin, y + 2);
+        y += 14;
+
+        if (gallery.length === 0) {
+            doc.setFontSize(9); doc.setTextColor(150, 150, 150); doc.text('No photos in gallery.', margin, y); y += 8;
+        } else {
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(80, 80, 80);
+            gallery.forEach((g, i) => {
+                checkPage(5);
+                doc.text(`${i + 1}. ${g.caption || '(no caption)'}`, margin + 2, y);
+                y += 4.5;
+            });
+            y += 4;
+            doc.setTextColor(150, 150, 150);
+            doc.setFontSize(7);
+            doc.text(`Total ${gallery.length} photo(s) in gallery. View in the app for full images.`, margin, y);
+            y += 6;
+        }
+
+        // ---- Footer ----
+        checkPage(20);
+        line(pageH - margin - 10);
+        doc.setFontSize(7);
+        doc.setTextColor(180, 180, 180);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Event Dossier — ${event.name} — Generated by ${fullName} Management System`, pageW / 2, pageH - margin - 4, { align: 'center' });
+
+        const pdfDataUri = doc.output('datauristring');
+        const newTab = window.open();
+        if (newTab) {
+            newTab.document.write(`<iframe width='100%' height='100%' src='${pdfDataUri}'></iframe>`);
+        } else {
+            doc.save(`Dossier_${event.name.replace(/\s+/g, '_')}.pdf`);
+        }
+        showToast('Event dossier generated!', 'success');
+    } catch (err) {
+        console.error('generateEventDossier error:', err);
+        showToast(err.message || 'Failed to generate dossier.', 'error');
     }
 };
 
