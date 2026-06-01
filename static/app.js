@@ -2771,23 +2771,22 @@ function updateDbStatus(isConnected, message) {
     const sideBadge = document.getElementById("db-status-badge-side");
     const sideText = document.getElementById("db-status-text-side");
     
-    const updateOne = (badgeEl, textEl) => {
+    const updateOne = (badgeEl, textEl, clickable) => {
         if (!badgeEl || !textEl) return;
         if (isConnected) {
             badgeEl.className = "badge badge-income";
             badgeEl.style.borderColor = "rgba(16, 185, 129, 0.4)";
-            badgeEl.style.cursor = "pointer";
             textEl.textContent = "Connected";
         } else {
             badgeEl.className = "badge badge-expense";
             badgeEl.style.borderColor = "rgba(244, 63, 94, 0.4)";
-            badgeEl.style.cursor = "pointer";
             textEl.textContent = message || "Disconnected";
         }
+        badgeEl.style.cursor = clickable ? "pointer" : "default";
     };
     
-    updateOne(badge, text);
-    updateOne(sideBadge, sideText);
+    updateOne(badge, text, true);
+    updateOne(sideBadge, sideText, false);
 }
 
 // Open Supabase credentials dialog
