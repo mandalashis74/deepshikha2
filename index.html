@@ -22,62 +22,112 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Header -->
-        <header class="main-header">
-            <div class="logo-area">
-                <i class="fa-solid fa-building-columns brand-icon"></i>
-                <div class="logo-text">
-                    <h1>DEEPSIKHA RESIDENCY</h1>
-                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-                        <span class="sub-title">BLOCK 2 LEDGER MANAGER</span>
-                        <span id="db-status-badge" class="badge badge-expense" style="cursor: pointer; padding: 2px 8px; font-size: 0.65rem; border-color: rgba(244, 63, 94, 0.4);" onclick="openSupabaseConfig()">
-                            <i class="fa-solid fa-database" style="margin-right: 4px;"></i><span id="db-status-text">Disconnected</span>
-                        </span>
-                    </div>
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="main-sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-building-columns sidebar-brand-icon"></i>
+                <div class="sidebar-brand-text">
+                    <h2>DEEPSIKHA</h2>
+                    <span>Block 2 Ledger Manager</span>
+                </div>
+                <span id="db-status-badge-side" class="badge badge-expense" style="cursor: pointer; padding: 1px 6px; font-size: 0.55rem;" onclick="openSupabaseConfig()">
+                    <i class="fa-solid fa-database"></i> <span id="db-status-text-side">Offline</span>
+                </span>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="sidebar-section-label">Quick Actions</div>
+            <nav class="sidebar-nav">
+                <button class="sidebar-btn" id="side-collect-fee" onclick="openModal('incomeModal')">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                    <span>Collect Fee</span>
+                </button>
+                <button class="sidebar-btn" id="side-record-expense" onclick="openModal('expenseModal')">
+                    <i class="fa-solid fa-money-bill-transfer"></i>
+                    <span>Record Expense</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-section-label">Navigation</div>
+            <nav class="sidebar-nav">
+                <button class="sidebar-btn active" id="side-dashboard" onclick="scrollToTop()">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="sidebar-btn" id="side-history" onclick="openHistoryModal()">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Ledger History</span>
+                </button>
+                <button class="sidebar-btn" id="side-reports" onclick="openReportsModal()">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Financial Reports</span>
+                </button>
+                <button class="sidebar-btn" id="side-directory" onclick="openOwnersDirectoryModal()">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Owners Directory</span>
+                </button>
+                <button class="sidebar-btn" id="side-helpdesk" onclick="openTicketsModal()">
+                    <i class="fa-solid fa-ticket"></i>
+                    <span>Support Helpdesk</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-section-label">Data</div>
+            <nav class="sidebar-nav">
+                <button class="sidebar-btn" id="side-import" onclick="openModal('importModal')">
+                    <i class="fa-solid fa-file-import"></i>
+                    <span>Import Ledger</span>
+                </button>
+                <button class="sidebar-btn" id="side-owners-upload" onclick="openModal('ownersModal')">
+                    <i class="fa-solid fa-users-gear"></i>
+                    <span>Upload Owners</span>
+                </button>
+                <button class="sidebar-btn" id="side-export" onclick="exportLedgerToExcel()">
+                    <i class="fa-solid fa-file-export"></i>
+                    <span>Export Ledger</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-section-label" id="side-admin-label" style="display:none;">Administration</div>
+            <nav class="sidebar-nav" id="side-admin-nav" style="display:none;">
+                <button class="sidebar-btn" id="side-manage-users" onclick="openUsersModal()">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <span>Manage Users</span>
+                </button>
+                <button class="sidebar-btn" id="side-manage-roles" onclick="openRolesModal()">
+                    <i class="fa-solid fa-diagram-project"></i>
+                    <span>Manage Roles</span>
+                </button>
+            </nav>
+
+            <!-- Spacer -->
+            <div class="sidebar-spacer"></div>
+
+            <!-- User Profile -->
+            <div id="side-user-profile" class="sidebar-user" style="display: none;">
+                <div class="sidebar-user-avatar">
+                    <i class="fa-solid fa-circle-user"></i>
+                </div>
+                <div class="sidebar-user-info">
+                    <span id="side-user-email" style="font-size:0.75rem; font-weight:600; color:var(--text-primary);"></span>
+                    <span id="side-user-role" class="badge" style="padding: 1px 6px; font-size:0.55rem; font-weight:700;"></span>
+                </div>
+                <div class="sidebar-user-actions">
+                    <button class="sidebar-icon-btn" title="Change Password" onclick="openPasswordModal()">
+                        <i class="fa-solid fa-key"></i>
+                    </button>
+                    <button class="sidebar-icon-btn" title="Sign Out" onclick="handleLogout()">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
                 </div>
             </div>
-            <div class="sync-actions">
-                <!-- User Profile Badge -->
-                <div id="user-profile-badge" class="badge" style="display: none; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: var(--border-radius-md); margin-right: 8px;">
-                    <i class="fa-solid fa-circle-user" style="font-size: 1.1rem; color: var(--color-indigo);"></i>
-                    <span id="user-email-text" style="font-weight: 500; font-size: 0.85rem; color: var(--text-primary); text-transform: lowercase;"></span>
-                    <span id="user-role-text" class="badge" style="padding: 1px 6px; font-size: 0.6rem; font-weight: 800;"></span>
-                    <button class="btn-delete" title="Change Password" onclick="openPasswordModal()" style="margin-left: 4px; padding: 2px; color: var(--color-indigo); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none;">
-                        <i class="fa-solid fa-key" style="font-size: 0.95rem;"></i>
-                    </button>
-                    <button class="btn-delete" title="Sign Out" onclick="handleLogout()" style="margin-left: 4px; padding: 2px; color: var(--color-rose); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none;">
-                        <i class="fa-solid fa-right-from-bracket" style="font-size: 0.95rem;"></i>
-                    </button>
-                </div>
-                <button class="btn btn-teal" onclick="openHistoryModal()">
-                    <i class="fa-solid fa-clock-rotate-left"></i> Ledger History
-                </button>
-                <button class="btn btn-indigo" onclick="openOwnersDirectoryModal()">
-                    <i class="fa-solid fa-users"></i> Owners Directory
-                </button>
-                <button class="btn btn-yellow" onclick="openTicketsModal()">
-                    <i class="fa-solid fa-ticket"></i> Support Helpdesk
-                </button>
-                <button class="btn btn-violet" onclick="openReportsModal()">
-                    <i class="fa-solid fa-file-invoice-dollar"></i> Financial Reports
-                </button>
-                <button class="btn btn-emerald" onclick="openModal('importModal')">
-                    <i class="fa-solid fa-file-import"></i> Import Ledger
-                </button>
-                <button class="btn btn-indigo" onclick="openModal('ownersModal')">
-                    <i class="fa-solid fa-users-gear"></i> Upload Owners
-                </button>
-                <button class="btn btn-slate" id="btn-export" onclick="exportLedgerToExcel()">
-                    <i class="fa-solid fa-file-export"></i> Export Ledger
-                </button>
-                <button class="btn btn-rose" id="btn-manage-users" onclick="openUsersModal()" style="display: none;">
-                    <i class="fa-solid fa-user-shield"></i> Manage Users
-                </button>
-            </div>
-        </header>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="main-area">
 
         <!-- Main Workspace -->
-        <main class="workspace">
+        <main class="workspace" id="workspace">
             <!-- Filter & KPI Control Bar -->
             <section class="control-panel card animate-fade-in">
                 <div class="filter-group">
@@ -224,6 +274,7 @@
                             <tr>
                                 <th>Email</th>
                                 <th>Current Role</th>
+                                <th>Assigned Floors</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -858,6 +909,77 @@
         </div>
     </div>
 
+    <!-- MODAL: ROLES MANAGER -->
+    <div id="rolesModal" class="modal">
+        <div class="modal-content animate-zoom" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-diagram-project"></i> Manage Roles & Permissions</h2>
+                <span class="close" onclick="closeModal('rolesModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+                    Define custom roles and assign granular permissions. Changes take effect immediately for all users.
+                </p>
+                <button class="btn btn-emerald" onclick="openAddRoleModal()" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-plus"></i> Add New Role
+                </button>
+                <div id="roles-manager-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-slate" onclick="closeModal('rolesModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD/EDIT ROLE -->
+    <div id="editRoleModal" class="modal">
+        <div class="modal-content animate-zoom" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 id="edit-role-modal-title"><i class="fa-solid fa-pen"></i> Edit Role</h2>
+                <span class="close" onclick="closeModal('editRoleModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="edit-role-form" onsubmit="handleSaveRole(event)">
+                    <input type="hidden" id="edit-role-mode" value="add">
+                    <input type="hidden" id="edit-role-original-name" value="">
+                    
+                    <div class="grid-two-cols">
+                        <div class="input-field">
+                            <label for="edit-role-name">Role Key (unique, lowercase, no spaces)</label>
+                            <input type="text" id="edit-role-name" placeholder="e.g. security_guard" required pattern="[a-z_][a-z0-9_]*" title="Lowercase letters, numbers, and underscores only">
+                        </div>
+                        <div class="input-field">
+                            <label for="edit-role-label">Display Label</label>
+                            <input type="text" id="edit-role-label" placeholder="e.g. Security Guard" required>
+                        </div>
+                    </div>
+                    <div class="input-field">
+                        <label for="edit-role-color">Badge Color (CSS variable or hex)</label>
+                        <input type="text" id="edit-role-color" placeholder="var(--color-emerald) or #10b981" value="var(--text-secondary)">
+                    </div>
+                    
+                    <div style="margin-top: 16px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Permissions</label>
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 12px; background: rgba(0,0,0,0.1);">
+                            <div id="edit-role-permissions">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-actions" style="margin-top: 20px;">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('editRoleModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Role
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- AUTHENTICATION GATE -->
     <div id="auth-container" class="modal" style="display: block; background-color: var(--bg-main); backdrop-filter: blur(8px);">
         <div class="modal-content animate-zoom" style="margin: 8% auto; max-width: 420px; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg);">
@@ -941,6 +1063,61 @@
             </div>
         </div>
     </div>
+
+    <!-- MODAL: FLOOR ASSIGNMENT -->
+    <div id="floorAssignmentModal" class="modal">
+        <div class="modal-content animate-zoom" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-layer-group"></i> Assign Floors</h2>
+                <span class="close" onclick="closeModal('floorAssignmentModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+                    Select which floors this user can manage. Leave all unchecked for unrestricted access to all floors.
+                </p>
+                <p style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px;">
+                    User: <span id="assign-floors-user-email" style="color: var(--color-indigo);"></span>
+                </p>
+                <input type="hidden" id="assign-floors-user-id" value="">
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px 0;">
+                    <label class="floor-checkbox-label">
+                        <input type="checkbox" class="floor-checkbox" value="1"> Floor 1
+                    </label>
+                    <label class="floor-checkbox-label">
+                        <input type="checkbox" class="floor-checkbox" value="2"> Floor 2
+                    </label>
+                    <label class="floor-checkbox-label">
+                        <input type="checkbox" class="floor-checkbox" value="3"> Floor 3
+                    </label>
+                    <label class="floor-checkbox-label">
+                        <input type="checkbox" class="floor-checkbox" value="4"> Floor 4
+                    </label>
+                    <label class="floor-checkbox-label">
+                        <input type="checkbox" class="floor-checkbox" value="5"> Floor 5
+                    </label>
+                    <label class="floor-checkbox-label">
+                        <input type="checkbox" class="floor-checkbox" value="6"> Floor 6
+                    </label>
+                    <label class="floor-checkbox-label">
+                        <input type="checkbox" class="floor-checkbox" value="7"> Floor 7
+                    </label>
+                    <label class="floor-checkbox-label">
+                        <input type="checkbox" class="floor-checkbox" value="8"> Floor 8
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-slate" onclick="closeModal('floorAssignmentModal')">Cancel</button>
+                    <button type="button" class="btn btn-indigo" onclick="saveFloorAssignment()">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Assignments
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        </div> <!-- /.main-area -->
+
+    </div> <!-- /.app-container -->
 
     <footer style="text-align: center; padding: 20px; font-size: 0.85rem; color: var(--text-secondary); margin-top: auto;">
         &copy; 2026 AI-AnchIt. All rights reserved.

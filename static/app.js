@@ -8,6 +8,9 @@ let currentUserId = null;
 let loadedTickets = [];
 let selectedTicketId = null;
 let ticketScope = 'ALL';
+let rolesData = [];
+let currentRolePermissions = [];
+let currentUserAssignedFloors = [];
 
 document.addEventListener("DOMContentLoaded", () => {
     // Set default dates to today
@@ -118,23 +121,36 @@ function initSupabase() {
     }
 }
 
-// Update DB connection status pill in Header
+// Scroll workspace to top (Dashboard nav click)
+window.scrollToTop = function() {
+    const workspace = document.querySelector(".workspace");
+    if (workspace) workspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+// Update DB connection status pill in Header & Sidebar
 function updateDbStatus(isConnected, message) {
     const badge = document.getElementById("db-status-badge");
     const text = document.getElementById("db-status-text");
-    if (!badge || !text) return;
+    const sideBadge = document.getElementById("db-status-badge-side");
+    const sideText = document.getElementById("db-status-text-side");
     
-    if (isConnected) {
-        badge.className = "badge badge-income"; // Emerald theme
-        badge.style.borderColor = "rgba(16, 185, 129, 0.4)";
-        badge.style.cursor = "pointer";
-        text.textContent = "Connected";
-    } else {
-        badge.className = "badge badge-expense"; // Rose theme
-        badge.style.borderColor = "rgba(244, 63, 94, 0.4)";
-        badge.style.cursor = "pointer";
-        text.textContent = message || "Disconnected";
-    }
+    const updateOne = (badgeEl, textEl) => {
+        if (!badgeEl || !textEl) return;
+        if (isConnected) {
+            badgeEl.className = "badge badge-income";
+            badgeEl.style.borderColor = "rgba(16, 185, 129, 0.4)";
+            badgeEl.style.cursor = "pointer";
+            textEl.textContent = "Connected";
+        } else {
+            badgeEl.className = "badge badge-expense";
+            badgeEl.style.borderColor = "rgba(244, 63, 94, 0.4)";
+            badgeEl.style.cursor = "pointer";
+            textEl.textContent = message || "Disconnected";
+        }
+    };
+    
+    updateOne(badge, text);
+    updateOne(sideBadge, sideText);
 }
 
 // Open Supabase credentials dialog
@@ -197,7 +213,8 @@ function setupAuthListener() {
                     
                     currentUserId = null;
                     document.getElementById("auth-container").style.display = "block";
-                    document.getElementById("user-profile-badge").style.display = "none";
+                    const sideProfile = document.getElementById("side-user-profile");
+                    if (sideProfile) sideProfile.style.display = "none";
                     currentUserRole = 'viewer';
                     applyRbacRestrictions('viewer');
                 }
@@ -209,7 +226,8 @@ function setupAuthListener() {
             } else {
                 currentUserId = null;
                 document.getElementById("auth-container").style.display = "block";
-                document.getElementById("user-profile-badge").style.display = "none";
+                const sideProfile = document.getElementById("side-user-profile");
+                if (sideProfile) sideProfile.style.display = "none";
                 currentUserRole = 'viewer';
                 applyRbacRestrictions('viewer');
             }
@@ -221,44 +239,38 @@ async function handleUserSession(user) {
     if (!sbClient) return;
     
     try {
-        // Query user's profile role from the profiles table
-        let { data, error } = await sbClient.from('profiles').select('role').eq('id', user.id).single();
+        // Load roles first
+        await loadRoles();
+        
+        // Query user's profile role + assigned floors from the profiles table
+        let { data, error } = await sbClient.from('profiles').select('role, assigned_floors').eq('id', user.id).single();
         
         if (error) {
             // Profile row might not have been created yet by the DB trigger due to latency
             console.warn("Profile fetching failed, retrying in 1s...", error);
             await new Promise(resolve => setTimeout(resolve, 1000));
-            const retryRes = await sbClient.from('profiles').select('role').eq('id', user.id).single();
+            const retryRes = await sbClient.from('profiles').select('role, assigned_floors').eq('id', user.id).single();
             data = retryRes.data;
             if (retryRes.error) throw retryRes.error;
         }
         
         currentUserRole = data && data.role ? data.role.toLowerCase().trim() : "viewer";
+        currentUserAssignedFloors = data && Array.isArray(data.assigned_floors) ? data.assigned_floors : [];
         
-        // Update user badge in UI header
-        const badge = document.getElementById("user-profile-badge");
-        const emailText = document.getElementById("user-email-text");
-        const roleText = document.getElementById("user-role-text");
+        // Update user profile in sidebar
+        const sideProfile = document.getElementById("side-user-profile");
+        const sideEmail = document.getElementById("side-user-email");
+        const sideRole = document.getElementById("side-user-role");
         
-        if (badge && emailText && roleText) {
-            emailText.textContent = user.email;
-            roleText.textContent = currentUserRole.toUpperCase();
-            
-            // Set role styling
-            if (currentUserRole === 'admin') {
-                roleText.className = "badge badge-income"; // Emerald
-                roleText.style.borderColor = "rgba(16, 185, 129, 0.4)";
-                roleText.style.color = "var(--color-emerald)";
-            } else if (currentUserRole === 'editor') {
-                roleText.className = "badge badge-expense"; // Rose
-                roleText.style.borderColor = "rgba(244, 63, 94, 0.4)";
-                roleText.style.color = "var(--color-rose)";
-            } else {
-                roleText.className = "badge"; // default slate
-                roleText.style.borderColor = "var(--border-color)";
-                roleText.style.color = "var(--text-secondary)";
-            }
-            badge.style.display = "inline-flex";
+        if (sideProfile && sideEmail && sideRole) {
+            sideEmail.textContent = user.email;
+            sideRole.textContent = currentUserRole.toUpperCase();
+            const roleColor = getRoleColor(currentUserRole);
+            sideRole.className = "badge";
+            sideRole.style.borderColor = roleColor.replace('var(', '').replace(')', '').trim()
+                ? `rgba(255,255,255,0.2)` : 'var(--border-color)';
+            sideRole.style.color = roleColor;
+            sideProfile.style.display = "flex";
         }
         
         // Apply RBAC modifications to view buttons and actions
@@ -277,68 +289,113 @@ async function handleUserSession(user) {
     }
 }
 
-function applyRbacRestrictions(role) {
-    const importBtn = document.querySelector("button[onclick=\"openModal('importModal')\"]");
-    const ownersBtn = document.querySelector("button[onclick=\"openModal('ownersModal')\"]");
-    const manageHeadsBtn = document.querySelector("button[onclick=\"openExpenseHeadsModal()\"]");
-    
-    const collectFeeBtn = document.querySelector("button[onclick=\"openModal('incomeModal')\"]");
-    const recordExpenseBtn = document.querySelector("button[onclick=\"openModal('expenseModal')\"]");
-    const manageUsersBtn = document.getElementById("btn-manage-users");
-    
-    if (role === 'admin') {
-        if (importBtn) importBtn.style.display = "inline-flex";
-        if (ownersBtn) ownersBtn.style.display = "inline-flex";
-        if (manageHeadsBtn) manageHeadsBtn.style.display = "inline-flex";
-        if (collectFeeBtn) collectFeeBtn.style.display = "inline-flex";
-        if (recordExpenseBtn) recordExpenseBtn.style.display = "inline-flex";
-        
-        // Show main workspace and other navbar buttons
-        document.querySelector(".workspace").style.display = "block";
-        document.querySelector("button[onclick=\"openHistoryModal()\"]").style.display = "inline-flex";
-        document.querySelector("button[onclick=\"openReportsModal()\"]").style.display = "inline-flex";
-        document.getElementById("btn-export").style.display = "inline-flex";
-        if (manageUsersBtn) manageUsersBtn.style.display = "inline-flex";
-    } else if (role === 'editor') {
-        if (importBtn) importBtn.style.display = "none";
-        if (ownersBtn) ownersBtn.style.display = "none";
-        if (manageHeadsBtn) manageHeadsBtn.style.display = "none";
-        if (collectFeeBtn) collectFeeBtn.style.display = "inline-flex";
-        if (recordExpenseBtn) recordExpenseBtn.style.display = "inline-flex";
-        
-        // Show main workspace and other navbar buttons
-        document.querySelector(".workspace").style.display = "block";
-        document.querySelector("button[onclick=\"openHistoryModal()\"]").style.display = "inline-flex";
-        document.querySelector("button[onclick=\"openReportsModal()\"]").style.display = "inline-flex";
-        document.getElementById("btn-export").style.display = "inline-flex";
-        if (manageUsersBtn) manageUsersBtn.style.display = "none";
-    } else {
-        // viewer (resident soft login) - Only Owners Directory and Support Helpdesk allowed
-        if (importBtn) importBtn.style.display = "none";
-        if (ownersBtn) ownersBtn.style.display = "none"; // Hide upload owners (admin function)
-        if (manageHeadsBtn) manageHeadsBtn.style.display = "none";
-        if (collectFeeBtn) collectFeeBtn.style.display = "none";
-        if (recordExpenseBtn) recordExpenseBtn.style.display = "none";
-        
-        // Hide unused navbar buttons and entire dashboard workspace
-        document.querySelector(".workspace").style.display = "none";
-        
-        const historyBtn = document.querySelector("button[onclick=\"openHistoryModal()\"]");
-        if (historyBtn) historyBtn.style.display = "none";
-        
-        const reportsBtn = document.querySelector("button[onclick=\"openReportsModal()\"]");
-        if (reportsBtn) reportsBtn.style.display = "none";
-        
-        const exportBtn = document.getElementById("btn-export");
-        if (exportBtn) exportBtn.style.display = "none";
-        
-        if (manageUsersBtn) manageUsersBtn.style.display = "none";
+// ==========================================
+// DYNAMIC ROLE & PERMISSION SYSTEM
+// ==========================================
+
+async function loadRoles() {
+    if (!sbClient) return;
+    try {
+        const { data, error } = await sbClient.from('roles').select('*').order('priority', { ascending: false });
+        if (error) {
+            // roles table might not exist yet; use default hardcoded roles as fallback
+            console.warn("Could not load roles from DB, using defaults:", error);
+            rolesData = getDefaultRoles();
+        } else if (data && data.length > 0) {
+            rolesData = data;
+        } else {
+            rolesData = getDefaultRoles();
+        }
+    } catch (e) {
+        console.warn("Error loading roles, using defaults:", e);
+        rolesData = getDefaultRoles();
     }
+}
+
+function getDefaultRoles() {
+    return [
+        { name: 'admin', label: 'Administrator', permissions: ['dashboard:view','income:create','income:delete','expense:create','expense:delete','history:view','reports:view','ledger:import','ledger:export','owners:upload','owners:edit_any','owners:edit_own','expense_heads:manage','expense_heads:create','expense_heads:delete','users:manage','users:role_change','tickets:assign','tickets:recommend','tickets:approve','tickets:resolve','tickets:close','tickets:reopen','tickets:archive','tickets:delete','tickets:comment'], color: 'var(--color-emerald)' },
+        { name: 'editor', label: 'Editor', permissions: ['dashboard:view','income:create','expense:create','history:view','reports:view','ledger:export','tickets:resolve','tickets:comment'], color: 'var(--color-rose)' },
+        { name: 'floor_manager', label: 'Floor Manager', permissions: ['dashboard:view','income:create','history:view','reports:view','tickets:recommend','tickets:comment'], color: 'var(--color-yellow)' },
+        { name: 'committee_member', label: 'Committee Member', permissions: ['dashboard:view','history:view','reports:view','tickets:approve','tickets:comment'], color: 'var(--color-violet)' },
+        { name: 'viewer', label: 'Viewer (Resident)', permissions: ['owners:edit_own','tickets:comment'], color: 'var(--text-secondary)' }
+    ];
+}
+
+function hasPermission(perm) {
+    return currentRolePermissions.includes(perm);
+}
+
+function getRoleData(roleName) {
+    return rolesData.find(r => r.name === roleName) || null;
+}
+
+function getRoleColor(roleName) {
+    const r = getRoleData(roleName);
+    return r ? (r.color || 'var(--text-secondary)') : 'var(--text-secondary)';
+}
+
+function getRoleLabel(roleName) {
+    const r = getRoleData(roleName);
+    return r ? (r.label || roleName) : roleName;
+}
+
+function applyRbacRestrictions(role) {
+    const roleData = getRoleData(role);
+    currentRolePermissions = roleData ? [...roleData.permissions] : [];
+    
+    const setBlock = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? "block" : "none"; };
+    const setNav = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? "flex" : "none"; };
+    
+    // Sidebar nav items
+    setNav("side-collect-fee", hasPermission('income:create'));
+    setNav("side-record-expense", hasPermission('expense:create'));
+    setNav("side-import", hasPermission('ledger:import'));
+    setNav("side-owners-upload", hasPermission('owners:upload'));
+    setNav("side-export", hasPermission('ledger:export'));
+    setNav("side-manage-users", hasPermission('users:manage'));
+    setNav("side-manage-roles", hasPermission('users:role_change'));
+    
+    const canViewDashboard = hasPermission('dashboard:view');
+    setNav("side-dashboard", canViewDashboard);
+    setNav("side-history", canViewDashboard && hasPermission('history:view'));
+    setNav("side-reports", canViewDashboard && hasPermission('reports:view'));
+    setNav("side-directory", true);
+    setNav("side-helpdesk", true);
+    
+    // Admin section visibility
+    const hasAdminAccess = hasPermission('users:manage') || hasPermission('users:role_change');
+    setBlock("side-admin-label", hasAdminAccess);
+    setBlock("side-admin-nav", hasAdminAccess);
+    
+    // Workspace visibility
+    setBlock("workspace", canViewDashboard);
     
     // Refresh ledger lists so that edit buttons disappear or appear
     if (loadedEntries.length > 0) {
         renderTable(loadedEntries);
     }
+}
+
+// ==========================================
+// FLOOR-MANAGER: ASSIGNED FLOORS SYSTEM
+// ==========================================
+
+function getFlatFloor(flatNo) {
+    if (!flatNo) return null;
+    const match = flatNo.match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
+}
+
+function isFlatAccessible(flatNo) {
+    if (currentUserAssignedFloors.length === 0) return true;
+    const floor = getFlatFloor(flatNo);
+    return floor !== null && currentUserAssignedFloors.includes(floor);
+}
+
+function filterFlatsByAssignment(data) {
+    if (currentUserAssignedFloors.length === 0) return data;
+    return data.filter(item => isFlatAccessible(item.flat_no));
 }
 
 // Toggle between Login & Register forms
@@ -473,8 +530,10 @@ async function ensureOwnersPopulated() {
 async function loadFlats() {
     if (!sbClient) return;
     try {
-        const { data, error } = await sbClient.from('owners').select('flat_no, owner_name').order('flat_no');
+        let { data, error } = await sbClient.from('owners').select('flat_no, owner_name').order('flat_no');
         if (error) throw error;
+        
+        data = filterFlatsByAssignment(data);
         
         const flatSelect = document.getElementById("inc-flat");
         const histFlat = document.getElementById("hist-flat");
@@ -515,7 +574,7 @@ async function loadFlats() {
             
             data.forEach(item => {
                 if (isSoftLogin && item.flat_no !== softLoginFlatNo) {
-                    return; // Skip flats that do not match the soft login
+                    return;
                 }
                 const opt = document.createElement("option");
                 opt.value = item.flat_no;
@@ -603,9 +662,8 @@ async function refreshDashboard() {
         
         renderTable(loadedEntries);
         
-        const exportBtn = document.getElementById("btn-export");
+        const exportBtn = document.getElementById("side-export");
         if (exportBtn) {
-            exportBtn.removeAttribute("href");
             exportBtn.onclick = (e) => {
                 e.preventDefault();
                 exportLedgerToExcel();
@@ -657,7 +715,8 @@ function renderTable(entries) {
                </button>`
             : '';
 
-        const deleteButton = currentUserRole === "admin"
+        const canDelete = (entry.type === "INCOME" && hasPermission('income:delete')) || (entry.type === "EXPENSE" && hasPermission('expense:delete'));
+        const deleteButton = canDelete
             ? `<button class="btn-delete" title="Delete entry" onclick="deleteEntry('${entry.type}', ${entry.id}, '${entry.description.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
                     <i class="fa-solid fa-trash-can"></i>
                </button>`
@@ -705,12 +764,22 @@ window.handleIncomeSubmit = async function(e) {
         return;
     }
     
-    if (currentUserRole !== 'admin' && currentUserRole !== 'editor') {
-        showToast("Access Denied: Only Admins and Editors can record entries.", "error");
+    if (!hasPermission('income:create')) {
+        showToast("Access Denied: You don't have permission to record income entries.", "error");
         return;
     }
     
     const flat = document.getElementById("inc-flat").value;
+    
+    // Floor restriction validation
+    if (currentUserAssignedFloors.length > 0) {
+        const flatNo = flat.split(' - ')[0];
+        const floor = getFlatFloor(flatNo);
+        if (floor === null || !currentUserAssignedFloors.includes(floor)) {
+            showToast("Access Denied: You can only collect fees for flats on your assigned floors.", "error");
+            return;
+        }
+    }
     const category = document.getElementById("inc-category").value;
     const eventName = document.getElementById("inc-event") ? document.getElementById("inc-event").value.trim() : "";
     const remarks = document.getElementById("inc-remarks") ? document.getElementById("inc-remarks").value.trim() : "";
@@ -774,8 +843,8 @@ window.handleExpenseSubmit = async function(e) {
         return;
     }
     
-    if (currentUserRole !== 'admin' && currentUserRole !== 'editor') {
-        showToast("Access Denied: Only Admins and Editors can record entries.", "error");
+    if (!hasPermission('expense:create')) {
+        showToast("Access Denied: You don't have permission to record expense entries.", "error");
         return;
     }
     
@@ -873,7 +942,7 @@ async function loadExpenseHeads() {
                     const div = document.createElement("div");
                     div.className = "category-item";
                     
-                    const deleteBtn = currentUserRole === 'admin'
+                    const deleteBtn = hasPermission('expense_heads:delete')
                         ? `<button class="btn-delete" title="Delete category" onclick="handleDeleteExpenseHead(${item.id}, '${item.name.replace(/'/g, "\\'")}')">
                                <i class="fa-solid fa-trash-can"></i>
                            </button>`
@@ -894,10 +963,9 @@ async function loadExpenseHeads() {
 }
 
 window.openExpenseHeadsModal = function() {
-    // Show add-head-form only to admin
     const addForm = document.getElementById("add-head-form");
     if (addForm) {
-        addForm.style.display = currentUserRole === 'admin' ? 'flex' : 'none';
+        addForm.style.display = hasPermission('expense_heads:create') ? 'flex' : 'none';
     }
     loadExpenseHeads();
     openModal('expenseHeadsModal');
@@ -906,8 +974,8 @@ window.openExpenseHeadsModal = function() {
 window.handleAddExpenseHead = async function(e) {
     e.preventDefault();
     if (!sbClient) return;
-    if (currentUserRole !== 'admin') {
-        showToast("Access Denied: Only Admins can add expense categories.", "error");
+    if (!hasPermission('expense_heads:create')) {
+        showToast("Access Denied: You don't have permission to add expense categories.", "error");
         return;
     }
     const input = document.getElementById("new-head-name");
@@ -932,8 +1000,8 @@ window.handleAddExpenseHead = async function(e) {
 
 window.handleDeleteExpenseHead = async function(id, name) {
     if (!sbClient) return;
-    if (currentUserRole !== 'admin') {
-        showToast("Access Denied: Only Admins can delete expense categories.", "error");
+    if (!hasPermission('expense_heads:delete')) {
+        showToast("Access Denied: You don't have permission to delete expense categories.", "error");
         return;
     }
     
@@ -973,7 +1041,7 @@ window.loadOwnersDirectory = async function(filterText = "") {
         let { data, error } = await sbClient.from('owners').select('*').order('flat_no');
         if (error) throw error;
         
-        allOwnersData = data || [];
+        allOwnersData = filterFlatsByAssignment(data || []);
         renderOwnersGrid(allOwnersData, filterText);
     } catch (err) {
         console.error("loadOwnersDirectory error:", err);
@@ -1053,9 +1121,9 @@ window.selectFlatForEdit = function(flatNo) {
     const detailSide = document.getElementById("directory-detail-side");
     if (!detailSide || !item) return;
     
-    const isAdmin = currentUserRole === 'admin';
+    const canEditAny = hasPermission('owners:edit_any');
     const isOwnFlat = localStorage.getItem("isSoftLogin") === "true" && localStorage.getItem("currentFlatNo") === flatNo;
-    const canEdit = isAdmin || isOwnFlat;
+    const canEdit = canEditAny || (hasPermission('owners:edit_own') && isOwnFlat);
     const disabledAttr = canEdit ? "" : "disabled";
     
     const statusOptions = [
@@ -1145,7 +1213,7 @@ window.saveOwnerProfile = async function(e) {
     const flatNo = document.getElementById("edit-flat-no").value;
     const isOwnFlat = localStorage.getItem("isSoftLogin") === "true" && localStorage.getItem("currentFlatNo") === flatNo;
     
-    if (currentUserRole !== 'admin' && !isOwnFlat) {
+    if (!hasPermission('owners:edit_any') && !(hasPermission('owners:edit_own') && isOwnFlat)) {
         showToast("Access Denied: Only Admins or the flat owner can save profiles.", "error");
         return;
     }
@@ -1213,8 +1281,8 @@ window.deleteEntry = async function(type, id, desc) {
         return;
     }
     
-    if (currentUserRole !== 'admin') {
-        showToast("Access Denied: Only Admins can delete entries.", "error");
+    if (!hasPermission('income:delete') && !hasPermission('expense:delete')) {
+        showToast("Access Denied: You don't have permission to delete entries.", "error");
         return;
     }
     
@@ -1697,7 +1765,8 @@ function renderHistoryTable(entries) {
                </button>`
             : '';
 
-        const deleteButton = currentUserRole === "admin"
+        const canDelete = (entry.type === "INCOME" && hasPermission('income:delete')) || (entry.type === "EXPENSE" && hasPermission('expense:delete'));
+        const deleteButton = canDelete
             ? `<button class="btn-delete" title="Delete entry" onclick="deleteHistoryEntry('${entry.type}', ${entry.id}, '${entry.description.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
                     <i class="fa-solid fa-trash-can"></i>
                </button>`
@@ -1733,8 +1802,8 @@ window.deleteHistoryEntry = async function(type, id, desc) {
         return;
     }
     
-    if (currentUserRole !== 'admin') {
-        showToast("Access Denied: Only Admins can delete entries.", "error");
+    if (!hasPermission('income:delete') && !hasPermission('expense:delete')) {
+        showToast("Access Denied: You don't have permission to delete entries.", "error");
         return;
     }
 
@@ -2520,8 +2589,8 @@ window.handleImportSubmit = async function(e) {
         return;
     }
     
-    if (currentUserRole !== 'admin') {
-        showToast("Access Denied: Only Admins can import ledgers.", "error");
+    if (!hasPermission('ledger:import')) {
+        showToast("Access Denied: You don't have permission to import ledgers.", "error");
         return;
     }
     
@@ -2905,8 +2974,8 @@ window.handleOwnersSubmit = async function(e) {
         return;
     }
     
-    if (currentUserRole !== 'admin') {
-        showToast("Access Denied: Only Admins can upload owner mappings.", "error");
+    if (!hasPermission('owners:upload')) {
+        showToast("Access Denied: You don't have permission to upload owner mappings.", "error");
         return;
     }
     
@@ -3200,8 +3269,7 @@ window.filterTickets = function() {
             return false;
         }
         
-        // Archiving filter (admins can see archived, standard users don't)
-        if (t.archived && currentUserRole !== 'admin') {
+        if (t.archived && !hasPermission('tickets:archive')) {
             return false;
         }
         
@@ -3345,7 +3413,7 @@ window.selectTicket = function(id) {
     
     // Render Admin assign controls
     let assignHtml = '';
-    if (currentUserRole === 'admin') {
+    if (hasPermission('tickets:assign')) {
         assignHtml = `
             <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 12px; margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                 <span style="font-size: 0.85rem; font-weight:600;"><i class="fa-solid fa-user-tag"></i> Assign Complaint:</span>
@@ -3354,21 +3422,30 @@ window.selectTicket = function(id) {
                 </select>
             </div>
         `;
-        // Fetch profiles async and update options
         fetchAssigneesForDropdown(ticket.assigned_to);
     }
     
     // Render Admin control actions (Archive/Delete)
     let adminControlsHtml = '';
-    if (currentUserRole === 'admin') {
+    const canArchive = hasPermission('tickets:archive');
+    const canDeleteTicket = hasPermission('tickets:delete');
+    if (canArchive || canDeleteTicket) {
+        let archiveBtn = '';
+        if (canArchive) {
+            archiveBtn = `<button class="btn btn-slate" onclick="archiveTicket(${ticket.id})" style="flex: 1; font-size: 0.8rem; padding: 8px;">
+                <i class="fa-solid fa-box-archive"></i> ${ticket.archived ? 'Unarchive' : 'Archive'} Ticket
+            </button>`;
+        }
+        let deleteBtn = '';
+        if (canDeleteTicket) {
+            deleteBtn = `<button class="btn btn-rose" onclick="deleteTicket(${ticket.id})" style="flex: 1; font-size: 0.8rem; padding: 8px;">
+                <i class="fa-solid fa-trash-can"></i> Delete Permanently
+            </button>`;
+        }
         adminControlsHtml = `
             <div style="display: flex; gap: 12px; margin-top: 16px;">
-                <button class="btn btn-slate" onclick="archiveTicket(${ticket.id})" style="flex: 1; font-size: 0.8rem; padding: 8px;">
-                    <i class="fa-solid fa-box-archive"></i> ${ticket.archived ? 'Unarchive' : 'Archive'} Ticket
-                </button>
-                <button class="btn btn-rose" onclick="deleteTicket(${ticket.id})" style="flex: 1; font-size: 0.8rem; padding: 8px;">
-                    <i class="fa-solid fa-trash-can"></i> Delete Permanently
-                </button>
+                ${archiveBtn}
+                ${deleteBtn}
             </div>
         `;
     }
@@ -3602,6 +3679,10 @@ window.loadComments = async function(ticketId) {
 window.submitComment = async function(e, ticketId) {
     e.preventDefault();
     if (!sbClient || !currentUserId) return;
+    if (!hasPermission('tickets:comment')) {
+        showToast("You don't have permission to comment on tickets.", "error");
+        return;
+    }
     
     const textarea = document.getElementById("comment-new-text");
     const text = textarea.value.trim();
@@ -3750,17 +3831,17 @@ function buildActionsHtml(ticket) {
     const isResolved = status === 'Resolved';
     const isReopened = status === 'Reopened';
     
-    const role = currentUserRole;
     const isCreator = ticket.created_by === currentUserId;
-    const isAdmin = role === 'admin';
-    const isFloorManager = role === 'floor_manager';
-    const isCommitteeMember = role === 'committee_member';
-    const isEditor = role === 'editor';
+    const canRecommend = hasPermission('tickets:recommend');
+    const canApprove = hasPermission('tickets:approve');
+    const canResolve = hasPermission('tickets:resolve');
+    const canClose = hasPermission('tickets:close');
+    const canReopen = hasPermission('tickets:reopen');
     
     let html = '';
     
     // 1. Floor Manager Action
-    if ((isFloorManager || isAdmin) && (isPending || isReopened)) {
+    if (canRecommend && (isPending || isReopened)) {
         html += `
             <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--border-color);">
                 <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--color-yellow); margin-bottom: 10px;"><i class="fa-solid fa-user-edit"></i> Floor Manager Action</h4>
@@ -3778,7 +3859,7 @@ function buildActionsHtml(ticket) {
     }
     
     // 2. Committee Approval Action
-    if ((isCommitteeMember || isAdmin) && isRecommended) {
+    if (canApprove && isRecommended) {
         const approvals = Array.isArray(ticket.committee_approvals) ? ticket.committee_approvals : [];
         const alreadyApproved = approvals.includes(currentUserId);
         
@@ -3804,8 +3885,8 @@ function buildActionsHtml(ticket) {
         html += `</div>`;
     }
     
-    // 3. Action & Resolution Form (Editor / Admin)
-    if ((isEditor || isAdmin) && isApproved) {
+    // 3. Action & Resolution Form
+    if (canResolve && isApproved) {
         html += `
             <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--border-color);">
                 <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--color-teal); margin-bottom: 10px;"><i class="fa-solid fa-wrench"></i> Record Action & Resolution</h4>
@@ -3822,8 +3903,8 @@ function buildActionsHtml(ticket) {
         `;
     }
     
-    // 4. Complainer Feedback Form (Creator / Admin)
-    if ((isCreator || isAdmin) && isResolved) {
+    // 4. Complainer Feedback Form (Creator or permission holders)
+    if ((isCreator || canClose || canReopen) && isResolved) {
         html += `
             <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--border-color);">
                 <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--color-emerald); margin-bottom: 10px;"><i class="fa-solid fa-comment-dots"></i> Resident Acknowledgement</h4>
@@ -4379,21 +4460,23 @@ async function handleSoftUserSession(user, flatNo) {
     if (!sbClient) return;
     
     try {
-        // Update user badge in UI header
-        const badge = document.getElementById("user-profile-badge");
-        const emailText = document.getElementById("user-email-text");
-        const roleText = document.getElementById("user-role-text");
+        await loadRoles();
         
-        if (badge && emailText && roleText) {
-            emailText.textContent = `Flat ${flatNo}`;
-            roleText.textContent = "RESIDENT";
-            roleText.className = "badge";
-            roleText.style.borderColor = "var(--border-color)";
-            roleText.style.color = "var(--text-secondary)";
-            badge.style.display = "inline-flex";
+        // Update user profile in sidebar
+        const sideProfile = document.getElementById("side-user-profile");
+        const sideEmail = document.getElementById("side-user-email");
+        const sideRole = document.getElementById("side-user-role");
+        
+        if (sideProfile && sideEmail && sideRole) {
+            sideEmail.textContent = `Flat ${flatNo}`;
+            sideRole.textContent = "RESIDENT";
+            sideRole.className = "badge";
+            sideRole.style.borderColor = "var(--border-color)";
+            sideRole.style.color = "var(--text-secondary)";
+            sideProfile.style.display = "flex";
         }
         
-        currentUserRole = 'viewer'; // Treated as viewer for RBAC
+        currentUserRole = 'viewer';
         applyRbacRestrictions('viewer');
         
         await ensureOwnersPopulated();
@@ -4453,45 +4536,45 @@ async function autoLoginSharedAccount(flatNo) {
 // ==========================================
 
 window.openUsersModal = async function() {
-    if (currentUserRole !== 'admin') {
-        showToast("Access Denied. Only Admins can manage users.", "error");
+    if (!hasPermission('users:manage')) {
+        showToast("Access Denied. You don't have permission to manage users.", "error");
         return;
     }
     
     openModal("usersModal");
     const tbody = document.getElementById("users-table-body");
-    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Loading users...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Loading users...</td></tr>';
     
     try {
         const { data: profiles, error } = await sbClient
             .from('profiles')
-            .select('id, email, role')
+            .select('id, email, role, assigned_floors')
             .order('email');
             
         if (error) throw error;
         
         if (!profiles || profiles.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No registered users found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No registered users found.</td></tr>';
             return;
         }
         
-        const roles = [
-            { value: 'admin', label: 'Admin' },
-            { value: 'floor_manager', label: 'Floor Manager' },
-            { value: 'committee_member', label: 'Committee Member' },
-            { value: 'editor', label: 'Editor' },
-            { value: 'viewer', label: 'Viewer' }
-        ];
+        // Build role options from dynamic rolesData
+        const roleOptionsMap = rolesData.map(r => 
+            ({ value: r.name, label: r.label || r.name })
+        );
         
         tbody.innerHTML = '';
         profiles.forEach(p => {
             const tr = document.createElement("tr");
-            let roleOptions = roles.map(r => 
+            let roleOptions = roleOptionsMap.map(r => 
                 `<option value="${r.value}" ${r.value === p.role ? 'selected' : ''}>${r.label}</option>`
             ).join('');
             
             // Prevent changing own role via UI for safety
             const disableSelect = p.id === currentUserId ? 'disabled title="Cannot change your own role"' : '';
+            
+            const userFloors = Array.isArray(p.assigned_floors) ? p.assigned_floors : [];
+            const floorsText = userFloors.length > 0 ? `Floor ${userFloors.sort().join(', Floor ')}` : 'All';
             
             tr.innerHTML = `
                 <td>${p.email}</td>
@@ -4499,6 +4582,12 @@ window.openUsersModal = async function() {
                     <select id="role-select-${p.id}" class="filter-select" ${disableSelect}>
                         ${roleOptions}
                     </select>
+                </td>
+                <td style="text-align: center;">
+                    <span style="font-size:0.8rem; color:var(--text-secondary);">${floorsText}</span>
+                    <button class="btn btn-slate" style="padding: 2px 6px; font-size: 0.65rem; margin-left: 4px;" onclick="openAssignFloorsModal('${p.id}', '${escapeHtml(p.email)}')">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </button>
                 </td>
                 <td>
                     <button class="btn btn-emerald" style="padding: 4px 8px; font-size: 0.8rem;" ${disableSelect} onclick="updateUserRole('${p.id}')">Save Role</button>
@@ -4509,13 +4598,13 @@ window.openUsersModal = async function() {
         
     } catch (err) {
         console.error("Error fetching users:", err);
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: red;">Failed to load users.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: red;">Failed to load users.</td></tr>';
         showToast("Error loading users.", "error");
     }
 };
 
 window.updateUserRole = async function(userId) {
-    if (currentUserRole !== 'admin') {
+    if (!hasPermission('users:role_change')) {
         showToast("Access Denied.", "error");
         return;
     }
@@ -4534,6 +4623,58 @@ window.updateUserRole = async function(userId) {
     } catch (err) {
         console.error("Error updating user role:", err);
         showToast("Failed to update user role.", "error");
+    }
+};
+
+window.openAssignFloorsModal = async function(userId, userEmail) {
+    if (!hasPermission('users:role_change')) {
+        showToast("Access Denied.", "error");
+        return;
+    }
+    
+    document.getElementById("assign-floors-user-id").value = userId;
+    document.getElementById("assign-floors-user-email").textContent = userEmail;
+    
+    // Fetch current floor assignments
+    try {
+        const { data, error } = await sbClient.from('profiles').select('assigned_floors').eq('id', userId).single();
+        if (error) throw error;
+        
+        const assigned = data && Array.isArray(data.assigned_floors) ? data.assigned_floors : [];
+        
+        // Check/uncheck boxes
+        document.querySelectorAll(".floor-checkbox").forEach(cb => {
+            cb.checked = assigned.includes(parseInt(cb.value));
+        });
+    } catch (err) {
+        console.error("Error fetching floor assignments:", err);
+        showToast("Failed to load floor assignments.", "error");
+        return;
+    }
+    
+    openModal("floorAssignmentModal");
+};
+
+window.saveFloorAssignment = async function() {
+    if (!hasPermission('users:role_change')) {
+        showToast("Access Denied.", "error");
+        return;
+    }
+    
+    const userId = document.getElementById("assign-floors-user-id").value;
+    const checkedBoxes = document.querySelectorAll(".floor-checkbox:checked");
+    const floors = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+    
+    try {
+        const { error } = await sbClient.from('profiles').update({ assigned_floors: floors }).eq('id', userId);
+        if (error) throw error;
+        
+        showToast("Floor assignments saved!", "success");
+        closeModal("floorAssignmentModal");
+        openUsersModal();
+    } catch (err) {
+        console.error("Error saving floor assignments:", err);
+        showToast("Failed to save floor assignments.", "error");
     }
 };
 
@@ -4571,5 +4712,249 @@ window.updateUserPassword = async function() {
     } catch (err) {
         console.error("Error updating password:", err);
         showToast("Failed to update password: " + err.message, "error");
+    }
+};
+
+// ==========================================
+// DYNAMIC ROLE MANAGEMENT (CRUD)
+// ==========================================
+
+const ALL_PERMISSIONS = [
+    { id: 'dashboard:view', label: 'View Dashboard' },
+    { id: 'income:create', label: 'Record Income' },
+    { id: 'income:delete', label: 'Delete Income' },
+    { id: 'expense:create', label: 'Record Expense' },
+    { id: 'expense:delete', label: 'Delete Expense' },
+    { id: 'history:view', label: 'View Ledger History' },
+    { id: 'reports:view', label: 'View Reports' },
+    { id: 'ledger:import', label: 'Import Ledger' },
+    { id: 'ledger:export', label: 'Export Ledger' },
+    { id: 'owners:upload', label: 'Upload Owners' },
+    { id: 'owners:edit_any', label: 'Edit Any Owner Profile' },
+    { id: 'owners:edit_own', label: 'Edit Own Profile' },
+    { id: 'expense_heads:manage', label: 'Access Expense Heads' },
+    { id: 'expense_heads:create', label: 'Add Expense Heads' },
+    { id: 'expense_heads:delete', label: 'Delete Expense Heads' },
+    { id: 'users:manage', label: 'View Users List' },
+    { id: 'users:role_change', label: 'Change User Roles' },
+    { id: 'tickets:assign', label: 'Assign Tickets' },
+    { id: 'tickets:recommend', label: 'Recommend Tickets' },
+    { id: 'tickets:approve', label: 'Approve Tickets' },
+    { id: 'tickets:resolve', label: 'Resolve Tickets' },
+    { id: 'tickets:close', label: 'Close Tickets' },
+    { id: 'tickets:reopen', label: 'Reopen Tickets' },
+    { id: 'tickets:archive', label: 'Archive/View Archived' },
+    { id: 'tickets:delete', label: 'Delete Tickets' },
+    { id: 'tickets:comment', label: 'Comment on Tickets' }
+];
+
+window.openRolesModal = async function() {
+    if (!hasPermission('users:role_change')) {
+        showToast("Access Denied.", "error");
+        return;
+    }
+    await loadRoles();
+    renderRolesManager();
+    openModal('rolesModal');
+};
+
+function renderRolesManager() {
+    const container = document.getElementById("roles-manager-list");
+    if (!container) return;
+    
+    if (rolesData.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-muted);">No roles defined.</div>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    rolesData.forEach(role => {
+        const card = document.createElement("div");
+        card.className = "category-item";
+        card.style.flexDirection = "column";
+        card.style.alignItems = "stretch";
+        card.style.padding = "12px";
+        card.style.marginBottom = "8px";
+        
+        const permCount = (role.permissions || []).length;
+        const permLabels = role.permissions.map(p => {
+            const found = ALL_PERMISSIONS.find(ap => ap.id === p);
+            return found ? found.label : p;
+        }).join(', ');
+        
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <div>
+                    <strong style="color: var(--text-primary); font-size: 0.95rem;">${role.label || role.name}</strong>
+                    <code style="margin-left: 8px; font-size: 0.7rem; color: var(--text-muted);">${role.name}</code>
+                    <span class="badge badge-income" style="margin-left: 8px; font-size: 0.6rem; padding: 1px 6px;">${permCount} permissions</span>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn btn-indigo" style="padding: 4px 10px; font-size: 0.7rem;" onclick="openEditRoleModal('${role.name}')">
+                        <i class="fa-solid fa-pen"></i> Edit
+                    </button>
+                    ${role.name !== 'admin' ? `<button class="btn btn-rose" style="padding: 4px 10px; font-size: 0.7rem;" onclick="handleDeleteRole('${role.name}')">
+                        <i class="fa-solid fa-trash-can"></i> Delete
+                    </button>` : ''}
+                </div>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5;">
+                ${permLabels || '<em>No permissions</em>'}
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+window.openAddRoleModal = function() {
+    const modal = document.getElementById("editRoleModal");
+    if (!modal) return;
+    
+    document.getElementById("edit-role-mode").value = "add";
+    document.getElementById("edit-role-original-name").value = "";
+    document.getElementById("edit-role-name").value = "";
+    document.getElementById("edit-role-label").value = "";
+    document.getElementById("edit-role-color").value = "var(--text-secondary)";
+    
+    // Build permission checkboxes
+    renderPermissionCheckboxes([]);
+    
+    document.getElementById("edit-role-modal-title").textContent = "Add New Role";
+    openModal("editRoleModal");
+};
+
+window.openEditRoleModal = function(roleName) {
+    const role = rolesData.find(r => r.name === roleName);
+    if (!role) return;
+    
+    const modal = document.getElementById("editRoleModal");
+    if (!modal) return;
+    
+    document.getElementById("edit-role-mode").value = "edit";
+    document.getElementById("edit-role-original-name").value = role.name;
+    document.getElementById("edit-role-name").value = role.name;
+    document.getElementById("edit-role-label").value = role.label || '';
+    document.getElementById("edit-role-color").value = role.color || 'var(--text-secondary)';
+    
+    renderPermissionCheckboxes(role.permissions || []);
+    
+    document.getElementById("edit-role-modal-title").textContent = "Edit Role";
+    openModal("editRoleModal");
+};
+
+function renderPermissionCheckboxes(selectedPerms) {
+    const container = document.getElementById("edit-role-permissions");
+    if (!container) return;
+    
+    container.innerHTML = '';
+    ALL_PERMISSIONS.forEach(perm => {
+        const checked = selectedPerms.includes(perm.id) ? 'checked' : '';
+        const div = document.createElement("div");
+        div.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 4px 0;';
+        div.innerHTML = `
+            <input type="checkbox" id="perm-${perm.id}" value="${perm.id}" ${checked} style="accent-color: var(--color-indigo);">
+            <label for="perm-${perm.id}" style="font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">${perm.label}</label>
+        `;
+        container.appendChild(div);
+    });
+}
+
+window.handleSaveRole = async function(e) {
+    e.preventDefault();
+    if (!sbClient) return;
+    if (!hasPermission('users:role_change')) {
+        showToast("Access Denied.", "error");
+        return;
+    }
+    
+    const mode = document.getElementById("edit-role-mode").value;
+    const originalName = document.getElementById("edit-role-original-name").value;
+    const name = document.getElementById("edit-role-name").value.trim();
+    const label = document.getElementById("edit-role-label").value.trim();
+    const color = document.getElementById("edit-role-color").value.trim();
+    
+    // Gather selected permissions
+    const checkboxes = document.querySelectorAll("#edit-role-permissions input[type='checkbox']:checked");
+    const permissions = Array.from(checkboxes).map(cb => cb.value);
+    
+    if (!name || !label) {
+        showToast("Role name and label are required.", "error");
+        return;
+    }
+    
+    const btn = e.target.querySelector("button[type=submit]");
+    if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
+    
+    try {
+        if (mode === "add") {
+            // Insert new role
+            const { error } = await sbClient.from('roles').insert({
+                name: name,
+                label: label,
+                permissions: permissions,
+                color: color || 'var(--text-secondary)',
+                priority: rolesData.length > 0 ? Math.min(...rolesData.map(r => r.priority || 0)) - 10 : 0
+            });
+            if (error) throw error;
+            showToast(`Role "${label}" created!`, "success");
+        } else {
+            // Update existing role
+            const { error } = await sbClient.from('roles')
+                .update({
+                    name: name,
+                    label: label,
+                    permissions: permissions,
+                    color: color || 'var(--text-secondary)'
+                })
+                .eq('name', originalName);
+            if (error) throw error;
+            showToast(`Role "${label}" updated!`, "success");
+        }
+        
+        closeModal('editRoleModal');
+        await loadRoles();
+        renderRolesManager();
+        
+        // Re-apply RBAC for current user in case their role's permissions changed
+        applyRbacRestrictions(currentUserRole);
+        
+    } catch (err) {
+        console.error("handleSaveRole error:", err);
+        showToast(err.message || "Failed to save role.", "error");
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Role'; }
+    }
+};
+
+window.handleDeleteRole = async function(roleName) {
+    if (!sbClient) return;
+    if (!hasPermission('users:role_change')) {
+        showToast("Access Denied.", "error");
+        return;
+    }
+    
+    if (roleName === 'admin') {
+        showToast("Cannot delete the default admin role.", "error");
+        return;
+    }
+    
+    const role = rolesData.find(r => r.name === roleName);
+    if (!role) return;
+    
+    if (!confirm(`Are you sure you want to delete the role "${role.label || roleName}"?\n\nUsers with this role will retain it but lose all associated permissions until reassigned.`)) {
+        return;
+    }
+    
+    try {
+        const { error } = await sbClient.from('roles').delete().eq('name', roleName);
+        if (error) throw error;
+        
+        showToast(`Role "${role.label || roleName}" deleted.`, "success");
+        await loadRoles();
+        renderRolesManager();
+        applyRbacRestrictions(currentUserRole);
+    } catch (err) {
+        console.error("handleDeleteRole error:", err);
+        showToast(err.message || "Failed to delete role.", "error");
     }
 };
