@@ -1,5 +1,5 @@
 @echo off
-title Deepsikha Ledger Manager Web App Launcher (Vite + Supabase)
+title Building Residence Management Web App Launcher (Vite + Supabase)
 echo ======================================================
 echo   DEEPSIKHA RESIDENCY - LEDGER MANAGER WEB APP
 echo   (Serverless: Vercel + Supabase Edition)

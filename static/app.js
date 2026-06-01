@@ -1,4 +1,4 @@
-// JavaScript Controller - Deepsikha Ledger Manager Web (Vite + Supabase Serverless with RBAC)
+// JavaScript Controller - Multi-Building Residence Management (Vite + Supabase Serverless with RBAC)
 
 let sbClient = null;
 let loadedEntries = [];
@@ -11,6 +11,121 @@ let ticketScope = 'ALL';
 let rolesData = [];
 let currentRolePermissions = [];
 let currentUserAssignedFloors = [];
+let buildingConfig = null;
+
+// Default building config fallback
+const DEFAULT_BUILDING_CONFIG = {
+    building_name: 'My Residency',
+    block_name: '',
+    address: '',
+    floors: 8,
+    wings: 'A,B,C,D,E,F,G,H'
+};
+
+function getWingsList() {
+    return (buildingConfig?.wings || DEFAULT_BUILDING_CONFIG.wings).split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function getFloorCount() {
+    return buildingConfig?.floors || DEFAULT_BUILDING_CONFIG.floors;
+}
+
+function getBuildingName() {
+    return buildingConfig?.building_name || DEFAULT_BUILDING_CONFIG.building_name;
+}
+
+function getBlockName() {
+    return buildingConfig?.block_name || '';
+}
+
+function getAllFlats() {
+    const floors = getFloorCount();
+    const wings = getWingsList();
+    const flats = [];
+    for (let f = 1; f <= floors; f++) {
+        wings.forEach(w => {
+            flats.push(`${f}${w}`);
+        });
+    }
+    return flats;
+}
+
+// Update all UI elements with building name from config
+function updateBuildingUI() {
+    const name = getBuildingName();
+    const block = getBlockName();
+    const fullName = block ? `${name} (${block})` : name;
+    
+    const sidebarName = document.getElementById('sidebar-building-name');
+    if (sidebarName) sidebarName.textContent = name.toUpperCase();
+    
+    const sidebarSub = document.getElementById('sidebar-building-sub');
+    if (sidebarSub) sidebarSub.textContent = block ? `${block} - Residence Management` : 'Residence Management';
+    
+    const authName = document.getElementById('auth-building-name');
+    if (authName) authName.textContent = fullName.toUpperCase();
+    
+    const authSub = document.getElementById('auth-building-sub');
+    if (authSub) authSub.textContent = block ? `${block} - Flat Owners Portal` : 'Flat Owners Portal';
+    
+    document.title = `${name} - Residence Management`;
+}
+
+// Load building config from Supabase
+async function loadBuildingConfig() {
+    if (!sbClient) return;
+    try {
+        const { data, error } = await sbClient.from('building_config').select('*').eq('id', 1).single();
+        if (error && error.code === 'PGRST116') {
+            buildingConfig = { ...DEFAULT_BUILDING_CONFIG };
+            updateBuildingUI();
+            return;
+        }
+        if (error) throw error;
+        buildingConfig = data || { ...DEFAULT_BUILDING_CONFIG };
+        if (buildingConfig.floors) buildingConfig.floors = parseInt(buildingConfig.floors, 10);
+        updateBuildingUI();
+    } catch (err) {
+        console.warn("Could not load building config, using defaults:", err);
+        buildingConfig = { ...DEFAULT_BUILDING_CONFIG };
+        updateBuildingUI();
+    }
+}
+
+// Save building config to Supabase
+async function saveBuildingConfig(config) {
+    if (!sbClient) return false;
+    try {
+        const { error } = await sbClient.from('building_config').upsert({
+            id: 1,
+            building_name: config.building_name,
+            block_name: config.block_name || '',
+            address: config.address || '',
+            floors: parseInt(config.floors, 10) || 8,
+            wings: config.wings || 'A,B,C,D,E,F,G,H'
+        }, { onConflict: 'id' });
+        if (error) throw error;
+        buildingConfig = config;
+        if (buildingConfig.floors) buildingConfig.floors = parseInt(buildingConfig.floors, 10);
+        updateBuildingUI();
+        return true;
+    } catch (err) {
+        console.error("saveBuildingConfig error:", err);
+        showToast("Failed to save building configuration.", "error");
+        return false;
+    }
+}
+
+// Generate floor options HTML for any select element
+function getFloorOptions(selectedFloor) {
+    const count = getFloorCount();
+    let html = '<option value="">All Floors</option>';
+    for (let i = 1; i <= count; i++) {
+        const sel = String(i) === String(selectedFloor) ? 'selected' : '';
+        html += `<option value="${i}" ${sel}>Floor ${i}</option>`;
+    }
+    return html;
+}
 
 document.addEventListener("DOMContentLoaded", () => {
     // Set default dates to today
@@ -49,6 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initialize Supabase Client
     if (initSupabase()) {
         setupAuthListener();
+        loadBuildingConfig();
     } else {
         openSupabaseConfig();
     }
@@ -178,6 +294,7 @@ window.saveSupabaseConfig = function(e) {
     if (initSupabase()) {
         showToast("Supabase credentials saved successfully!", "success");
         setupAuthListener();
+        loadBuildingConfig();
     } else {
         showToast("Invalid credentials. Connection failed.", "error");
     }
@@ -507,19 +624,19 @@ async function ensureOwnersPopulated() {
         
         if (!data || data.length === 0) {
             const defaultOwners = [];
-            const floors = ['1','2','3','4','5','6','7','8'];
-            const wings = ['A','B','C','D','E','F','G','H'];
-            floors.forEach(f => {
-                wings.forEach(w => {
-                    defaultOwners.push({
-                        flat_no: `${f}${w}`,
-                        owner_name: `Flat ${f}${w}`
-                    });
+            const allFlats = getAllFlats();
+            allFlats.forEach(flat_no => {
+                defaultOwners.push({
+                    flat_no: flat_no,
+                    owner_name: `Flat ${flat_no}`,
+                    contact_no: ''
                 });
             });
-            const { error: insertError } = await sbClient.from('owners').insert(defaultOwners);
-            if (insertError) throw insertError;
-            console.log("Default building owner mappings seeded successfully!");
+            if (defaultOwners.length > 0) {
+                const { error: insertError } = await sbClient.from('owners').insert(defaultOwners);
+                if (insertError) throw insertError;
+                console.log("Building owner mappings seeded successfully!");
+            }
         }
     } catch (e) {
         console.error("ensureOwnersPopulated error:", e);
@@ -1037,6 +1154,17 @@ window.loadOwnersDirectory = async function(filterText = "") {
         grid.innerHTML = `<div style="grid-column: span 3; text-align: center; color: var(--text-secondary); padding: 20px;"><i class="fa-solid fa-spinner fa-spin" style="margin-right: 8px;"></i>Loading flats...</div>`;
     }
     
+    // Populate floor filter dynamically from config
+    const floorFilter = document.getElementById('directory-floor-filter');
+    if (floorFilter) {
+        const count = getFloorCount();
+        let opts = '<option value="">All Floors</option>';
+        for (let i = 1; i <= count; i++) {
+            opts += `<option value="${i}">Floor ${i}</option>`;
+        }
+        floorFilter.innerHTML = opts;
+    }
+    
     try {
         let { data, error } = await sbClient.from('owners').select('*').order('flat_no');
         if (error) throw error;
@@ -1090,13 +1218,24 @@ function renderOwnersGrid(data, filterText = "", floorText = "") {
         card.onclick = () => selectFlatForEdit(item.flat_no);
         
         let statusText = "Owner";
-        if (item.occupancy_status === 'tenant-occupied') statusText = "Tenant";
-        else if (item.occupancy_status === 'vacant') statusText = "Vacant";
+        let badgeClass = "badge-income";
+        if (item.occupancy_status === 'tenant-occupied') {
+            statusText = "Tenant";
+            badgeClass = "badge-tenant";
+        } else if (item.occupancy_status === 'vacant') {
+            statusText = "Vacant";
+            badgeClass = "badge-expense";
+        }
+        
+        // Highlight flats that have soft login enabled (passcode set)
+        if (item.passcode && item.occupancy_status !== 'vacant') {
+            card.classList.add("owner-highlight");
+        }
         
         card.innerHTML = `
             <h4>${item.flat_no}</h4>
             <p style="font-weight: 600;">${item.owner_name}</p>
-            <span class="badge ${item.occupancy_status === 'vacant' ? 'badge-expense' : 'badge-income'}" style="font-size: 0.6rem; padding: 1px 6px;">${statusText}</span>
+            <span class="badge ${badgeClass}" style="font-size: 0.6rem; padding: 1px 6px;">${statusText}</span>
         `;
         grid.appendChild(card);
     });
@@ -1107,6 +1246,156 @@ window.filterOwnersDirectory = function() {
     const floor = document.getElementById("directory-floor-filter") ? document.getElementById("directory-floor-filter").value : "";
     renderOwnersGrid(allOwnersData, query, floor);
 };
+
+// Field definitions for structured rows
+const STRUCTURED_FIELDS = {
+    family: [
+        { key: 'name', label: 'Name', type: 'text' },
+        { key: 'relation', label: 'Relation', type: 'text' },
+        { key: 'gender', label: 'Gender', type: 'select', options: ['', 'Male', 'Female', 'Other'] }
+    ],
+    service: [
+        { key: 'name', label: 'Name', type: 'text' },
+        { key: 'role', label: 'Role', type: 'text' },
+        { key: 'age', label: 'Age', type: 'number' },
+        { key: 'gender', label: 'Gender', type: 'select', options: ['', 'Male', 'Female', 'Other'] }
+    ],
+    vehicle: [
+        { key: 'number', label: 'Vehicle No', type: 'text' },
+        { key: 'type', label: 'Type', type: 'select', options: ['', 'Car', 'Bike', 'Scooter', 'Bicycle', 'Other'] }
+    ]
+};
+
+function getContainerId(prefix) {
+    const map = { family: 'family-members-container', service: 'service-person-container', vehicle: 'vehicle-container' };
+    return map[prefix] || '';
+}
+
+// Helper: parse JSON array from owner field (handles plain text fallback for family_members)
+function parseStructuredField(value, prefix) {
+    if (!value) return [];
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (e) {
+            if (prefix === 'family') {
+                return value.split(',').map(s => ({ name: s.trim(), relation: '', gender: '' })).filter(s => s.name);
+            }
+        }
+    }
+    return [];
+}
+
+// Helper: render structured rows inside selectFlatForEdit
+function renderStructuredRows(prefix, value, canEdit) {
+    const fields = STRUCTURED_FIELDS[prefix];
+    if (!fields) return '';
+    const rows = parseStructuredField(value, prefix);
+    if (rows.length === 0 && !canEdit) {
+        return '<span style="color:var(--text-muted); font-size:0.85rem;">None</span>';
+    }
+    if (rows.length === 0) {
+        return '';
+    }
+    let html = '<div class="structured-rows">';
+    rows.forEach((row, i) => {
+        if (canEdit) {
+            html += '<div class="structured-row">';
+            fields.forEach(f => {
+                const val = row[f.key] || '';
+                if (f.type === 'select') {
+                    html += `<select class="structured-input" id="${prefix}-${f.key}-${i}" style="flex:1;">`;
+                    f.options.forEach(opt => {
+                        const sel = opt === val ? 'selected' : '';
+                        html += `<option value="${opt}" ${sel}>${opt || 'Select'}</option>`;
+                    });
+                    html += '</select>';
+                } else {
+                    html += `<input type="${f.type}" class="structured-input" id="${prefix}-${f.key}-${i}" value="${escapeHtml(val)}" placeholder="${f.label}" style="flex:1;">`;
+                }
+            });
+            html += `<button type="button" class="btn btn-rose" onclick="removeStructuredRow(this)" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-times"></i></button>`;
+            html += '</div>';
+        } else {
+            html += '<div class="structured-row">';
+            fields.forEach((f, fi) => {
+                const val = row[f.key] || '';
+                html += `<span style="flex:1; ${fi > 0 ? 'color:var(--text-secondary);' : ''}">${escapeHtml(val)}</span>`;
+            });
+            html += '</div>';
+        }
+    });
+    html += '</div>';
+    return html;
+}
+
+// Add a new empty structured row
+window.addStructuredRow = function(prefix) {
+    const fields = STRUCTURED_FIELDS[prefix];
+    if (!fields) return;
+    const container = document.getElementById(getContainerId(prefix));
+    if (!container) return;
+    const count = container.querySelectorAll('.structured-row').length;
+    const row = document.createElement('div');
+    row.className = 'structured-row';
+    let innerHtml = '';
+    fields.forEach(f => {
+        if (f.type === 'select') {
+            innerHtml += `<select class="structured-input" id="${prefix}-${f.key}-${count}" style="flex:1;">`;
+            f.options.forEach(opt => {
+                innerHtml += `<option value="${opt}">${opt || 'Select'}</option>`;
+            });
+            innerHtml += '</select>';
+        } else {
+            innerHtml += `<input type="${f.type}" class="structured-input" id="${prefix}-${f.key}-${count}" placeholder="${f.label}" style="flex:1;">`;
+        }
+    });
+    innerHtml += `<button type="button" class="btn btn-rose" onclick="removeStructuredRow(this)" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-times"></i></button>`;
+    row.innerHTML = innerHtml;
+    if (container.querySelector('.structured-rows')) {
+        container.querySelector('.structured-rows').appendChild(row);
+    } else {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'structured-rows';
+        wrapper.appendChild(row);
+        container.appendChild(wrapper);
+    }
+};
+
+// Remove a structured row
+window.removeStructuredRow = function(btn) {
+    const row = btn.closest('.structured-row');
+    if (row) row.remove();
+};
+
+// Collect structured rows data as JSON string
+function collectStructuredRows(prefix) {
+    const fields = STRUCTURED_FIELDS[prefix];
+    if (!fields) return '';
+    const container = document.getElementById(getContainerId(prefix));
+    if (!container) return '';
+    const rows = container.querySelectorAll('.structured-row');
+    if (rows.length === 0) return '';
+    const data = [];
+    rows.forEach(row => {
+        const entry = {};
+        let hasValue = false;
+        fields.forEach(f => {
+            const input = row.querySelector(`[id^="${prefix}-${f.key}-"]`);
+            const val = input ? input.value.trim() : '';
+            entry[f.key] = val;
+            if (f.key === 'name') {
+                if (val) hasValue = true;
+            }
+        });
+        // Require at least the first field (name/number) to have a value
+        if (entry[fields[0].key]) {
+            data.push(entry);
+        }
+    });
+    return data.length > 0 ? JSON.stringify(data) : '';
+}
 
 window.selectFlatForEdit = function(flatNo) {
     document.querySelectorAll(".flat-card").forEach(card => {
@@ -1166,15 +1455,9 @@ window.selectFlatForEdit = function(flatNo) {
                 </div>
                 ` : ''}
                 
-                <div class="grid-two-cols">
-                    <div class="input-field">
-                        <label for="edit-parking">Parking Space No</label>
-                        <input type="text" id="edit-parking" value="${item.parking_no || 'None'}" ${disabledAttr}>
-                    </div>
-                    <div class="input-field">
-                        <label for="edit-mc-rate">Monthly MC Rate (Rs.)</label>
-                        <input type="number" step="0.01" id="edit-mc-rate" value="${item.monthly_mc_rate || 1000.00}" ${disabledAttr} required>
-                    </div>
+                <div class="input-field">
+                    <label for="edit-parking">Parking Space No</label>
+                    <input type="text" id="edit-parking" value="${item.parking_no || 'None'}" ${disabledAttr}>
                 </div>
                 
                 <div class="input-field">
@@ -1183,13 +1466,27 @@ window.selectFlatForEdit = function(flatNo) {
                 </div>
                 
                 <div class="input-field">
-                    <label for="edit-family">Family Members Details</label>
-                    <textarea id="edit-family" rows="3" placeholder="e.g. Spouse, Son (12), Daughter (8)" style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); color: var(--text-primary); padding: 10px; font-family: inherit; font-size: 0.9rem; resize: vertical;" ${disabledAttr}>${item.family_members || ''}</textarea>
+                    <label>Family Members</label>
+                    <div id="family-members-container">
+                        ${renderStructuredRows('family', item.family_members, canEdit)}
+                    </div>
+                    ${canEdit ? '<button type="button" class="btn btn-slate" onclick="addStructuredRow(\'family\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px;"><i class="fa-solid fa-plus"></i> Add Member</button>' : ''}
                 </div>
                 
                 <div class="input-field">
-                    <label for="edit-combined">Combined Flat No(s)</label>
-                    <input type="text" id="edit-combined" placeholder="e.g. 1B (leave empty if none)" value="${item.combined_flat_nos || ''}" ${disabledAttr}>
+                    <label>Service Person Details</label>
+                    <div id="service-person-container">
+                        ${renderStructuredRows('service', item.service_person, canEdit)}
+                    </div>
+                    ${canEdit ? '<button type="button" class="btn btn-slate" onclick="addStructuredRow(\'service\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px;"><i class="fa-solid fa-plus"></i> Add Person</button>' : ''}
+                </div>
+                
+                <div class="input-field">
+                    <label>Vehicle Details</label>
+                    <div id="vehicle-container">
+                        ${renderStructuredRows('vehicle', item.vehicle_details, canEdit)}
+                    </div>
+                    ${canEdit ? '<button type="button" class="btn btn-slate" onclick="addStructuredRow(\'vehicle\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px;"><i class="fa-solid fa-plus"></i> Add Vehicle</button>' : ''}
                 </div>
                 
                 ${canEdit 
@@ -1228,10 +1525,10 @@ window.saveOwnerProfile = async function(e) {
         passcode = passcodeVal ? parseInt(passcodeVal) : null;
     }
     const parkingNo = document.getElementById("edit-parking").value.trim();
-    const mcRate = parseFloat(document.getElementById("edit-mc-rate").value);
     const status = document.getElementById("edit-status").value;
-    const family = document.getElementById("edit-family").value.trim();
-    const combined = document.getElementById("edit-combined").value.trim();
+    const family = collectStructuredRows('family');
+    const servicePerson = collectStructuredRows('service');
+    const vehicleDetails = collectStructuredRows('vehicle');
     
     const submitBtn = e.target.querySelector("button[type=submit]");
     if (submitBtn) {
@@ -1244,10 +1541,10 @@ window.saveOwnerProfile = async function(e) {
             owner_name: ownerName,
             contact_no: contactNo,
             parking_no: parkingNo,
-            monthly_mc_rate: mcRate,
             occupancy_status: status,
             family_members: family,
-            combined_flat_nos: combined
+            service_person: servicePerson,
+            vehicle_details: vehicleDetails
         };
         
         if (passcode !== undefined) {
@@ -1409,7 +1706,7 @@ window.generateReceipt = async function(entryId) {
         doc.setTextColor(248, 250, 252); // slate 50
         doc.setFont("helvetica", "bold");
         doc.setFontSize(28);
-        doc.text("DEEPSIKHA RESIDENCY", 105, 74, { align: "center", angle: 15 });
+        doc.text(getBuildingName().toUpperCase(), 105, 74, { align: "center", angle: 15 });
         
         // Load logo
         const logoBase64 = await getLogoBase64();
@@ -1428,13 +1725,16 @@ window.generateReceipt = async function(entryId) {
         doc.setTextColor(15, 23, 42); // slate 900
         doc.setFont("helvetica", "bold");
         doc.setFontSize(14);
-        doc.text("DEEPSIKHA RESIDENCY (BLOCK - 2)", 34, 17);
+        const bName = getBuildingName();
+        const blkName = getBlockName();
+        const fullName = blkName ? `${bName} (${blkName})` : bName;
+        doc.text(fullName.toUpperCase(), 34, 17);
         
         doc.setTextColor(71, 85, 105); // slate 600
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
         doc.text("Flat Owners Association", 34, 22);
-        doc.text("Deepsikha Residency, Block 2, Flat 1-8 A-H, Asansol", 34, 26);
+        doc.text(buildingConfig?.address || fullName, 34, 26);
         
         // Header separator line
         doc.setDrawColor(203, 213, 225); // slate 300
@@ -1545,7 +1845,7 @@ window.generateReceipt = async function(entryId) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7.5);
         doc.setTextColor(71, 85, 105);
-        doc.text("Deepsikha Residency", 162.5, 102, { align: "center" });
+        doc.text(getBuildingName(), 162.5, 102, { align: "center" });
         
         const pdfDataUri = doc.output('datauristring');
         const newTab = window.open();
@@ -1565,18 +1865,64 @@ window.generateReceipt = async function(entryId) {
 // Open History Modal and populate its flat selections
 window.openHistoryModal = async function() {
     openModal('historyModal');
-    
+    // Reset toggle to Period mode with current month defaults
+    const toggle = document.getElementById('period-mode-toggle');
+    if (toggle) toggle.checked = false;
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const todayStr = now.toISOString().split('T')[0];
-    const startOfYearStr = `${currentYear}-01-01`;
-    
-    const startDateInput = document.getElementById("hist-start-date");
-    const endDateInput = document.getElementById("hist-end-date");
-    if (startDateInput) startDateInput.value = startOfYearStr;
-    if (endDateInput) endDateInput.value = todayStr;
-    
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const yearSelect = document.getElementById('hist-year');
+    const monthSelect = document.getElementById('hist-month');
+    if (yearSelect) yearSelect.value = String(now.getFullYear());
+    if (monthSelect) monthSelect.value = months[now.getMonth()];
+    // Force UI to period mode
+    const yearField = document.getElementById('hist-year-field');
+    const monthField = document.getElementById('hist-month-field');
+    const startDateField = document.getElementById('hist-start-date-field');
+    const endDateField = document.getElementById('hist-end-date-field');
+    const startDateInput = document.getElementById('hist-start-date');
+    const endDateInput = document.getElementById('hist-end-date');
+    if (yearField) yearField.classList.remove('hidden');
+    if (monthField) monthField.classList.remove('hidden');
+    if (startDateField) startDateField.classList.add('hidden');
+    if (endDateField) endDateField.classList.add('hidden');
+    if (startDateInput) startDateInput.value = '';
+    if (endDateInput) endDateInput.value = '';
     await loadFlats();
+    fetchHistory();
+};
+
+// Toggle between period-based (Year/Month) and date-range-based filtering
+window.togglePeriodMode = function() {
+    const isDateRange = document.getElementById('period-mode-toggle').checked;
+    const yearField = document.getElementById('hist-year-field');
+    const monthField = document.getElementById('hist-month-field');
+    const startDateField = document.getElementById('hist-start-date-field');
+    const endDateField = document.getElementById('hist-end-date-field');
+    const yearSelect = document.getElementById('hist-year');
+    const monthSelect = document.getElementById('hist-month');
+    const startDateInput = document.getElementById('hist-start-date');
+    const endDateInput = document.getElementById('hist-end-date');
+    if (!isDateRange) {
+        yearField.classList.remove('hidden');
+        monthField.classList.remove('hidden');
+        startDateField.classList.add('hidden');
+        endDateField.classList.add('hidden');
+        if (startDateInput) startDateInput.value = '';
+        if (endDateInput) endDateInput.value = '';
+    } else {
+        startDateField.classList.remove('hidden');
+        endDateField.classList.remove('hidden');
+        yearField.classList.add('hidden');
+        monthField.classList.add('hidden');
+        if (yearSelect) yearSelect.value = 'ALL';
+        if (monthSelect) monthSelect.value = 'ALL';
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const todayStr = now.toISOString().split('T')[0];
+        const startOfYearStr = `${currentYear}-01-01`;
+        if (startDateInput && !startDateInput.value) startDateInput.value = startOfYearStr;
+        if (endDateInput && !endDateInput.value) endDateInput.value = todayStr;
+    }
     fetchHistory();
 };
 
@@ -1616,17 +1962,22 @@ window.fetchHistory = async function() {
             if (flat) {
                 q = q.eq('flat_no', flat);
             }
-            if (year && year !== "ALL") {
-                q = q.eq('year', year);
-            }
-            if (month && month !== "ALL") {
-                q = q.eq('month', month);
-            }
-            if (startDate) {
-                q = q.gte('date_received', startDate);
-            }
-            if (endDate) {
-                q = q.lte('date_received', endDate);
+            
+            const isPeriodMode = !document.getElementById('period-mode-toggle')?.checked;
+            if (isPeriodMode) {
+                if (year && year !== "ALL") {
+                    q = q.eq('year', year);
+                }
+                if (month && month !== "ALL") {
+                    q = q.eq('month', month);
+                }
+            } else {
+                if (startDate) {
+                    q = q.gte('date_received', startDate);
+                }
+                if (endDate) {
+                    q = q.lte('date_received', endDate);
+                }
             }
             
             const { data: incData, error: incErr } = await q;
@@ -1671,17 +2022,21 @@ window.fetchHistory = async function() {
         if ((type === 'ALL' || type === 'EXPENSE') && !flat) {
             let q = sbClient.from('expenses').select('id, year, month, expense_head, description, amount, date_spent');
             
-            if (year && year !== "ALL") {
-                q = q.eq('year', year);
-            }
-            if (month && month !== "ALL") {
-                q = q.eq('month', month);
-            }
-            if (startDate) {
-                q = q.gte('date_spent', startDate);
-            }
-            if (endDate) {
-                q = q.lte('date_spent', endDate);
+            const isPeriodMode = !document.getElementById('period-mode-toggle')?.checked;
+            if (isPeriodMode) {
+                if (year && year !== "ALL") {
+                    q = q.eq('year', year);
+                }
+                if (month && month !== "ALL") {
+                    q = q.eq('month', month);
+                }
+            } else {
+                if (startDate) {
+                    q = q.gte('date_spent', startDate);
+                }
+                if (endDate) {
+                    q = q.lte('date_spent', endDate);
+                }
             }
             
             const { data: expData, error: expErr } = await q;
@@ -2224,7 +2579,7 @@ function renderDateWiseCashbook(data) {
     
     sheet.innerHTML = `
         <div class="report-header">
-            <h2>DEEPSIKHA RESIDENCY (BLOCK - 2)</h2>
+            <h2>${getBuildingName().toUpperCase()}${getBlockName() ? ` (${getBlockName().toUpperCase()})` : ''}</h2>
             <p><strong>DATE-WISE CASH BOOK</strong></p>
             <p>Period: ${formatDateDisplay(data.start_date)} to ${formatDateDisplay(data.end_date)}</p>
         </div>
@@ -2284,7 +2639,7 @@ function renderMonthWiseCashbook(data) {
     
     sheet.innerHTML = `
         <div class="report-header">
-            <h2>DEEPSIKHA RESIDENCY (BLOCK - 2)</h2>
+            <h2>${getBuildingName().toUpperCase()}${getBlockName() ? ` (${getBlockName().toUpperCase()})` : ''}</h2>
             <p><strong>MONTH-WISE CASH BOOK SUMMARY</strong></p>
             <p>Year: ${data.year}</p>
         </div>
@@ -2373,7 +2728,7 @@ function renderIncomeExpenditure(data) {
     
     sheet.innerHTML = `
         <div class="report-header">
-            <h2>DEEPSIKHA RESIDENCY (BLOCK - 2)</h2>
+            <h2>${getBuildingName().toUpperCase()}${getBlockName() ? ` (${getBlockName().toUpperCase()})` : ''}</h2>
             <p><strong>INCOME AND EXPENDITURE ACCOUNT</strong></p>
             <p>For the Year Ended: 31st December ${data.year}</p>
         </div>
@@ -3090,7 +3445,8 @@ window.exportLedgerToExcel = async function() {
         XLSX.utils.book_append_sheet(wb, wsExp, "Expense Summary");
         
         const dateStr = new Date().toISOString().replace(/T/, '_').replace(/\..+/, '').replace(/:/g, '');
-        const filename = `Deepsikha_Ledger_${dateStr}.xlsx`;
+        const buildingSlug = getBuildingName().replace(/\s+/g, '_').toLowerCase();
+        const filename = `${buildingSlug}_ledger_${dateStr}.xlsx`;
         XLSX.writeFile(wb, filename);
         
         showToast("Spreadsheet downloaded successfully!");
@@ -4208,39 +4564,39 @@ async function renderHelpdeskReport() {
         
         // 2. Generate report DOM
         let html = `
-            <div style="font-family: inherit; color: var(--text-primary);">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 24px;">
+            <div style="font-family: inherit; color: #1e293b;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 24px;">
                     <div>
-                        <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--color-yellow);"><i class="fa-solid fa-chart-line"></i> Support Helpdesk & Complaints Analytics</h2>
-                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 4px;">Summary of resident complaints, workflow execution, and performance metrics.</p>
+                        <h2 style="font-size: 1.5rem; font-weight: 800; color: #d97706;"><i class="fa-solid fa-chart-line"></i> Support Helpdesk & Complaints Analytics</h2>
+                        <p style="color: #64748b; font-size: 0.85rem; margin-top: 4px;">Summary of resident complaints, workflow execution, and performance metrics.</p>
                     </div>
                     <button class="btn btn-slate" onclick="printActiveReport()"><i class="fa-solid fa-print"></i> Print Summary</button>
                 </div>
                 
                 <!-- Summary Metrics cards -->
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 30px;">
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 16px; text-align: center;">
-                        <span style="font-size: 2rem; font-weight: 800; color: var(--text-primary);">${total}</span>
-                        <span style="display: block; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px;">Total Filed</span>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; text-align: center;">
+                        <span style="font-size: 2rem; font-weight: 800; color: #1e293b;">${total}</span>
+                        <span style="display: block; font-size: 0.75rem; color: #64748b; text-transform: uppercase; margin-top: 4px;">Total Filed</span>
                     </div>
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 16px; text-align: center;">
-                        <span style="font-size: 2rem; font-weight: 800; color: var(--color-yellow);">${byStatus['Pending'] || 0}</span>
-                        <span style="display: block; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px;">Pending Review</span>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; text-align: center;">
+                        <span style="font-size: 2rem; font-weight: 800; color: #d97706;">${byStatus['Pending'] || 0}</span>
+                        <span style="display: block; font-size: 0.75rem; color: #64748b; text-transform: uppercase; margin-top: 4px;">Pending Review</span>
                     </div>
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 16px; text-align: center;">
-                        <span style="font-size: 2rem; font-weight: 800; color: var(--color-emerald);">${(byStatus['Closed'] || 0) + (byStatus['Resolved'] || 0)}</span>
-                        <span style="display: block; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px;">Resolved/Closed</span>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; text-align: center;">
+                        <span style="font-size: 2rem; font-weight: 800; color: #059669;">${(byStatus['Closed'] || 0) + (byStatus['Resolved'] || 0)}</span>
+                        <span style="display: block; font-size: 0.75rem; color: #64748b; text-transform: uppercase; margin-top: 4px;">Resolved/Closed</span>
                     </div>
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 16px; text-align: center;">
-                        <span style="font-size: 1.8rem; font-weight: 800; color: var(--color-indigo);">${avgTimeText}</span>
-                        <span style="display: block; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px;">Avg Resolution Speed</span>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; text-align: center;">
+                        <span style="font-size: 1.8rem; font-weight: 800; color: #6366f1;">${avgTimeText}</span>
+                        <span style="display: block; font-size: 0.75rem; color: #64748b; text-transform: uppercase; margin-top: 4px;">Avg Resolution Speed</span>
                     </div>
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
                     <!-- Category Chart -->
                     <div>
-                        <h3 style="font-size: 1.05rem; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Complaints by Category</h3>
+                        <h3 style="font-size: 1.05rem; color: #1e293b; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">Complaints by Category</h3>
                         <div style="display: flex; flex-direction: column; gap: 12px;">`;
         
         const categories = ['plumbing', 'electrical', 'lift', 'security', 'cleanliness', 'billing', 'other'];
@@ -4249,12 +4605,12 @@ async function renderHelpdeskReport() {
             const pct = total > 0 ? (count / total * 100) : 0;
             html += `
                 <div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #334155; margin-bottom: 4px;">
                         <span style="text-transform: capitalize;">${cat}</span>
                         <span style="font-weight: 600;">${count} (${pct.toFixed(0)}%)</span>
                     </div>
-                    <div style="height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
-                        <div style="width: ${pct}%; height: 100%; background: var(--color-yellow); border-radius: 4px;"></div>
+                    <div style="height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                        <div style="width: ${pct}%; height: 100%; background: #d97706; border-radius: 4px;"></div>
                     </div>
                 </div>`;
         });
@@ -4264,27 +4620,27 @@ async function renderHelpdeskReport() {
                     
                     <!-- Priority Breakdown -->
                     <div>
-                        <h3 style="font-size: 1.05rem; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Complaints by Priority</h3>
+                        <h3 style="font-size: 1.05rem; color: #1e293b; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">Complaints by Priority</h3>
                         <div style="display: flex; flex-direction: column; gap: 12px;">`;
         
         const priorities = ['Low', 'Medium', 'High', 'Urgent'];
         const pColors = {
             'Low': '#9ca3af',
-            'Medium': 'var(--color-yellow)',
+            'Medium': '#d97706',
             'High': '#f97316',
-            'Urgent': 'var(--color-rose)'
+            'Urgent': '#e11d48'
         };
         priorities.forEach(prio => {
             const count = byPriority[prio] || 0;
             const pct = total > 0 ? (count / total * 100) : 0;
             html += `
                 <div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #334155; margin-bottom: 4px;">
                         <span>${prio} Priority</span>
                         <span style="font-weight: 600;">${count}</span>
                     </div>
-                    <div style="height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
-                        <div style="width: ${pct}%; height: 100%; background: ${pColors[prio] || 'var(--color-yellow)'}; border-radius: 4px;"></div>
+                    <div style="height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                        <div style="width: ${pct}%; height: 100%; background: ${pColors[prio]}; border-radius: 4px;"></div>
                     </div>
                 </div>`;
         });
@@ -4299,7 +4655,7 @@ async function renderHelpdeskReport() {
         
     } catch (err) {
         console.error("renderHelpdeskReport error:", err);
-        sheet.innerHTML = '<div style="color:var(--color-rose); padding:20px; text-align:center;">Failed to generate helpdesk report summary.</div>';
+        sheet.innerHTML = '<div style="color:#e11d48; padding:20px; text-align:center;">Failed to generate helpdesk report summary.</div>';
     }
 }
 
@@ -4535,6 +4891,39 @@ async function autoLoginSharedAccount(flatNo) {
 // USERS AND ROLES MANAGEMENT
 // ==========================================
 
+// Building Configuration Modal
+window.openBuildingConfigModal = function() {
+    document.getElementById("cfg-building-name").value = getBuildingName();
+    document.getElementById("cfg-block-name").value = getBlockName();
+    document.getElementById("cfg-address").value = buildingConfig?.address || '';
+    document.getElementById("cfg-floors").value = getFloorCount();
+    document.getElementById("cfg-wings").value = getWingsList().join(',');
+    openModal('buildingConfigModal');
+};
+
+window.handleSaveBuildingConfig = async function(e) {
+    e.preventDefault();
+    const config = {
+        building_name: document.getElementById("cfg-building-name").value.trim(),
+        block_name: document.getElementById("cfg-block-name").value.trim(),
+        address: document.getElementById("cfg-address").value.trim(),
+        floors: parseInt(document.getElementById("cfg-floors").value, 10) || 8,
+        wings: document.getElementById("cfg-wings").value.trim().toUpperCase()
+    };
+    const saved = await saveBuildingConfig(config);
+    if (saved) {
+        showToast("Building configuration saved!", "success");
+        closeModal('buildingConfigModal');
+        // Re-seed if flats changed
+        await ensureOwnersPopulated();
+        // Refresh directory if open
+        const dirModal = document.getElementById('ownersDirectoryModal');
+        if (dirModal && dirModal.style.display === 'block') {
+            await loadOwnersDirectory();
+        }
+    }
+};
+
 window.openUsersModal = async function() {
     if (!hasPermission('users:manage')) {
         showToast("Access Denied. You don't have permission to manage users.", "error");
@@ -4634,6 +5023,17 @@ window.openAssignFloorsModal = async function(userId, userEmail) {
     
     document.getElementById("assign-floors-user-id").value = userId;
     document.getElementById("assign-floors-user-email").textContent = userEmail;
+    
+    // Dynamically generate floor checkboxes from config
+    const container = document.getElementById("floor-checkboxes-container");
+    const count = getFloorCount();
+    container.innerHTML = '';
+    for (let i = 1; i <= count; i++) {
+        const label = document.createElement('label');
+        label.className = 'floor-checkbox-label';
+        label.innerHTML = `<input type="checkbox" class="floor-checkbox" value="${i}"> Floor ${i}`;
+        container.appendChild(label);
+    }
     
     // Fetch current floor assignments
     try {

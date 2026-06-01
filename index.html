@@ -1,18 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deepsikha Residency - Ledger Manager</title>
+    <title>Building Residence Management</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Stylesheet -->
     <link rel="stylesheet" href="/static/style.css">
-    
+
     <!-- Supabase Client JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- jsPDF for Receipt PDF Generation -->
@@ -20,6 +22,7 @@
     <!-- SheetJS for Excel Reading and Writing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
+
 <body>
     <div class="app-container">
         <!-- Sidebar Navigation -->
@@ -27,10 +30,11 @@
             <div class="sidebar-header">
                 <i class="fa-solid fa-building-columns sidebar-brand-icon"></i>
                 <div class="sidebar-brand-text">
-                    <h2>DEEPSIKHA</h2>
-                    <span>Block 2 Ledger Manager</span>
+                    <h2 id="sidebar-building-name">Building</h2>
+                    <span id="sidebar-building-sub">Residence Management</span>
                 </div>
-                <span id="db-status-badge-side" class="badge badge-expense" style="cursor: pointer; padding: 1px 6px; font-size: 0.55rem;" onclick="openSupabaseConfig()">
+                <span id="db-status-badge-side" class="badge badge-expense"
+                    style="cursor: pointer; padding: 1px 6px; font-size: 0.55rem;" onclick="openSupabaseConfig()">
                     <i class="fa-solid fa-database"></i> <span id="db-status-text-side">Offline</span>
                 </span>
             </div>
@@ -98,6 +102,10 @@
                     <i class="fa-solid fa-diagram-project"></i>
                     <span>Manage Roles</span>
                 </button>
+                <button class="sidebar-btn" id="side-building-config" onclick="openBuildingConfigModal()">
+                    <i class="fa-solid fa-building"></i>
+                    <span>Building Setup</span>
+                </button>
             </nav>
 
             <!-- Spacer -->
@@ -109,8 +117,10 @@
                     <i class="fa-solid fa-circle-user"></i>
                 </div>
                 <div class="sidebar-user-info">
-                    <span id="side-user-email" style="font-size:0.75rem; font-weight:600; color:var(--text-primary);"></span>
-                    <span id="side-user-role" class="badge" style="padding: 1px 6px; font-size:0.55rem; font-weight:700;"></span>
+                    <span id="side-user-email"
+                        style="font-size:0.75rem; font-weight:600; color:var(--text-primary);"></span>
+                    <span id="side-user-role" class="badge"
+                        style="padding: 1px 6px; font-size:0.55rem; font-weight:700;"></span>
                 </div>
                 <div class="sidebar-user-actions">
                     <button class="sidebar-icon-btn" title="Change Password" onclick="openPasswordModal()">
@@ -126,421 +136,14 @@
         <!-- Main Content Area -->
         <div class="main-area">
 
-        <!-- Main Workspace -->
-        <main class="workspace" id="workspace">
-            <!-- Filter & KPI Control Bar -->
-            <section class="control-panel card animate-fade-in">
-                <div class="filter-group">
-                    <div class="input-field">
-                        <label for="filter-year">Year</label>
-                        <select id="filter-year">
-                            <option value="2025">2025</option>
-                            <option value="2026" selected>2026</option>
-                            <option value="2027">2027</option>
-                            <option value="2028">2028</option>
-                            <option value="2029">2029</option>
-                            <option value="2030">2030</option>
-                        </select>
-                    </div>
-                    <div class="input-field">
-                        <label for="filter-month">Month</label>
-                        <select id="filter-month">
-                            <option value="January">January</option>
-                            <option value="February">February</option>
-                            <option value="March">March</option>
-                            <option value="April">April</option>
-                            <option value="May" selected>May</option>
-                            <option value="June">June</option>
-                            <option value="July">July</option>
-                            <option value="August">August</option>
-                            <option value="September">September</option>
-                            <option value="October">October</option>
-                            <option value="November">November</option>
-                            <option value="December">December</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Live stats -->
-                <div class="kpi-grid">
-                    <div class="kpi-card kpi-income">
-                        <div class="kpi-info">
-                            <span class="kpi-title">Monthly Income</span>
-                            <h3 id="stat-income">Rs. 0.00</h3>
-                        </div>
-                        <div class="kpi-icon-wrapper">
-                            <i class="fa-solid fa-arrow-trend-up"></i>
-                        </div>
-                    </div>
-                    <div class="kpi-card kpi-expense">
-                        <div class="kpi-info">
-                            <span class="kpi-title">Monthly Expenses</span>
-                            <h3 id="stat-expense">Rs. 0.00</h3>
-                        </div>
-                        <div class="kpi-icon-wrapper">
-                            <i class="fa-solid fa-arrow-trend-down"></i>
-                        </div>
-                    </div>
-                    <div class="kpi-card kpi-cash">
-                        <div class="kpi-info">
-                            <span class="kpi-title">Cash in Hand</span>
-                            <h3 id="stat-cash">Rs. 0.00</h3>
-                        </div>
-                        <div class="kpi-icon-wrapper">
-                            <i class="fa-solid fa-wallet"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Quick Transactions Actions -->
-                <div class="action-group">
-                    <button class="btn btn-emerald btn-action animate-fade-in" onclick="openModal('incomeModal')">
-                        <i class="fa-solid fa-hand-holding-dollar"></i> Collect Fee
-                    </button>
-                    <button class="btn btn-rose btn-action animate-fade-in" onclick="openModal('expenseModal')">
-                        <i class="fa-solid fa-money-bill-transfer"></i> Record Expense
-                    </button>
-                </div>
-            </section>
-
-            <!-- Ledger Table Section -->
-            <section class="card table-card animate-slide-up" style="animation-delay: 0.2s;">
-                <div class="card-header table-header">
-                    <h2><i class="fa-solid fa-list-check icon-indigo"></i> Live Ledger Statement</h2>
-                    <div class="table-actions">
-                        <input type="text" id="table-search" placeholder="Search flat or description..." oninput="filterTable()">
-                    </div>
-                </div>
-                <div class="table-scroll">
-                    <table class="ledger-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Type</th>
-                                <th>Description</th>
-                                <th>Ledger Period</th>
-                                <th class="text-right">Amount (Rs.)</th>
-                                <th class="text-center">Record Date</th>
-                                <th class="text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ledger-body">
-                            <!-- Populated dynamically via JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
-    </div>
-
-    <!-- NOTIFICATION SYSTEM -->
-    <div id="toast-container" class="toast-container"></div>
-
-    <!-- MODAL: IMPORT LEDGER EXCEL -->
-    <div id="importModal" class="modal">
-        <div class="modal-content animate-zoom">
-            <div class="modal-header">
-                <h3>📥 Import Ledger Spreadsheet</h3>
-                <span class="close-btn" onclick="closeModal('importModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p class="warning-text"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Warning:</strong> Importing a new ledger will completely overwrite current database entries with the spreadsheet's values.</p>
-                <form id="import-form" onsubmit="handleImportSubmit(event)">
-                    <div class="file-dropzone">
-                        <i class="fa-solid fa-file-excel dropzone-icon"></i>
-                        <span class="dropzone-text">Click or drag Excel file here</span>
-                        <input type="file" id="import-file" accept=".xlsx, .xls" required onchange="updateDropzoneText(this)">
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-slate" onclick="closeModal('importModal')">Cancel</button>
-                        <button type="submit" class="btn btn-emerald" id="btn-import-submit">Upload & Parse</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Users Management Modal -->
-    <div id="usersModal" class="modal">
-        <div class="modal-content animate-zoom" style="max-width: 800px;">
-            <div class="modal-header">
-                <h2><i class="fa-solid fa-user-shield"></i> Manage Users & Roles</h2>
-                <span class="close" onclick="closeModal('usersModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Email</th>
-                                <th>Current Role</th>
-                                <th>Assigned Floors</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="users-table-body">
-                            <!-- Populated dynamically -->
-                            <tr><td colspan="3" style="text-align: center;">Loading...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-slate" onclick="closeModal('usersModal')">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Change Password Modal -->
-    <div id="passwordModal" class="modal">
-        <div class="modal-content animate-zoom" style="max-width: 400px;">
-            <div class="modal-header">
-                <h2><i class="fa-solid fa-key"></i> Change Password</h2>
-                <span class="close" onclick="closeModal('passwordModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="input-field">
-                    <label>New Password</label>
-                    <input type="password" id="new-password" placeholder="Min 6 characters">
-                </div>
-                <div class="input-field" style="margin-top: 16px;">
-                    <label>Confirm New Password</label>
-                    <input type="password" id="confirm-new-password" placeholder="Type password again">
-                </div>
-                <button class="btn btn-indigo" onclick="updateUserPassword()" style="width: 100%; margin-top: 16px;">Update Password</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: UPLOAD OWNERS EXCEL -->
-    <div id="ownersModal" class="modal">
-        <div class="modal-content animate-zoom">
-            <div class="modal-header">
-                <h3>👥 Update Owner Mapping</h3>
-                <span class="close-btn" onclick="closeModal('ownersModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p>Upload your <code>owners.xlsx</code> spreadsheet to refresh the building's flat number and tenant names list.</p>
-                <form id="owners-form" onsubmit="handleOwnersSubmit(event)">
-                    <div class="file-dropzone">
-                        <i class="fa-solid fa-users dropzone-icon"></i>
-                        <span class="dropzone-text">Click or drag owners.xlsx file here</span>
-                        <input type="file" id="owners-file" accept=".xlsx, .xls" required onchange="updateDropzoneText(this)">
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-slate" onclick="closeModal('ownersModal')">Cancel</button>
-                        <button type="submit" class="btn btn-indigo" id="btn-owners-submit">Upload Mapping</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: LEDGER HISTORY EXPLORER -->
-    <div id="historyModal" class="modal">
-        <div class="modal-content modal-content-large animate-zoom">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-clock-rotate-left icon-teal"></i> Ledger History Explorer</h3>
-                <span class="close-btn" onclick="closeModal('historyModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <!-- Filters Grid inside Modal -->
-                <div class="modal-filters-grid">
-                    <div class="input-field">
-                        <label for="hist-type">Entry Type</label>
-                        <select id="hist-type" onchange="fetchHistory()">
-                            <option value="ALL">All Entries</option>
-                            <option value="INCOME">Collections (Income)</option>
-                            <option value="EXPENSE">Expenses (Outflow)</option>
-                        </select>
-                    </div>
-                    <div class="input-field">
-                        <label for="hist-flat">Flat / Room</label>
-                        <select id="hist-flat" onchange="fetchHistory()">
-                            <option value="ALL">All Flats</option>
-                            <!-- Populated dynamically via JS -->
-                        </select>
-                    </div>
-                    <div class="input-field">
-                        <label for="hist-year">Year</label>
-                        <select id="hist-year" onchange="fetchHistory()">
-                            <option value="ALL">All Years</option>
-                            <option value="2025">2025</option>
-                            <option value="2026">2026</option>
-                            <option value="2027">2027</option>
-                            <option value="2028">2028</option>
-                            <option value="2029">2029</option>
-                            <option value="2030">2030</option>
-                        </select>
-                    </div>
-                    <div class="input-field">
-                        <label for="hist-month">Month</label>
-                        <select id="hist-month" onchange="fetchHistory()">
-                            <option value="ALL">All Months</option>
-                            <option value="January">January</option>
-                            <option value="February">February</option>
-                            <option value="March">March</option>
-                            <option value="April">April</option>
-                            <option value="May">May</option>
-                            <option value="June">June</option>
-                            <option value="July">July</option>
-                            <option value="August">August</option>
-                            <option value="September">September</option>
-                            <option value="October">October</option>
-                            <option value="November">November</option>
-                            <option value="December">December</option>
-                        </select>
-                    </div>
-                    <div class="input-field">
-                        <label for="hist-start-date">Start Date</label>
-                        <input type="date" id="hist-start-date" onchange="fetchHistory()">
-                    </div>
-                    <div class="input-field">
-                        <label for="hist-end-date">End Date</label>
-                        <input type="date" id="hist-end-date" onchange="fetchHistory()">
-                    </div>
-                    <div class="input-field span-search">
-                        <label for="hist-search">Search Keyword</label>
-                        <input type="text" id="hist-search" placeholder="Search description, name, amount..." oninput="fetchHistory()">
-                    </div>
-                </div>
-
-                <!-- History Results Table -->
-                <div class="table-scroll history-table-scroll">
-                    <table class="ledger-table history-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Type</th>
-                                <th>Description</th>
-                                <th class="text-right">Amount (Rs.)</th>
-                                <th class="text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="history-body">
-                            <!-- Populated dynamically via AJAX -->
-                        </tbody>
-                        <tfoot id="history-footer">
-                            <tr>
-                                <th colspan="3" class="text-right" style="font-size: 1.1rem; font-weight: 700; padding: 12px 16px;">Net Total:</th>
-                                <th id="history-total" class="text-right" style="font-size: 1.15rem; font-weight: 700; padding: 12px 16px;">₹0.00</th>
-                                <th></th>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-slate" onclick="closeModal('historyModal')">Close Explorer</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: FINANCIAL REPORTS CENTER -->
-    <div id="reportsModal" class="modal">
-        <div class="modal-content modal-content-large animate-zoom">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-file-invoice-dollar icon-violet"></i> Financial Reports Center</h3>
-                <span class="close-btn" onclick="closeModal('reportsModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <!-- Tab Navigation -->
-                <div class="report-tabs">
-                    <button id="tab-date-wise-cashbook" class="report-tab-btn active" onclick="switchReportTab('date-wise-cashbook')">
-                        <i class="fa-solid fa-calendar-days"></i> Date-Wise Cash Book
-                    </button>
-                    <button id="tab-month-wise-cashbook" class="report-tab-btn" onclick="switchReportTab('month-wise-cashbook')">
-                        <i class="fa-solid fa-calendar-check"></i> Month-Wise Cash Book
-                    </button>
-                    <button id="tab-income-expenditure" class="report-tab-btn" onclick="switchReportTab('income-expenditure')">
-                        <i class="fa-solid fa-building-columns"></i> Income & Expenditure Account
-                    </button>
-                    <button id="tab-helpdesk-stats" class="report-tab-btn" onclick="switchReportTab('helpdesk-stats')">
-                        <i class="fa-solid fa-chart-pie"></i> Helpdesk Statistics
-                    </button>
-                </div>
-
-                <!-- Filters Control Area for Reports -->
-                <div class="report-filter-bar">
-                    <!-- Date Range Filter (Visible for Date-wise Cashbook) -->
-                    <div id="rep-filter-dates" class="report-filter-item">
-                        <div class="input-field-inline">
-                            <label for="rep-start-date">Start Date</label>
-                            <input type="date" id="rep-start-date" onchange="loadActiveReport()">
-                        </div>
-                        <div class="input-field-inline">
-                            <label for="rep-end-date">End Date</label>
-                            <input type="date" id="rep-end-date" onchange="loadActiveReport()">
-                        </div>
-                    </div>
-
-                    <!-- Year Selector Filter (Visible for Month-wise Cashbook and Income & Expenditure) -->
-                    <div id="rep-filter-year" class="report-filter-item hidden">
-                        <div class="input-field-inline">
-                            <label for="rep-year">Select Year</label>
-                            <select id="rep-year" onchange="loadActiveReport()">
-                                <option value="2025">2025</option>
-                                <option value="2026" selected>2026</option>
-                                <option value="2027">2027</option>
-                                <option value="2028">2028</option>
-                                <option value="2029">2029</option>
-                                <option value="2030">2030</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Action buttons -->
-                    <div class="report-actions">
-                        <button class="btn btn-teal" onclick="printActiveReport()">
-                            <i class="fa-solid fa-print"></i> Print Report
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Report Render Area (Styled as a clean white ledger sheet) -->
-                <div class="report-sheet-wrapper">
-                    <div id="report-sheet" class="report-sheet">
-                        <!-- Dynamic Report Content goes here -->
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-slate" onclick="closeModal('reportsModal')">Close Reports</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: COLLECT FEE (INCOME) -->
-    <div id="incomeModal" class="modal">
-        <div class="modal-content animate-zoom">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-hand-holding-dollar icon-emerald"></i> Collect Maintenance Fee</h3>
-                <span class="close-btn" onclick="closeModal('incomeModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="income-form" onsubmit="handleIncomeSubmit(event)">
-                    <div class="input-field">
-                        <label for="inc-flat">Flat Profiler</label>
-                        <select id="inc-flat" required>
-                            <option value="" disabled selected>Select Room & Tenant</option>
-                        </select>
-                    </div>
-                    <div class="input-field">
-                        <label for="inc-category">Collection Purpose</label>
-                        <select id="inc-category" onchange="toggleEventNameField(this.value)" required>
-                            <option value="Monthly Maintenance" selected>Monthly Maintenance Charge</option>
-                            <option value="Special Event">Special Event Subscription</option>
-                            <option value="Other">Other Miscellaneous Collection</option>
-                        </select>
-                    </div>
-                    <div class="input-field hidden" id="inc-event-field">
-                        <label for="inc-event">Event / Puja Name</label>
-                        <input type="text" id="inc-event" placeholder="e.g. Durga Puja 2026, Building Painting">
-                    </div>
-                    <div class="grid-two-cols">
+            <!-- Main Workspace -->
+            <main class="workspace" id="workspace">
+                <!-- Filter & KPI Control Bar -->
+                <section class="control-panel card animate-fade-in">
+                    <div class="filter-group">
                         <div class="input-field">
-                            <label for="inc-year">Year</label>
-                            <select id="inc-year">
+                            <label for="filter-year">Year</label>
+                            <select id="filter-year">
                                 <option value="2025">2025</option>
                                 <option value="2026" selected>2026</option>
                                 <option value="2027">2027</option>
@@ -550,8 +153,8 @@
                             </select>
                         </div>
                         <div class="input-field">
-                            <label for="inc-month">Month</label>
-                            <select id="inc-month">
+                            <label for="filter-month">Month</label>
+                            <select id="filter-month">
                                 <option value="January">January</option>
                                 <option value="February">February</option>
                                 <option value="March">March</option>
@@ -567,58 +170,250 @@
                             </select>
                         </div>
                     </div>
-                    <div class="input-field">
-                        <label for="inc-amount">Amount Paid (Rs.)</label>
-                        <input type="number" step="0.01" id="inc-amount" placeholder="e.g. 1000" required>
+
+                    <!-- Live stats -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card kpi-income">
+                            <div class="kpi-info">
+                                <span class="kpi-title">Monthly Income</span>
+                                <h3 id="stat-income">Rs. 0.00</h3>
+                            </div>
+                            <div class="kpi-icon-wrapper">
+                                <i class="fa-solid fa-arrow-trend-up"></i>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-expense">
+                            <div class="kpi-info">
+                                <span class="kpi-title">Monthly Expenses</span>
+                                <h3 id="stat-expense">Rs. 0.00</h3>
+                            </div>
+                            <div class="kpi-icon-wrapper">
+                                <i class="fa-solid fa-arrow-trend-down"></i>
+                            </div>
+                        </div>
+                        <div class="kpi-card kpi-cash">
+                            <div class="kpi-info">
+                                <span class="kpi-title">Cash in Hand</span>
+                                <h3 id="stat-cash">Rs. 0.00</h3>
+                            </div>
+                            <div class="kpi-icon-wrapper">
+                                <i class="fa-solid fa-wallet"></i>
+                            </div>
+                        </div>
                     </div>
-                    <div class="input-field">
-                        <label for="inc-date">Receipt Date</label>
-                        <input type="date" id="inc-date" required>
-                    </div>
-                    <div class="input-field">
-                        <label for="inc-remarks">Remarks (Optional)</label>
-                        <input type="text" id="inc-remarks" placeholder="Any special notes...">
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-slate" onclick="closeModal('incomeModal')">Cancel</button>
-                        <button type="submit" class="btn btn-emerald">
-                            <i class="fa-solid fa-floppy-disk"></i> Save Collection
+
+                    <!-- Quick Transactions Actions -->
+                    <div class="action-group">
+                        <button class="btn btn-emerald btn-action animate-fade-in" onclick="openModal('incomeModal')">
+                            <i class="fa-solid fa-hand-holding-dollar"></i> Collect Fee
+                        </button>
+                        <button class="btn btn-rose btn-action animate-fade-in" onclick="openModal('expenseModal')">
+                            <i class="fa-solid fa-money-bill-transfer"></i> Record Expense
                         </button>
                     </div>
-                </form>
+                </section>
+
+                <!-- Ledger Table Section -->
+                <section class="card table-card animate-slide-up" style="animation-delay: 0.2s;">
+                    <div class="card-header table-header">
+                        <h2><i class="fa-solid fa-list-check icon-indigo"></i> Live Ledger Statement</h2>
+                        <div class="table-actions">
+                            <input type="text" id="table-search" placeholder="Search flat or description..."
+                                oninput="filterTable()">
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="ledger-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                    <th>Ledger Period</th>
+                                    <th class="text-right">Amount (Rs.)</th>
+                                    <th class="text-center">Record Date</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ledger-body">
+                                <!-- Populated dynamically via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- NOTIFICATION SYSTEM -->
+        <div id="toast-container" class="toast-container"></div>
+
+        <!-- MODAL: IMPORT LEDGER EXCEL -->
+        <div id="importModal" class="modal">
+            <div class="modal-content animate-zoom">
+                <div class="modal-header">
+                    <h3>📥 Import Ledger Spreadsheet</h3>
+                    <span class="close-btn" onclick="closeModal('importModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p class="warning-text"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Warning:</strong>
+                        Importing a new ledger will completely overwrite current database entries with the spreadsheet's
+                        values.</p>
+                    <form id="import-form" onsubmit="handleImportSubmit(event)">
+                        <div class="file-dropzone">
+                            <i class="fa-solid fa-file-excel dropzone-icon"></i>
+                            <span class="dropzone-text">Click or drag Excel file here</span>
+                            <input type="file" id="import-file" accept=".xlsx, .xls" required
+                                onchange="updateDropzoneText(this)">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-slate"
+                                onclick="closeModal('importModal')">Cancel</button>
+                            <button type="submit" class="btn btn-emerald" id="btn-import-submit">Upload & Parse</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODAL: RECORD OUTFLOW (EXPENSES) -->
-    <div id="expenseModal" class="modal">
-        <div class="modal-content animate-zoom">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-money-bill-transfer icon-rose"></i> Maintenance Outflow</h3>
-                <span class="close-btn" onclick="closeModal('expenseModal')">&times;</span>
+        <!-- Users Management Modal -->
+        <div id="usersModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-user-shield"></i> Manage Users & Roles</h2>
+                    <span class="close" onclick="closeModal('usersModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Current Role</th>
+                                    <th>Assigned Floors</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <!-- Populated dynamically -->
+                                <tr>
+                                    <td colspan="3" style="text-align: center;">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-slate" onclick="closeModal('usersModal')">Close</button>
+                </div>
             </div>
-            <div class="modal-body">
-                <form id="expense-form" onsubmit="handleExpenseSubmit(event)">
-                    <div class="grid-two-cols">
+        </div>
+
+        <!-- Change Password Modal -->
+        <div id="passwordModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-key"></i> Change Password</h2>
+                    <span class="close" onclick="closeModal('passwordModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="input-field">
+                        <label>New Password</label>
+                        <input type="password" id="new-password" placeholder="Min 6 characters">
+                    </div>
+                    <div class="input-field" style="margin-top: 16px;">
+                        <label>Confirm New Password</label>
+                        <input type="password" id="confirm-new-password" placeholder="Type password again">
+                    </div>
+                    <button class="btn btn-indigo" onclick="updateUserPassword()"
+                        style="width: 100%; margin-top: 16px;">Update Password</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: UPLOAD OWNERS EXCEL -->
+        <div id="ownersModal" class="modal">
+            <div class="modal-content animate-zoom">
+                <div class="modal-header">
+                    <h3>👥 Update Owner Mapping</h3>
+                    <span class="close-btn" onclick="closeModal('ownersModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p>Upload your <code>owners.xlsx</code> spreadsheet to refresh the building's flat number and tenant
+                        names list.</p>
+                    <form id="owners-form" onsubmit="handleOwnersSubmit(event)">
+                        <div class="file-dropzone">
+                            <i class="fa-solid fa-users dropzone-icon"></i>
+                            <span class="dropzone-text">Click or drag owners.xlsx file here</span>
+                            <input type="file" id="owners-file" accept=".xlsx, .xls" required
+                                onchange="updateDropzoneText(this)">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-slate"
+                                onclick="closeModal('ownersModal')">Cancel</button>
+                            <button type="submit" class="btn btn-indigo" id="btn-owners-submit">Upload Mapping</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: LEDGER HISTORY EXPLORER -->
+        <div id="historyModal" class="modal">
+            <div class="modal-content modal-content-large animate-zoom">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-clock-rotate-left icon-teal"></i> Ledger History Explorer</h3>
+                    <span class="close-btn" onclick="closeModal('historyModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <!-- Filters Grid inside Modal -->
+                    <div class="modal-filters-grid">
+                        <!-- Period Mode Toggle Switch - full width row -->
+                        <div class="period-toggle-row">
+                            <div class="period-toggle-wrapper">
+                                <span class="period-toggle-switch-label" id="period-label-period">Period</span>
+                                <label class="period-toggle-switch" title="Toggle between Period and Date Range mode">
+                                    <input type="checkbox" id="period-mode-toggle" onchange="togglePeriodMode()">
+                                    <span class="period-toggle-slider"></span>
+                                </label>
+                                <span class="period-toggle-switch-label" id="period-label-daterange">Date Range</span>
+                            </div>
+                        </div>
+                        <!-- Filter Fields - single row -->
                         <div class="input-field">
-                            <label for="exp-year">Billing Year</label>
-                            <select id="exp-year">
+                            <label for="hist-type">Entry Type</label>
+                            <select id="hist-type" onchange="fetchHistory()">
+                                <option value="ALL">All Entries</option>
+                                <option value="INCOME">Collections (Income)</option>
+                                <option value="EXPENSE">Expenses (Outflow)</option>
+                            </select>
+                        </div>
+                        <div class="input-field">
+                            <label for="hist-flat">Flat / Room</label>
+                            <select id="hist-flat" onchange="fetchHistory()">
+                                <option value="ALL">All Flats</option>
+                            </select>
+                        </div>
+                        <div class="input-field" id="hist-year-field">
+                            <label for="hist-year">Year</label>
+                            <select id="hist-year" onchange="fetchHistory()">
+                                <option value="ALL">All Years</option>
                                 <option value="2025">2025</option>
-                                <option value="2026" selected>2026</option>
+                                <option value="2026">2026</option>
                                 <option value="2027">2027</option>
                                 <option value="2028">2028</option>
                                 <option value="2029">2029</option>
                                 <option value="2030">2030</option>
                             </select>
                         </div>
-                        <div class="input-field">
-                            <label for="exp-month">Billing Month</label>
-                            <select id="exp-month">
+                        <div class="input-field" id="hist-month-field">
+                            <label for="hist-month">Month</label>
+                            <select id="hist-month" onchange="fetchHistory()">
+                                <option value="ALL">All Months</option>
                                 <option value="January">January</option>
                                 <option value="February">February</option>
                                 <option value="March">March</option>
                                 <option value="April">April</option>
-                                <option value="May" selected>May</option>
+                                <option value="May">May</option>
                                 <option value="June">June</option>
                                 <option value="July">July</option>
                                 <option value="August">August</option>
@@ -628,501 +423,820 @@
                                 <option value="December">December</option>
                             </select>
                         </div>
+                        <div class="input-field hidden" id="hist-start-date-field">
+                            <label for="hist-start-date">Start Date</label>
+                            <input type="date" id="hist-start-date" onchange="fetchHistory()">
+                        </div>
+                        <div class="input-field hidden" id="hist-end-date-field">
+                            <label for="hist-end-date">End Date</label>
+                            <input type="date" id="hist-end-date" onchange="fetchHistory()">
+                        </div>
+                        <div class="input-field">
+                            <label for="hist-search">Search</label>
+                            <input type="text" id="hist-search" placeholder="Search..." oninput="fetchHistory()">
+                        </div>
                     </div>
-                    <div class="input-field">
-                        <label for="exp-head">Expense Category / Head</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <select id="exp-head" style="flex: 1;" required>
-                                <!-- Loaded dynamically -->
-                            </select>
-                            <button type="button" class="btn btn-slate" onclick="openExpenseHeadsModal()" style="padding: 10px;" title="Manage Categories">
-                                <i class="fa-solid fa-gear"></i>
+
+                    <!-- History Results Table -->
+                    <div class="table-scroll history-table-scroll">
+                        <table class="ledger-table history-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                    <th class="text-right">Amount (Rs.)</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-body">
+                                <!-- Populated dynamically via AJAX -->
+                            </tbody>
+                            <tfoot id="history-footer">
+                                <tr>
+                                    <th colspan="3" class="text-right"
+                                        style="font-size: 1.1rem; font-weight: 700; padding: 12px 16px;">Net Total:</th>
+                                    <th id="history-total" class="text-right"
+                                        style="font-size: 1.15rem; font-weight: 700; padding: 12px 16px;">₹0.00</th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-slate" onclick="closeModal('historyModal')">Close
+                        Explorer</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: FINANCIAL REPORTS CENTER -->
+        <div id="reportsModal" class="modal">
+            <div class="modal-content modal-content-large animate-zoom">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-file-invoice-dollar icon-violet"></i> Financial Reports Center</h3>
+                    <span class="close-btn" onclick="closeModal('reportsModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <!-- Tab Navigation -->
+                    <div class="report-tabs">
+                        <button id="tab-date-wise-cashbook" class="report-tab-btn active"
+                            onclick="switchReportTab('date-wise-cashbook')">
+                            <i class="fa-solid fa-calendar-days"></i> Date-Wise Cash Book
+                        </button>
+                        <button id="tab-month-wise-cashbook" class="report-tab-btn"
+                            onclick="switchReportTab('month-wise-cashbook')">
+                            <i class="fa-solid fa-calendar-check"></i> Month-Wise Cash Book
+                        </button>
+                        <button id="tab-income-expenditure" class="report-tab-btn"
+                            onclick="switchReportTab('income-expenditure')">
+                            <i class="fa-solid fa-building-columns"></i> Income & Expenditure Account
+                        </button>
+                        <button id="tab-helpdesk-stats" class="report-tab-btn"
+                            onclick="switchReportTab('helpdesk-stats')">
+                            <i class="fa-solid fa-chart-pie"></i> Helpdesk Statistics
+                        </button>
+                    </div>
+
+                    <!-- Filters Control Area for Reports -->
+                    <div class="report-filter-bar">
+                        <!-- Date Range Filter (Visible for Date-wise Cashbook) -->
+                        <div id="rep-filter-dates" class="report-filter-item">
+                            <div class="input-field-inline">
+                                <label for="rep-start-date">Start Date</label>
+                                <input type="date" id="rep-start-date" onchange="loadActiveReport()">
+                            </div>
+                            <div class="input-field-inline">
+                                <label for="rep-end-date">End Date</label>
+                                <input type="date" id="rep-end-date" onchange="loadActiveReport()">
+                            </div>
+                        </div>
+
+                        <!-- Year Selector Filter (Visible for Month-wise Cashbook and Income & Expenditure) -->
+                        <div id="rep-filter-year" class="report-filter-item hidden">
+                            <div class="input-field-inline">
+                                <label for="rep-year">Select Year</label>
+                                <select id="rep-year" onchange="loadActiveReport()">
+                                    <option value="2025">2025</option>
+                                    <option value="2026" selected>2026</option>
+                                    <option value="2027">2027</option>
+                                    <option value="2028">2028</option>
+                                    <option value="2029">2029</option>
+                                    <option value="2030">2030</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Action buttons -->
+                        <div class="report-actions">
+                            <button class="btn btn-teal" onclick="printActiveReport()">
+                                <i class="fa-solid fa-print"></i> Print Report
                             </button>
                         </div>
                     </div>
-                    <div class="input-field">
-                        <label for="exp-desc">Voucher Details / Description</label>
-                        <input type="text" id="exp-desc" placeholder="e.g. Electricity Bill, Lift Repairs" required>
+
+                    <!-- Report Render Area (Styled as a clean white ledger sheet) -->
+                    <div class="report-sheet-wrapper">
+                        <div id="report-sheet" class="report-sheet">
+                            <!-- Dynamic Report Content goes here -->
+                        </div>
                     </div>
-                    <div class="input-field">
-                        <label for="exp-amount">Amount Spent (Rs.)</label>
-                        <input type="number" step="0.01" id="exp-amount" placeholder="e.g. 2500" required>
-                    </div>
-                    <div class="input-field">
-                        <label for="exp-date">Payment Date</label>
-                        <input type="date" id="exp-date" required>
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-slate" onclick="closeModal('expenseModal')">Cancel</button>
-                        <button type="submit" class="btn btn-rose">
-                            <i class="fa-solid fa-floppy-disk"></i> Save Expense
-                        </button>
-                    </div>
-                </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-slate" onclick="closeModal('reportsModal')">Close
+                        Reports</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODAL: SUPABASE CONFIGURATION -->
-    <div id="supabaseConfigModal" class="modal">
-        <div class="modal-content animate-zoom">
-            <div class="modal-header">
-                <h3>⚡ Supabase Connection Setup</h3>
-                <span class="close-btn" onclick="closeModal('supabaseConfigModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p style="margin-bottom: 16px; font-size: 0.9rem; color: var(--text-secondary);">
-                    This application runs entirely serverless. Please input your Supabase project credentials. They will be stored securely in your web browser's local storage.
-                </p>
-                <form id="supabase-config-form" onsubmit="saveSupabaseConfig(event)">
-                    <div class="input-field">
-                        <label for="sb-url">Supabase URL</label>
-                        <input type="url" id="sb-url" placeholder="https://your-project-id.supabase.co" required>
-                    </div>
-                    <div class="input-field">
-                        <label for="sb-key">Anon Key</label>
-                        <input type="password" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." required>
-                    </div>
-                    <div class="modal-actions" style="margin-top: 20px;">
-                        <button type="button" class="btn btn-slate" onclick="closeModal('supabaseConfigModal')">Cancel</button>
-                        <button type="submit" class="btn btn-indigo">
-                            <i class="fa-solid fa-plug"></i> Connect Database
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: OWNERS DIRECTORY (CRM GRID) -->
-    <div id="ownersDirectoryModal" class="modal">
-        <div class="modal-content modal-content-large animate-zoom">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-users icon-indigo"></i> Owners & Residents Directory</h3>
-                <span class="close-btn" onclick="closeModal('ownersDirectoryModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="directory-container">
-                    <!-- Left Side: Directory search and flats grid -->
-                    <div class="directory-list-side">
-                        <div style="display: flex; gap: 8px;">
-                            <input type="text" id="directory-search" class="directory-search" placeholder="Search flat or owner name..." oninput="filterOwnersDirectory()" style="flex: 1;">
-                            <select id="directory-floor-filter" class="directory-search" style="flex: 0.5; cursor: pointer;" onchange="filterOwnersDirectory()">
-                                <option value="">All Floors</option>
-                                <option value="1">Floor 1</option>
-                                <option value="2">Floor 2</option>
-                                <option value="3">Floor 3</option>
-                                <option value="4">Floor 4</option>
-                                <option value="5">Floor 5</option>
-                                <option value="6">Floor 6</option>
-                                <option value="7">Floor 7</option>
-                                <option value="8">Floor 8</option>
+        <!-- MODAL: COLLECT FEE (INCOME) -->
+        <div id="incomeModal" class="modal">
+            <div class="modal-content animate-zoom">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-hand-holding-dollar icon-emerald"></i> Collect Maintenance Fee</h3>
+                    <span class="close-btn" onclick="closeModal('incomeModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="income-form" onsubmit="handleIncomeSubmit(event)">
+                        <div class="input-field">
+                            <label for="inc-flat">Flat Profiler</label>
+                            <select id="inc-flat" required>
+                                <option value="" disabled selected>Select Room & Tenant</option>
                             </select>
                         </div>
-                        <div class="flats-grid-wrapper">
-                            <div id="flats-grid" class="flats-grid">
-                                <!-- Populated dynamically -->
+                        <div class="input-field">
+                            <label for="inc-category">Collection Purpose</label>
+                            <select id="inc-category" onchange="toggleEventNameField(this.value)" required>
+                                <option value="Monthly Maintenance" selected>Monthly Maintenance Charge</option>
+                                <option value="Special Event">Special Event Subscription</option>
+                                <option value="Other">Other Miscellaneous Collection</option>
+                            </select>
+                        </div>
+                        <div class="input-field hidden" id="inc-event-field">
+                            <label for="inc-event">Event / Puja Name</label>
+                            <input type="text" id="inc-event" placeholder="e.g. Durga Puja 2026, Building Painting">
+                        </div>
+                        <div class="grid-two-cols">
+                            <div class="input-field">
+                                <label for="inc-year">Year</label>
+                                <select id="inc-year">
+                                    <option value="2025">2025</option>
+                                    <option value="2026" selected>2026</option>
+                                    <option value="2027">2027</option>
+                                    <option value="2028">2028</option>
+                                    <option value="2029">2029</option>
+                                    <option value="2030">2030</option>
+                                </select>
+                            </div>
+                            <div class="input-field">
+                                <label for="inc-month">Month</label>
+                                <select id="inc-month">
+                                    <option value="January">January</option>
+                                    <option value="February">February</option>
+                                    <option value="March">March</option>
+                                    <option value="April">April</option>
+                                    <option value="May" selected>May</option>
+                                    <option value="June">June</option>
+                                    <option value="July">July</option>
+                                    <option value="August">August</option>
+                                    <option value="September">September</option>
+                                    <option value="October">October</option>
+                                    <option value="November">November</option>
+                                    <option value="December">December</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="inc-amount">Amount Paid (Rs.)</label>
+                            <input type="number" step="0.01" id="inc-amount" placeholder="e.g. 1000" required>
+                        </div>
+                        <div class="input-field">
+                            <label for="inc-date">Receipt Date</label>
+                            <input type="date" id="inc-date" required>
+                        </div>
+                        <div class="input-field">
+                            <label for="inc-remarks">Remarks (Optional)</label>
+                            <input type="text" id="inc-remarks" placeholder="Any special notes...">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-slate"
+                                onclick="closeModal('incomeModal')">Cancel</button>
+                            <button type="submit" class="btn btn-emerald">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Collection
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: RECORD OUTFLOW (EXPENSES) -->
+        <div id="expenseModal" class="modal">
+            <div class="modal-content animate-zoom">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-money-bill-transfer icon-rose"></i> Maintenance Outflow</h3>
+                    <span class="close-btn" onclick="closeModal('expenseModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="expense-form" onsubmit="handleExpenseSubmit(event)">
+                        <div class="grid-two-cols">
+                            <div class="input-field">
+                                <label for="exp-year">Billing Year</label>
+                                <select id="exp-year">
+                                    <option value="2025">2025</option>
+                                    <option value="2026" selected>2026</option>
+                                    <option value="2027">2027</option>
+                                    <option value="2028">2028</option>
+                                    <option value="2029">2029</option>
+                                    <option value="2030">2030</option>
+                                </select>
+                            </div>
+                            <div class="input-field">
+                                <label for="exp-month">Billing Month</label>
+                                <select id="exp-month">
+                                    <option value="January">January</option>
+                                    <option value="February">February</option>
+                                    <option value="March">March</option>
+                                    <option value="April">April</option>
+                                    <option value="May" selected>May</option>
+                                    <option value="June">June</option>
+                                    <option value="July">July</option>
+                                    <option value="August">August</option>
+                                    <option value="September">September</option>
+                                    <option value="October">October</option>
+                                    <option value="November">November</option>
+                                    <option value="December">December</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="exp-head">Expense Category / Head</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <select id="exp-head" style="flex: 1;" required>
+                                    <!-- Loaded dynamically -->
+                                </select>
+                                <button type="button" class="btn btn-slate" onclick="openExpenseHeadsModal()"
+                                    style="padding: 10px;" title="Manage Categories">
+                                    <i class="fa-solid fa-gear"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="exp-desc">Voucher Details / Description</label>
+                            <input type="text" id="exp-desc" placeholder="e.g. Electricity Bill, Lift Repairs" required>
+                        </div>
+                        <div class="input-field">
+                            <label for="exp-amount">Amount Spent (Rs.)</label>
+                            <input type="number" step="0.01" id="exp-amount" placeholder="e.g. 2500" required>
+                        </div>
+                        <div class="input-field">
+                            <label for="exp-date">Payment Date</label>
+                            <input type="date" id="exp-date" required>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-slate"
+                                onclick="closeModal('expenseModal')">Cancel</button>
+                            <button type="submit" class="btn btn-rose">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Expense
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: SUPABASE CONFIGURATION -->
+        <div id="supabaseConfigModal" class="modal">
+            <div class="modal-content animate-zoom">
+                <div class="modal-header">
+                    <h3>⚡ Supabase Connection Setup</h3>
+                    <span class="close-btn" onclick="closeModal('supabaseConfigModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom: 16px; font-size: 0.9rem; color: var(--text-secondary);">
+                        This application runs entirely serverless. Please input your Supabase project credentials. They
+                        will be stored securely in your web browser's local storage.
+                    </p>
+                    <form id="supabase-config-form" onsubmit="saveSupabaseConfig(event)">
+                        <div class="input-field">
+                            <label for="sb-url">Supabase URL</label>
+                            <input type="url" id="sb-url" placeholder="https://your-project-id.supabase.co" required>
+                        </div>
+                        <div class="input-field">
+                            <label for="sb-key">Anon Key</label>
+                            <input type="password" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                                required>
+                        </div>
+                        <div class="modal-actions" style="margin-top: 20px;">
+                            <button type="button" class="btn btn-slate"
+                                onclick="closeModal('supabaseConfigModal')">Cancel</button>
+                            <button type="submit" class="btn btn-indigo">
+                                <i class="fa-solid fa-plug"></i> Connect Database
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: OWNERS DIRECTORY (CRM GRID) -->
+        <div id="ownersDirectoryModal" class="modal">
+            <div class="modal-content modal-content-large animate-zoom">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-users icon-indigo"></i> Owners & Residents Directory</h3>
+                    <span class="close-btn" onclick="closeModal('ownersDirectoryModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="directory-container">
+                        <!-- Left Side: Directory search and flats grid -->
+                        <div class="directory-list-side">
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="directory-search" class="directory-search"
+                                    placeholder="Search flat or owner name..." oninput="filterOwnersDirectory()"
+                                    style="flex: 1;">
+                                <select id="directory-floor-filter" class="directory-search"
+                                    style="flex: 0.5; cursor: pointer;" onchange="filterOwnersDirectory()">
+                                    <option value="">All Floors</option>
+                                </select>
+                            </div>
+                            <div class="flats-grid-wrapper">
+                                <div id="flats-grid" class="flats-grid">
+                                    <!-- Populated dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Right Side: Profile Details and Editor -->
+                        <div class="directory-detail-side" id="directory-detail-side">
+                            <div class="detail-placeholder">
+                                <i class="fa-solid fa-building-user"
+                                    style="font-size: 3.5rem; color: var(--text-muted);"></i>
+                                <p style="margin-top: 10px;">Select a flat card from the grid to view or manage its
+                                    detailed profile.</p>
                             </div>
                         </div>
                     </div>
-                    <!-- Right Side: Profile Details and Editor -->
-                    <div class="directory-detail-side" id="directory-detail-side">
-                        <div class="detail-placeholder">
-                            <i class="fa-solid fa-building-user" style="font-size: 3.5rem; color: var(--text-muted);"></i>
-                            <p style="margin-top: 10px;">Select a flat card from the grid to view or manage its detailed profile.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-slate" onclick="closeModal('ownersDirectoryModal')">Close
+                        Directory</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: EXPENSE HEADS MANAGER -->
+        <div id="expenseHeadsModal" class="modal">
+            <div class="modal-content animate-zoom">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-gears icon-rose"></i> Manage Expense Heads</h3>
+                    <span class="close-btn" onclick="closeModal('expenseHeadsModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+                        Define the variable expenditure categories for the building maintenance outflow registers.
+                    </p>
+                    <!-- Add category form (admin only) -->
+                    <form id="add-head-form" onsubmit="handleAddExpenseHead(event)"
+                        style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <input type="text" id="new-head-name" placeholder="New Expense Head name (e.g. Roof repair)"
+                            style="flex: 1;" required>
+                        <button type="submit" class="btn btn-rose" style="padding: 10px 16px;">Add</button>
+                    </form>
+                    <div class="category-manager-list" id="category-manager-list">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-slate" onclick="closeModal('expenseHeadsModal')">Close
+                        Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: SUPPORT HELPDESK -->
+        <div id="ticketsModal" class="modal">
+            <div class="modal-content modal-content-large animate-zoom">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-ticket icon-yellow"></i> Support & Complaints Helpdesk</h3>
+                    <span class="close-btn" onclick="closeModal('ticketsModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <!-- KPI Analytics Bar -->
+                    <div class="tickets-kpi-bar" id="tickets-kpi-bar">
+                        <div class="kpi-card">
+                            <span class="kpi-value" id="kpi-open-count">-</span>
+                            <span class="kpi-label">Open Tickets</span>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-value" id="kpi-resolved-count">-</span>
+                            <span class="kpi-label">Resolved</span>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-value" id="kpi-avg-time">-</span>
+                            <span class="kpi-label">Avg Resolve Time</span>
                         </div>
                     </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-slate" onclick="closeModal('ownersDirectoryModal')">Close Directory</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- MODAL: EXPENSE HEADS MANAGER -->
-    <div id="expenseHeadsModal" class="modal">
-        <div class="modal-content animate-zoom">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-gears icon-rose"></i> Manage Expense Heads</h3>
-                <span class="close-btn" onclick="closeModal('expenseHeadsModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
-                    Define the variable expenditure categories for the building maintenance outflow registers.
-                </p>
-                <!-- Add category form (admin only) -->
-                <form id="add-head-form" onsubmit="handleAddExpenseHead(event)" style="display: flex; gap: 8px; margin-bottom: 16px;">
-                    <input type="text" id="new-head-name" placeholder="New Expense Head name (e.g. Roof repair)" style="flex: 1;" required>
-                    <button type="submit" class="btn btn-rose" style="padding: 10px 16px;">Add</button>
-                </form>
-                <div class="category-manager-list" id="category-manager-list">
-                    <!-- Loaded dynamically -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-slate" onclick="closeModal('expenseHeadsModal')">Close Settings</button>
-            </div>
-        </div>
-    </div>
+                    <div class="tickets-container">
+                        <!-- Left Column: Search, filters, list, and File button -->
+                        <div class="tickets-list-side">
+                            <!-- Scope Selector toggle -->
+                            <div class="tickets-header-controls">
+                                <span
+                                    style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">Complaints
+                                    List</span>
+                                <div style="display: flex; gap: 6px;">
+                                    <button id="scope-btn-all" class="scope-toggle-btn active"
+                                        onclick="setTicketScope('ALL')">All</button>
+                                    <button id="scope-btn-my" class="scope-toggle-btn" onclick="setTicketScope('MY')">My
+                                        Complaints</button>
+                                </div>
+                            </div>
 
-    <!-- MODAL: SUPPORT HELPDESK -->
-    <div id="ticketsModal" class="modal">
-        <div class="modal-content modal-content-large animate-zoom">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-ticket icon-yellow"></i> Support & Complaints Helpdesk</h3>
-                <span class="close-btn" onclick="closeModal('ticketsModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <!-- KPI Analytics Bar -->
-                <div class="tickets-kpi-bar" id="tickets-kpi-bar">
-                    <div class="kpi-card">
-                        <span class="kpi-value" id="kpi-open-count">-</span>
-                        <span class="kpi-label">Open Tickets</span>
-                    </div>
-                    <div class="kpi-card">
-                        <span class="kpi-value" id="kpi-resolved-count">-</span>
-                        <span class="kpi-label">Resolved</span>
-                    </div>
-                    <div class="kpi-card">
-                        <span class="kpi-value" id="kpi-avg-time">-</span>
-                        <span class="kpi-label">Avg Resolve Time</span>
-                    </div>
-                </div>
+                            <div class="tickets-filter-bar">
+                                <select id="ticket-filter-status" onchange="filterTickets()">
+                                    <option value="ALL">All Statuses</option>
+                                    <option value="Pending">Pending</option>
+                                    <option value="Recommended">Recommended</option>
+                                    <option value="Approved">Approved</option>
+                                    <option value="Resolved">Resolved</option>
+                                    <option value="Closed">Closed</option>
+                                    <option value="Reopened">Reopened</option>
+                                </select>
+                                <select id="ticket-filter-category" onchange="filterTickets()">
+                                    <option value="ALL">All Categories</option>
+                                    <option value="plumbing">Plumbing</option>
+                                    <option value="electrical">Electrical</option>
+                                    <option value="lift">Lift</option>
+                                    <option value="security">Security</option>
+                                    <option value="cleanliness">Cleanliness</option>
+                                    <option value="billing">Billing</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <input type="text" id="ticket-search" class="directory-search"
+                                placeholder="Search title/flat/creator..." oninput="filterTickets()">
 
-                <div class="tickets-container">
-                    <!-- Left Column: Search, filters, list, and File button -->
-                    <div class="tickets-list-side">
-                        <!-- Scope Selector toggle -->
-                        <div class="tickets-header-controls">
-                            <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">Complaints List</span>
-                            <div style="display: flex; gap: 6px;">
-                                <button id="scope-btn-all" class="scope-toggle-btn active" onclick="setTicketScope('ALL')">All</button>
-                                <button id="scope-btn-my" class="scope-toggle-btn" onclick="setTicketScope('MY')">My Complaints</button>
+                            <div class="tickets-scroll-wrapper">
+                                <div id="tickets-list">
+                                    <!-- Populated dynamically -->
+                                </div>
+                            </div>
+
+                            <button class="btn btn-yellow btn-full" onclick="openNewTicketModal()"
+                                style="margin-top: 10px;">
+                                <i class="fa-solid fa-plus"></i> File New Complaint
+                            </button>
+                        </div>
+
+                        <!-- Right Column: Detail & Workflow Timeline -->
+                        <div class="tickets-detail-side" id="tickets-detail-side">
+                            <div class="detail-placeholder">
+                                <i class="fa-solid fa-clipboard-list"
+                                    style="font-size: 3.5rem; color: var(--text-muted);"></i>
+                                <p style="margin-top: 10px;">Select a complaint ticket from the list to view its details
+                                    and workflow tracking.</p>
                             </div>
                         </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-slate" onclick="closeModal('ticketsModal')">Close
+                        Helpdesk</button>
+                </div>
+            </div>
+        </div>
 
-                        <div class="tickets-filter-bar">
-                            <select id="ticket-filter-status" onchange="filterTickets()">
-                                <option value="ALL">All Statuses</option>
-                                <option value="Pending">Pending</option>
-                                <option value="Recommended">Recommended</option>
-                                <option value="Approved">Approved</option>
-                                <option value="Resolved">Resolved</option>
-                                <option value="Closed">Closed</option>
-                                <option value="Reopened">Reopened</option>
-                            </select>
-                            <select id="ticket-filter-category" onchange="filterTickets()">
-                                <option value="ALL">All Categories</option>
+        <!-- MODAL: FILE NEW TICKET -->
+        <div id="newTicketModal" class="modal">
+            <div class="modal-content animate-zoom">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-plus-circle icon-yellow"></i> File New Complaint</h3>
+                    <span class="close-btn" onclick="closeModal('newTicketModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="new-ticket-form" onsubmit="handleCreateTicket(event)">
+                        <div class="input-field">
+                            <label for="ticket-title">Short Title / Subject</label>
+                            <input type="text" id="ticket-title"
+                                placeholder="e.g. Lift fan not working, Water pump leak" required>
+                        </div>
+                        <div class="input-field">
+                            <label for="ticket-category">Category</label>
+                            <select id="ticket-category" required>
                                 <option value="plumbing">Plumbing</option>
                                 <option value="electrical">Electrical</option>
                                 <option value="lift">Lift</option>
                                 <option value="security">Security</option>
                                 <option value="cleanliness">Cleanliness</option>
                                 <option value="billing">Billing</option>
-                                <option value="other">Other</option>
+                                <option value="other" selected>Other / General</option>
                             </select>
                         </div>
-                        <input type="text" id="ticket-search" class="directory-search" placeholder="Search title/flat/creator..." oninput="filterTickets()">
-                        
-                        <div class="tickets-scroll-wrapper">
-                            <div id="tickets-list">
-                                <!-- Populated dynamically -->
-                            </div>
-                        </div>
-                        
-                        <button class="btn btn-yellow btn-full" onclick="openNewTicketModal()" style="margin-top: 10px;">
-                            <i class="fa-solid fa-plus"></i> File New Complaint
-                        </button>
-                    </div>
-                    
-                    <!-- Right Column: Detail & Workflow Timeline -->
-                    <div class="tickets-detail-side" id="tickets-detail-side">
-                        <div class="detail-placeholder">
-                            <i class="fa-solid fa-clipboard-list" style="font-size: 3.5rem; color: var(--text-muted);"></i>
-                            <p style="margin-top: 10px;">Select a complaint ticket from the list to view its details and workflow tracking.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-slate" onclick="closeModal('ticketsModal')">Close Helpdesk</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: FILE NEW TICKET -->
-    <div id="newTicketModal" class="modal">
-        <div class="modal-content animate-zoom">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-plus-circle icon-yellow"></i> File New Complaint</h3>
-                <span class="close-btn" onclick="closeModal('newTicketModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="new-ticket-form" onsubmit="handleCreateTicket(event)">
-                    <div class="input-field">
-                        <label for="ticket-title">Short Title / Subject</label>
-                        <input type="text" id="ticket-title" placeholder="e.g. Lift fan not working, Water pump leak" required>
-                    </div>
-                    <div class="input-field">
-                        <label for="ticket-category">Category</label>
-                        <select id="ticket-category" required>
-                            <option value="plumbing">Plumbing</option>
-                            <option value="electrical">Electrical</option>
-                            <option value="lift">Lift</option>
-                            <option value="security">Security</option>
-                            <option value="cleanliness">Cleanliness</option>
-                            <option value="billing">Billing</option>
-                            <option value="other" selected>Other / General</option>
-                        </select>
-                    </div>
-                    <div class="input-field">
-                        <label for="ticket-flat">Flat Number</label>
-                        <select id="ticket-flat" required>
-                            <option value="" disabled selected>Select Your Flat</option>
-                            <!-- Populated dynamically from owners -->
-                        </select>
-                    </div>
-                    <div class="input-field">
-                        <label for="ticket-priority">Priority Level</label>
-                        <select id="ticket-priority" required>
-                            <option value="Low">Low</option>
-                            <option value="Medium" selected>Medium</option>
-                            <option value="High">High</option>
-                            <option value="Urgent">Urgent</option>
-                        </select>
-                    </div>
-                    <div class="input-field">
-                        <label for="ticket-attachments">Attach Photo/Document (Optional)</label>
-                        <input type="file" id="ticket-attachments" accept="image/*,application/pdf" style="width: 100%; padding: 6px; background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--border-radius-sm); outline: none;">
-                    </div>
-                    <div class="input-field">
-                        <label for="ticket-desc">Detailed Description</label>
-                        <textarea id="ticket-desc" placeholder="Please describe the issue in detail, including floor number or any background details..." rows="4" style="width: 100%; padding: 10px; background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--border-radius-sm); outline: none; font-family: inherit; font-size: 0.9rem;" required></textarea>
-                    </div>
-                    <div class="modal-actions" style="margin-top: 20px;">
-                        <button type="button" class="btn btn-slate" onclick="closeModal('newTicketModal')">Cancel</button>
-                        <button type="submit" class="btn btn-yellow">Submit Ticket</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: ROLES MANAGER -->
-    <div id="rolesModal" class="modal">
-        <div class="modal-content animate-zoom" style="max-width: 800px;">
-            <div class="modal-header">
-                <h2><i class="fa-solid fa-diagram-project"></i> Manage Roles & Permissions</h2>
-                <span class="close" onclick="closeModal('rolesModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
-                    Define custom roles and assign granular permissions. Changes take effect immediately for all users.
-                </p>
-                <button class="btn btn-emerald" onclick="openAddRoleModal()" style="margin-bottom: 16px;">
-                    <i class="fa-solid fa-plus"></i> Add New Role
-                </button>
-                <div id="roles-manager-list">
-                    <!-- Populated dynamically -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-slate" onclick="closeModal('rolesModal')">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: ADD/EDIT ROLE -->
-    <div id="editRoleModal" class="modal">
-        <div class="modal-content animate-zoom" style="max-width: 600px;">
-            <div class="modal-header">
-                <h2 id="edit-role-modal-title"><i class="fa-solid fa-pen"></i> Edit Role</h2>
-                <span class="close" onclick="closeModal('editRoleModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="edit-role-form" onsubmit="handleSaveRole(event)">
-                    <input type="hidden" id="edit-role-mode" value="add">
-                    <input type="hidden" id="edit-role-original-name" value="">
-                    
-                    <div class="grid-two-cols">
                         <div class="input-field">
-                            <label for="edit-role-name">Role Key (unique, lowercase, no spaces)</label>
-                            <input type="text" id="edit-role-name" placeholder="e.g. security_guard" required pattern="[a-z_][a-z0-9_]*" title="Lowercase letters, numbers, and underscores only">
+                            <label for="ticket-flat">Flat Number</label>
+                            <select id="ticket-flat" required>
+                                <option value="" disabled selected>Select Your Flat</option>
+                                <!-- Populated dynamically from owners -->
+                            </select>
                         </div>
                         <div class="input-field">
-                            <label for="edit-role-label">Display Label</label>
-                            <input type="text" id="edit-role-label" placeholder="e.g. Security Guard" required>
+                            <label for="ticket-priority">Priority Level</label>
+                            <select id="ticket-priority" required>
+                                <option value="Low">Low</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="High">High</option>
+                                <option value="Urgent">Urgent</option>
+                            </select>
                         </div>
+                        <div class="input-field">
+                            <label for="ticket-attachments">Attach Photo/Document (Optional)</label>
+                            <input type="file" id="ticket-attachments" accept="image/*,application/pdf"
+                                style="width: 100%; padding: 6px; background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--border-radius-sm); outline: none;">
+                        </div>
+                        <div class="input-field">
+                            <label for="ticket-desc">Detailed Description</label>
+                            <textarea id="ticket-desc"
+                                placeholder="Please describe the issue in detail, including floor number or any background details..."
+                                rows="4"
+                                style="width: 100%; padding: 10px; background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--border-radius-sm); outline: none; font-family: inherit; font-size: 0.9rem;"
+                                required></textarea>
+                        </div>
+                        <div class="modal-actions" style="margin-top: 20px;">
+                            <button type="button" class="btn btn-slate"
+                                onclick="closeModal('newTicketModal')">Cancel</button>
+                            <button type="submit" class="btn btn-yellow">Submit Ticket</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: ROLES MANAGER -->
+        <div id="rolesModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-diagram-project"></i> Manage Roles & Permissions</h2>
+                    <span class="close" onclick="closeModal('rolesModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+                        Define custom roles and assign granular permissions. Changes take effect immediately for all
+                        users.
+                    </p>
+                    <button class="btn btn-emerald" onclick="openAddRoleModal()" style="margin-bottom: 16px;">
+                        <i class="fa-solid fa-plus"></i> Add New Role
+                    </button>
+                    <div id="roles-manager-list">
+                        <!-- Populated dynamically -->
                     </div>
-                    <div class="input-field">
-                        <label for="edit-role-color">Badge Color (CSS variable or hex)</label>
-                        <input type="text" id="edit-role-color" placeholder="var(--color-emerald) or #10b981" value="var(--text-secondary)">
-                    </div>
-                    
-                    <div style="margin-top: 16px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Permissions</label>
-                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 12px; background: rgba(0,0,0,0.1);">
-                            <div id="edit-role-permissions">
-                                <!-- Populated dynamically -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-slate" onclick="closeModal('rolesModal')">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: ADD/EDIT ROLE -->
+        <div id="editRoleModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h2 id="edit-role-modal-title"><i class="fa-solid fa-pen"></i> Edit Role</h2>
+                    <span class="close" onclick="closeModal('editRoleModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-role-form" onsubmit="handleSaveRole(event)">
+                        <input type="hidden" id="edit-role-mode" value="add">
+                        <input type="hidden" id="edit-role-original-name" value="">
+
+                        <div class="grid-two-cols">
+                            <div class="input-field">
+                                <label for="edit-role-name">Role Key (unique, lowercase, no spaces)</label>
+                                <input type="text" id="edit-role-name" placeholder="e.g. security_guard" required
+                                    pattern="[a-z_][a-z0-9_]*" title="Lowercase letters, numbers, and underscores only">
+                            </div>
+                            <div class="input-field">
+                                <label for="edit-role-label">Display Label</label>
+                                <input type="text" id="edit-role-label" placeholder="e.g. Security Guard" required>
                             </div>
                         </div>
+                        <div class="input-field">
+                            <label for="edit-role-color">Badge Color (CSS variable or hex)</label>
+                            <input type="text" id="edit-role-color" placeholder="var(--color-emerald) or #10b981"
+                                value="var(--text-secondary)">
+                        </div>
+
+                        <div style="margin-top: 16px;">
+                            <label
+                                style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Permissions</label>
+                            <div
+                                style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 12px; background: rgba(0,0,0,0.1);">
+                                <div id="edit-role-permissions">
+                                    <!-- Populated dynamically -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal-actions" style="margin-top: 20px;">
+                            <button type="button" class="btn btn-slate"
+                                onclick="closeModal('editRoleModal')">Cancel</button>
+                            <button type="submit" class="btn btn-indigo">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Role
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- AUTHENTICATION GATE -->
+        <div id="auth-container" class="modal"
+            style="display: block; background-color: var(--bg-main); backdrop-filter: blur(8px);">
+            <div class="modal-content animate-zoom"
+                style="margin: 8% auto; max-width: 420px; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg);">
+                <div class="text-center" style="margin-bottom: 24px; text-align: center;">
+                    <i class="fa-solid fa-building-columns brand-icon"
+                        style="font-size: 3rem; margin-bottom: 12px; display: inline-block;"></i>
+                    <h2 id="auth-building-name" style="font-size: 1.5rem; font-weight: 800; letter-spacing: 0.5px;">Building Residence Management</h2>
+                    <p id="auth-building-sub"
+                        style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; margin-top: 4px; letter-spacing: 1px;">
+                        Flat Owners Portal</p>
+                </div>
+
+                <!-- Auth Mode Selector Tabs -->
+                <div class="report-tabs"
+                    style="margin-bottom: 20px; border-bottom: 1px solid var(--border-color); display: flex; gap: 4px;">
+                    <button id="btn-mode-soft" class="report-tab-btn active" onclick="switchAuthMode('soft')"
+                        style="flex: 1; padding: 10px; font-size: 0.8rem; display: flex; justify-content: center; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-key"></i> Owner Soft Login
+                    </button>
+                    <button id="btn-mode-hard" class="report-tab-btn" onclick="switchAuthMode('hard')"
+                        style="flex: 1; padding: 10px; font-size: 0.8rem; display: flex; justify-content: center; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-lock"></i> Staff / Admin Sign In
+                    </button>
+                </div>
+
+                <!-- Soft Login Form -->
+                <div id="soft-login-form-wrapper" style="display: block;">
+                    <form id="soft-login-form" onsubmit="handleSoftLoginSubmit(event)">
+                        <div class="input-field">
+                            <label for="soft-flat-no">Flat Number</label>
+                            <input type="text" id="soft-flat-no" placeholder="e.g. 1A, 2B" required autocomplete="off"
+                                style="text-transform: uppercase; width: 100%; padding: 10px; background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--border-radius-sm); outline: none;">
+                        </div>
+                        <div class="input-field">
+                            <label for="soft-verify-code">Verification Code (Phone No. or Passcode)</label>
+                            <input type="text" id="soft-verify-code" placeholder="e.g. 9876543210 or 1234" required
+                                autocomplete="off">
+                        </div>
+                        <button type="submit" class="btn btn-indigo btn-full" id="btn-soft-login-submit"
+                            style="margin-top: 10px;">
+                            <i class="fa-solid fa-right-to-bracket"></i> Verify & Sign In
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Login Form -->
+                <div id="login-form-wrapper" style="display: none;">
+                    <form id="login-form" onsubmit="handleLoginSubmit(event)">
+                        <div class="input-field">
+                            <label for="login-email">Email Address</label>
+                            <input type="email" id="login-email" placeholder="email@domain.com" required
+                                autocomplete="username">
+                        </div>
+                        <div class="input-field">
+                            <label for="login-password">Password</label>
+                            <input type="password" id="login-password" placeholder="••••••••" required
+                                autocomplete="current-password">
+                        </div>
+                        <button type="submit" class="btn btn-indigo btn-full" id="btn-login-submit"
+                            style="margin-top: 10px;">
+                            <i class="fa-solid fa-right-to-bracket"></i> Sign In
+                        </button>
+                    </form>
+                    <div style="margin-top: 20px; text-align: center; font-size: 0.85rem;">
+                        <span style="color: var(--text-secondary);">New resident?</span>
+                        <a href="javascript:void(0)" onclick="toggleAuthForms(true)"
+                            style="color: var(--color-indigo); font-weight: 600; text-decoration: none; margin-left: 4px;">Register
+                            Account</a>
                     </div>
-                    
-                    <div class="modal-actions" style="margin-top: 20px;">
-                        <button type="button" class="btn btn-slate" onclick="closeModal('editRoleModal')">Cancel</button>
-                        <button type="submit" class="btn btn-indigo">
-                            <i class="fa-solid fa-floppy-disk"></i> Save Role
+                </div>
+
+                <!-- Registration Form -->
+                <div id="register-form-wrapper" style="display: none;">
+                    <form id="register-form" onsubmit="handleRegisterSubmit(event)">
+                        <div class="input-field">
+                            <label for="register-email">Email Address</label>
+                            <input type="email" id="register-email" placeholder="your-email@domain.com" required
+                                autocomplete="username">
+                        </div>
+                        <div class="input-field">
+                            <label for="register-password">Password</label>
+                            <input type="password" id="register-password" placeholder="Min. 6 characters" required
+                                autocomplete="new-password">
+                        </div>
+                        <div class="input-field">
+                            <label for="register-confirm-password">Confirm Password</label>
+                            <input type="password" id="register-confirm-password" placeholder="••••••••" required
+                                autocomplete="new-password">
+                        </div>
+                        <button type="submit" class="btn btn-emerald btn-full" id="btn-register-submit"
+                            style="margin-top: 10px;">
+                            <i class="fa-solid fa-user-plus"></i> Create Account
+                        </button>
+                    </form>
+                    <div style="margin-top: 20px; text-align: center; font-size: 0.85rem;">
+                        <span style="color: var(--text-secondary);">Already registered?</span>
+                        <a href="javascript:void(0)" onclick="toggleAuthForms(false)"
+                            style="color: var(--color-emerald); font-weight: 600; text-decoration: none; margin-left: 4px;">Sign
+                            In here</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: BUILDING CONFIGURATION -->
+        <div id="buildingConfigModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-building"></i> Building Setup</h2>
+                    <span class="close" onclick="closeModal('buildingConfigModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+                        Configure your apartment building layout. This determines flat numbering and floor names across the app.
+                    </p>
+                    <form id="building-config-form" onsubmit="handleSaveBuildingConfig(event)">
+                        <div class="input-field">
+                            <label for="cfg-building-name">Building Name</label>
+                            <input type="text" id="cfg-building-name" placeholder="e.g. Sunrise Apartments" required>
+                        </div>
+                        <div class="input-field">
+                            <label for="cfg-block-name">Block / Tower Name (Optional)</label>
+                            <input type="text" id="cfg-block-name" placeholder="e.g. Block A, Tower 1">
+                        </div>
+                        <div class="input-field">
+                            <label for="cfg-address">Address (Optional)</label>
+                            <input type="text" id="cfg-address" placeholder="e.g. 123 Main Street">
+                        </div>
+                        <div class="grid-two-cols">
+                            <div class="input-field">
+                                <label for="cfg-floors">Number of Floors</label>
+                                <input type="number" id="cfg-floors" min="1" max="99" required>
+                            </div>
+                            <div class="input-field">
+                                <label for="cfg-wings">Wing Letters (comma separated)</label>
+                                <input type="text" id="cfg-wings" placeholder="e.g. A,B,C,D">
+                            </div>
+                        </div>
+                        <div class="modal-actions" style="margin-top: 16px;">
+                            <button type="button" class="btn btn-slate" onclick="closeModal('buildingConfigModal')">Cancel</button>
+                            <button type="submit" class="btn btn-indigo">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Configuration
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: FLOOR ASSIGNMENT -->
+        <div id="floorAssignmentModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-layer-group"></i> Assign Floors</h2>
+                    <span class="close" onclick="closeModal('floorAssignmentModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+                        Select which floors this user can manage. Leave all unchecked for unrestricted access to all floors.
+                    </p>
+                    <p style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px;">
+                        User: <span id="assign-floors-user-email" style="color: var(--color-indigo);"></span>
+                    </p>
+                    <input type="hidden" id="assign-floors-user-id" value="">
+                    <div id="floor-checkboxes-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px 0;">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('floorAssignmentModal')">Cancel</button>
+                        <button type="button" class="btn btn-indigo" onclick="saveFloorAssignment()">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Assignments
                         </button>
                     </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- AUTHENTICATION GATE -->
-    <div id="auth-container" class="modal" style="display: block; background-color: var(--bg-main); backdrop-filter: blur(8px);">
-        <div class="modal-content animate-zoom" style="margin: 8% auto; max-width: 420px; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg);">
-            <div class="text-center" style="margin-bottom: 24px; text-align: center;">
-                <i class="fa-solid fa-building-columns brand-icon" style="font-size: 3rem; margin-bottom: 12px; display: inline-block;"></i>
-                <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: 0.5px;">DEEPSIKHA RESIDENCY</h2>
-                <p style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; margin-top: 4px; letter-spacing: 1px;">BLOCK 2 LEDGER MANAGER</p>
-            </div>
-            
-            <!-- Auth Mode Selector Tabs -->
-            <div class="report-tabs" style="margin-bottom: 20px; border-bottom: 1px solid var(--border-color); display: flex; gap: 4px;">
-                <button id="btn-mode-soft" class="report-tab-btn active" onclick="switchAuthMode('soft')" style="flex: 1; padding: 10px; font-size: 0.8rem; display: flex; justify-content: center; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-key"></i> Owner Soft Login
-                </button>
-                <button id="btn-mode-hard" class="report-tab-btn" onclick="switchAuthMode('hard')" style="flex: 1; padding: 10px; font-size: 0.8rem; display: flex; justify-content: center; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-lock"></i> Staff / Admin Sign In
-                </button>
-            </div>
-
-            <!-- Soft Login Form -->
-            <div id="soft-login-form-wrapper" style="display: block;">
-                <form id="soft-login-form" onsubmit="handleSoftLoginSubmit(event)">
-                    <div class="input-field">
-                        <label for="soft-flat-no">Flat Number</label>
-                        <input type="text" id="soft-flat-no" placeholder="e.g. 1A, 2B" required autocomplete="off" style="text-transform: uppercase; width: 100%; padding: 10px; background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--border-radius-sm); outline: none;">
-                    </div>
-                    <div class="input-field">
-                        <label for="soft-verify-code">Verification Code (Phone No. or Passcode)</label>
-                        <input type="text" id="soft-verify-code" placeholder="e.g. 9876543210 or 1234" required autocomplete="off">
-                    </div>
-                    <button type="submit" class="btn btn-indigo btn-full" id="btn-soft-login-submit" style="margin-top: 10px;">
-                        <i class="fa-solid fa-right-to-bracket"></i> Verify & Sign In
-                    </button>
-                </form>
-            </div>
-            
-            <!-- Login Form -->
-            <div id="login-form-wrapper" style="display: none;">
-                <form id="login-form" onsubmit="handleLoginSubmit(event)">
-                    <div class="input-field">
-                        <label for="login-email">Email Address</label>
-                        <input type="email" id="login-email" placeholder="resident@deepsikha.com" required autocomplete="username">
-                    </div>
-                    <div class="input-field">
-                        <label for="login-password">Password</label>
-                        <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
-                    </div>
-                    <button type="submit" class="btn btn-indigo btn-full" id="btn-login-submit" style="margin-top: 10px;">
-                        <i class="fa-solid fa-right-to-bracket"></i> Sign In
-                    </button>
-                </form>
-                <div style="margin-top: 20px; text-align: center; font-size: 0.85rem;">
-                    <span style="color: var(--text-secondary);">New resident?</span>
-                    <a href="javascript:void(0)" onclick="toggleAuthForms(true)" style="color: var(--color-indigo); font-weight: 600; text-decoration: none; margin-left: 4px;">Register Account</a>
-                </div>
-            </div>
-
-            <!-- Registration Form -->
-            <div id="register-form-wrapper" style="display: none;">
-                <form id="register-form" onsubmit="handleRegisterSubmit(event)">
-                    <div class="input-field">
-                        <label for="register-email">Email Address</label>
-                        <input type="email" id="register-email" placeholder="your-email@domain.com" required autocomplete="username">
-                    </div>
-                    <div class="input-field">
-                        <label for="register-password">Password</label>
-                        <input type="password" id="register-password" placeholder="Min. 6 characters" required autocomplete="new-password">
-                    </div>
-                    <div class="input-field">
-                        <label for="register-confirm-password">Confirm Password</label>
-                        <input type="password" id="register-confirm-password" placeholder="••••••••" required autocomplete="new-password">
-                    </div>
-                    <button type="submit" class="btn btn-emerald btn-full" id="btn-register-submit" style="margin-top: 10px;">
-                        <i class="fa-solid fa-user-plus"></i> Create Account
-                    </button>
-                </form>
-                <div style="margin-top: 20px; text-align: center; font-size: 0.85rem;">
-                    <span style="color: var(--text-secondary);">Already registered?</span>
-                    <a href="javascript:void(0)" onclick="toggleAuthForms(false)" style="color: var(--color-emerald); font-weight: 600; text-decoration: none; margin-left: 4px;">Sign In here</a>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODAL: FLOOR ASSIGNMENT -->
-    <div id="floorAssignmentModal" class="modal">
-        <div class="modal-content animate-zoom" style="max-width: 500px;">
-            <div class="modal-header">
-                <h2><i class="fa-solid fa-layer-group"></i> Assign Floors</h2>
-                <span class="close" onclick="closeModal('floorAssignmentModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
-                    Select which floors this user can manage. Leave all unchecked for unrestricted access to all floors.
-                </p>
-                <p style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px;">
-                    User: <span id="assign-floors-user-email" style="color: var(--color-indigo);"></span>
-                </p>
-                <input type="hidden" id="assign-floors-user-id" value="">
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px 0;">
-                    <label class="floor-checkbox-label">
-                        <input type="checkbox" class="floor-checkbox" value="1"> Floor 1
-                    </label>
-                    <label class="floor-checkbox-label">
-                        <input type="checkbox" class="floor-checkbox" value="2"> Floor 2
-                    </label>
-                    <label class="floor-checkbox-label">
-                        <input type="checkbox" class="floor-checkbox" value="3"> Floor 3
-                    </label>
-                    <label class="floor-checkbox-label">
-                        <input type="checkbox" class="floor-checkbox" value="4"> Floor 4
-                    </label>
-                    <label class="floor-checkbox-label">
-                        <input type="checkbox" class="floor-checkbox" value="5"> Floor 5
-                    </label>
-                    <label class="floor-checkbox-label">
-                        <input type="checkbox" class="floor-checkbox" value="6"> Floor 6
-                    </label>
-                    <label class="floor-checkbox-label">
-                        <input type="checkbox" class="floor-checkbox" value="7"> Floor 7
-                    </label>
-                    <label class="floor-checkbox-label">
-                        <input type="checkbox" class="floor-checkbox" value="8"> Floor 8
-                    </label>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-slate" onclick="closeModal('floorAssignmentModal')">Cancel</button>
-                    <button type="button" class="btn btn-indigo" onclick="saveFloorAssignment()">
-                        <i class="fa-solid fa-floppy-disk"></i> Save Assignments
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-        </div> <!-- /.main-area -->
+    </div> <!-- /.main-area -->
 
     </div> <!-- /.app-container -->
 
-    <footer style="text-align: center; padding: 20px; font-size: 0.85rem; color: var(--text-secondary); margin-top: auto;">
+    <footer
+        style="text-align: center; padding: 20px; font-size: 0.85rem; color: var(--text-secondary); margin-top: auto;">
         &copy; 2026 AI-AnchIt. All rights reserved.
     </footer>
 
     <script type="module" src="/static/app.js"></script>
 </body>
+
 </html>
