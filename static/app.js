@@ -3019,6 +3019,7 @@ function applyRbacRestrictions(role) {
     setNav("side-export", hasPermission('ledger:export'));
     setNav("side-manage-users", hasPermission('users:manage'));
     setNav("side-manage-roles", hasPermission('users:role_change'));
+    setNav("side-building-config", role === 'admin');
     
     const canViewDashboard = hasPermission('dashboard:view');
     setNav("side-dashboard", true);
@@ -7498,6 +7499,10 @@ async function autoLoginSharedAccount(flatNo) {
 
 // Building Configuration Modal
 window.openBuildingConfigModal = function() {
+    if (currentUserRole !== 'admin') {
+        showToast("Access Denied. Building Setup is available only for administrators.", "error");
+        return;
+    }
     document.getElementById("cfg-building-name").value = getBuildingName();
     document.getElementById("cfg-block-name").value = getBlockName();
     document.getElementById("cfg-address").value = buildingConfig?.address || '';
@@ -7564,8 +7569,11 @@ window.openUsersModal = async function() {
             return;
         }
         
-        // Build role options from dynamic rolesData
-        const roleOptionsMap = rolesData.map(r => 
+        // Only administrators can assign or view the Administrator option.
+        const canAssignAdministrator = currentUserRole === 'admin';
+        const roleOptionsMap = rolesData
+            .filter(r => canAssignAdministrator || r.name !== 'admin')
+            .map(r => 
             ({ value: r.name, label: r.label || r.name })
         );
         
@@ -7576,8 +7584,13 @@ window.openUsersModal = async function() {
                 `<option value="${r.value}" ${r.value === p.role ? 'selected' : ''}>${r.label}</option>`
             ).join('');
             
-            // Prevent changing own role via UI for safety
-            const disableSelect = p.id === currentUserId ? 'disabled title="Cannot change your own role"' : '';
+            // Prevent changing own role via UI for safety. Non-admins cannot change administrator rows.
+            const isRestrictedAdminRow = p.role === 'admin' && !canAssignAdministrator;
+            const disableSelect = p.id === currentUserId
+                ? 'disabled title="Cannot change your own role"'
+                : isRestrictedAdminRow
+                    ? 'disabled title="Only administrators can change administrator users"'
+                    : '';
             
             const userFloors = Array.isArray(p.assigned_floors) ? p.assigned_floors : [];
             const floorsText = userFloors.length > 0 ? `Floor ${userFloors.sort().join(', Floor ')}` : 'All';
@@ -7617,6 +7630,10 @@ window.updateUserRole = async function(userId) {
     
     const select = document.getElementById(`role-select-${userId}`);
     const newRole = select.value;
+    if (newRole === 'admin' && currentUserRole !== 'admin') {
+        showToast("Only administrators can assign the Administrator role.", "error");
+        return;
+    }
     
     try {
         const { error } = await sbClient

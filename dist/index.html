@@ -20,8 +20,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- SheetJS for Excel Reading and Writing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script type="module" crossorigin src="/assets/index-CsZF3gRM.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-Kkla_jgK.css">
+  <script type="module" crossorigin src="/assets/index-8Jl24DHM.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-kIa9U-7-.css">
 </head>
 
 <body>
@@ -79,11 +79,13 @@
                     <i class="fa-solid fa-ticket"></i>
                     <span>Support Helpdesk</span>
                 </button>
-                <button class="sidebar-btn" id="side-events" onclick="openEventsModal()">
-                    <i class="fa-solid fa-calendar-days"></i>
-                    <span>Cultural Events</span>
-                </button>
-            </nav>
+                        <button class="sidebar-btn" id="side-events" onclick="openEventsModal()">
+                            <i class="fa-solid fa-calendar-days"></i> <span>Cultural Events</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-board" onclick="openBoardModal()">
+                            <i class="fa-solid fa-message"></i> <span>Community Board</span>
+                        </button>
+                    </nav>
 
             <div class="sidebar-section-label">Data</div>
             <nav class="sidebar-nav">
@@ -114,6 +116,10 @@
                 <button class="sidebar-btn" id="side-building-config" onclick="openBuildingConfigModal()">
                     <i class="fa-solid fa-building"></i>
                     <span>Building Setup</span>
+                </button>
+                <button class="sidebar-btn" id="side-notif-toggle" onclick="togglePushSubscription()" style="display:none;">
+                    <i class="fa-solid fa-bell-slash"></i>
+                    <span>Notifications: OFF</span>
                 </button>
             </nav>
 
@@ -202,11 +208,11 @@
                     <div>
                         <div class="dash-section-title"><i class="fa-solid fa-bolt"></i> Quick Actions</div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                            <button class="dash-action-card" onclick="openModal('incomeModal')">
+                            <button class="dash-action-card" id="dash-collect-fee" onclick="openModal('incomeModal')">
                                 <i class="fa-solid fa-hand-holding-dollar" style="color: var(--color-emerald);"></i>
                                 <span>Collect Fee</span>
                             </button>
-                            <button class="dash-action-card" onclick="openModal('expenseModal')">
+                            <button class="dash-action-card" id="dash-record-expense" onclick="openModal('expenseModal')">
                                 <i class="fa-solid fa-money-bill-transfer" style="color: var(--color-rose);"></i>
                                 <span>Record Expense</span>
                             </button>
@@ -217,6 +223,10 @@
                             <button class="dash-action-card" onclick="openTicketsModal()">
                                 <i class="fa-solid fa-ticket" style="color: var(--color-yellow);"></i>
                                 <span>Helpdesk</span>
+                            </button>
+                            <button class="dash-action-card" id="dash-board" onclick="openBoardModal()">
+                                <i class="fa-solid fa-message" style="color: var(--color-violet);"></i>
+                                <span>Community Board</span>
                             </button>
                         </div>
 
@@ -1099,8 +1109,9 @@
                     <form id="soft-login-form" onsubmit="handleSoftLoginSubmit(event)">
                         <div class="input-field">
                             <label for="soft-flat-no">Flat Number</label>
-                            <input type="text" id="soft-flat-no" placeholder="e.g. 1A, 2B" required autocomplete="off"
+                            <input type="text" id="soft-flat-no" list="soft-flat-options" placeholder="Search or select your flat" required autocomplete="off"
                                 style="text-transform: uppercase; width: 100%; padding: 10px; background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--border-radius-sm); outline: none;">
+                            <datalist id="soft-flat-options"></datalist>
                         </div>
                         <div class="input-field">
                             <label for="soft-verify-code">Verification Code (Phone No. or Passcode)</label>
@@ -1197,6 +1208,10 @@
                             <label for="cfg-address">Address (Optional)</label>
                             <input type="text" id="cfg-address" placeholder="e.g. 123 Main Street">
                         </div>
+                        <div class="input-field">
+                            <label for="cfg-dash-bg">Dashboard Background Image URL (Optional)</label>
+                            <input type="text" id="cfg-dash-bg" placeholder="https://example.com/bg.jpg">
+                        </div>
                         <div class="grid-two-cols">
                             <div class="input-field">
                                 <label for="cfg-floors">Number of Floors</label>
@@ -1207,6 +1222,43 @@
                                 <input type="text" id="cfg-wings" placeholder="e.g. A,B,C,D">
                             </div>
                         </div>
+                        <div class="input-field" style="margin-top:8px;">
+                            <label for="cfg-flat-types">Flat Types (comma separated)</label>
+                            <input type="text" id="cfg-flat-types" placeholder="e.g. 1BHK,2BHK,3BHK">
+                        </div>
+                        <details style="margin-top:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:6px; padding:8px 12px;">
+                            <summary style="cursor:pointer; font-size:0.85rem; font-weight:600; color:var(--text-secondary);"><i class="fa-brands fa-google-drive"></i> Integrations (Google Drive &amp; Push Notifications)</summary>
+                            <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
+                                <p style="font-size:0.75rem; color:var(--text-muted); line-height:1.5;">
+                                    <strong>Google Drive</strong> allows residents to browse &amp; upload photos from their Drive to event galleries.
+                                    <a href="#" onclick="event.preventDefault(); showGdriveSetupGuide();" style="color:var(--color-indigo);">Show setup guide</a>
+                                </p>
+                                <div class="input-field">
+                                    <label for="cfg-gapi-key">Google API Key</label>
+                                    <input type="text" id="cfg-gapi-key" placeholder="e.g. AIzaSy...">
+                                </div>
+                                <div class="input-field">
+                                    <label for="cfg-gclient-id">Google OAuth Client ID</label>
+                                    <input type="text" id="cfg-gclient-id" placeholder="e.g. 123456789-xxxx.apps.googleusercontent.com">
+                                </div>
+                                <hr style="border:none; border-top:1px solid var(--border-color); margin:4px 0;">
+                                <p style="font-size:0.75rem; color:var(--text-muted); line-height:1.5;">
+                                    <strong>Push Notifications</strong> sends browser alerts to residents for events, performances, and announcements.
+                                    <a href="#" onclick="event.preventDefault(); showVapidSetupGuide();" style="color:var(--color-indigo);">Setup guide</a>
+                                </p>
+                                <div class="grid-two-cols">
+                                    <div class="input-field">
+                                        <label for="cfg-vapid-public">VAPID Public Key</label>
+                                        <input type="text" id="cfg-vapid-public" placeholder="e.g. BEl...">
+                                    </div>
+                                    <div class="input-field">
+                                        <label for="cfg-vapid-private">VAPID Private Key</label>
+                                        <input type="text" id="cfg-vapid-private" placeholder="e.g. yJf...">
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-slate" style="font-size:0.75rem; padding:4px 10px; align-self:flex-start;" onclick="generateVapidKeys()"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Keys</button>
+                            </div>
+                        </details>
                         <div class="modal-actions" style="margin-top: 16px;">
                             <button type="button" class="btn btn-slate" onclick="closeModal('buildingConfigModal')">Cancel</button>
                             <button type="submit" class="btn btn-indigo">
@@ -1278,6 +1330,82 @@
             </div>
         </div>
 
+        <!-- MODAL: COMMUNITY BOARD -->
+        <div id="boardModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-message"></i> Community Board</h2>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="btn btn-indigo" onclick="openCreatePostModal()" id="btn-create-post" style="font-size:0.75rem; padding:4px 12px;"><i class="fa-solid fa-plus"></i> New Post</button>
+                        <span class="close" onclick="closeModal('boardModal')" style="position:static;">&times;</span>
+                    </div>
+                </div>
+                <div class="modal-body" style="max-height: 78vh; overflow-y: auto;">
+                    <!-- Category Tabs -->
+                    <div id="board-category-tabs" style="display:flex; gap:8px; margin-bottom:12px; overflow-x:auto; white-space:nowrap; padding-bottom:4px;"></div>
+                    <!-- Filter Pills -->
+                    <div id="board-filter-pills" style="display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;"></div>
+                    <!-- Posts Container -->
+                    <div id="board-posts-container">
+                        <div style="text-align:center; padding:40px; color:var(--text-muted);">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: CREATE/EDIT BOARD POST -->
+        <div id="createPostModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 550px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-pen-to-square"></i> <span id="create-post-title">New Post</span></h2>
+                    <span class="close" onclick="closeModal('createPostModal')">&times;</span>
+                </div>
+                <form id="create-post-form" onsubmit="saveBoardPost(event)">
+                    <div class="modal-body">
+                        <div class="input-field">
+                            <label>Category</label>
+                            <select id="post-category" required onchange="updatePostTags()"></select>
+                        </div>
+                        <div class="input-field" id="post-tag-field">
+                            <label>Type</label>
+                            <select id="post-tag"></select>
+                        </div>
+                        <div class="input-field">
+                            <label>Title</label>
+                            <input type="text" id="post-title" required maxlength="120" placeholder="Brief title">
+                        </div>
+                        <div class="input-field">
+                            <label>Description</label>
+                            <textarea id="post-description" rows="3" maxlength="2000" placeholder="Add more details..."></textarea>
+                        </div>
+                        <div id="post-price-field" class="input-field" style="display:none;">
+                            <label>Price (₹)</label>
+                            <input type="number" id="post-price" step="0.01" min="0" placeholder="0.00">
+                        </div>
+                        <div class="input-field">
+                            <label>Auto-Remove After</label>
+                            <select id="post-expiry">
+                                <option value="7">7 Days</option>
+                                <option value="14" selected>14 Days</option>
+                                <option value="30">30 Days</option>
+                                <option value="60">60 Days</option>
+                            </select>
+                        </div>
+                        <div class="input-field" style="display:flex; align-items:center; gap:10px; margin-top:12px;">
+                            <label style="margin:0; cursor:pointer;">
+                                <input type="checkbox" id="post-anonymous">
+                                Post as Verified Resident (Anonymous)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('createPostModal')">Cancel</button>
+                        <button type="submit" class="btn btn-emerald" id="btn-submit-post"><i class="fa-solid fa-paper-plane"></i> Post</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- MODAL: CREATE/EDIT EVENT -->
         <div id="createEventModal" class="modal">
             <div class="modal-content animate-zoom" style="max-width: 600px;">
@@ -1318,7 +1446,18 @@
                         </div>
                         <div class="input-field">
                             <label for="event-banner">Banner Image URL</label>
-                            <input type="url" id="event-banner" placeholder="https://example.com/banner.jpg">
+                            <div style="display:flex; gap:6px;">
+                                <input type="url" id="event-banner" placeholder="https://example.com/banner.jpg" oninput="previewBanner()" style="flex:1;">
+                                <button type="button" class="btn btn-slate" style="font-size:0.7rem; padding:4px 10px;" onclick="testBannerUrl()"><i class="fa-solid fa-eye"></i> Test</button>
+                            </div>
+                            <div id="banner-preview" style="display:none; margin-top:8px; border-radius:8px; overflow:hidden; border:1px solid var(--border-color);">
+                                <img id="banner-preview-img" src="" style="width:100%; max-height:120px; object-fit:cover; display:block;" onerror="bannerPreviewError(this)">
+                            </div>
+                            <p style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">
+                                Recommended size: <strong>1200×400px</strong> (or minimum 600×200px). 
+                                Use a direct image URL ending in .jpg/.png/.webp, or from imgur (i.imgur.com/...). 
+                                Google Drive links must be shared publicly.
+                            </p>
                         </div>
                         <div class="input-field">
                             <label for="event-status">Status</label>
@@ -1456,18 +1595,37 @@
         <div id="performanceModal" class="modal">
             <div class="modal-content animate-zoom" style="max-width: 500px;">
                 <div class="modal-header">
-                    <h2><i class="fa-solid fa-palette"></i> Register Performance</h2>
+                    <h2><i class="fa-solid fa-palette"></i> <span id="perf-modal-title">Register Performance</span></h2>
                     <span class="close" onclick="closeModal('performanceModal')">&times;</span>
                 </div>
                 <form id="performance-form" onsubmit="submitPerformance(event)">
                     <div class="modal-body">
                         <input type="hidden" id="perf-event-id" value="">
+                        <input type="hidden" id="perf-id" value="">
                         <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:12px;">
                             Register your family or group performance for the cultural night.
                         </p>
                         <div class="input-field">
-                            <label for="perf-name">Performer(s) Name</label>
-                            <input type="text" id="perf-name" required placeholder="e.g. Ashis & Family">
+                            <label>Performer Type</label>
+                            <div style="display:flex; gap:12px; margin-top:4px;">
+                                <label style="font-size:0.85rem; cursor:pointer;"><input type="radio" name="perf-type-rad" value="inhouse" checked onchange="togglePerformerType()"> In-House Family</label>
+                                <label style="font-size:0.85rem; cursor:pointer;"><input type="radio" name="perf-type-rad" value="guest" onchange="togglePerformerType()"> Guest</label>
+                            </div>
+                        </div>
+                        <div class="input-field" id="perf-inhouse-group">
+                            <label>Family Member(s)</label>
+                            <div style="display:flex; gap:6px; margin-bottom:6px;">
+                                <input type="text" id="perf-flat-filter" placeholder="Flat No" style="flex:0 0 90px; padding:6px 8px; border:1px solid rgba(255,255,255,0.12); border-radius:4px; background:rgba(255,255,255,0.04); color:var(--text-primary); font-size:0.8rem; outline:none;" value="">
+                                <button type="button" class="btn btn-slate" id="btn-load-family" onclick="loadFamilyMembers(document.getElementById('perf-flat-filter').value, true)" style="font-size:0.75rem; padding:2px 10px;"><i class="fa-solid fa-rotate"></i> Load</button>
+                            </div>
+                            <div class="searchable-select">
+                                <input type="text" id="perf-name-search" placeholder="Search family members..." autocomplete="off" onfocus="showFamilyDropdown()" oninput="filterFamilyDropdown()" onkeydown="navigateFamilyDropdown(event)">
+                                <div class="searchable-dropdown" id="perf-name-dropdown"></div>
+                            </div>
+                        </div>
+                        <div class="input-field" id="perf-guest-group" style="display:none;">
+                            <label for="perf-name">Guest Performer Name</label>
+                            <input type="text" id="perf-name" placeholder="e.g. Rahul Sharma">
                         </div>
                         <div class="input-field">
                             <label for="perf-type">Performance Type</label>
@@ -1481,13 +1639,19 @@
                             </select>
                         </div>
                         <div class="input-field">
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                <input type="checkbox" id="perf-is-star" style="width:18px; height:18px; cursor:pointer;">
+                                <span><i class="fa-solid fa-star" style="color:#fbbf24;"></i> Star Performer</span>
+                            </label>
+                        </div>
+                        <div class="input-field">
                             <label for="perf-requirements">Requirements (e.g. mics, speakers)</label>
                             <textarea id="perf-requirements" rows="2" placeholder="e.g. Need 3 wireless mics"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-slate" onclick="closeModal('performanceModal')">Cancel</button>
-                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-check"></i> Register</button>
+                        <button type="submit" class="btn btn-indigo" id="btn-perf-submit"><i class="fa-solid fa-check"></i> Register</button>
                     </div>
                 </form>
             </div>
@@ -1565,14 +1729,30 @@
                         </div>
 
                         <div class="action-group" style="margin-top: 16px;">
-                            <button class="btn btn-emerald btn-action" onclick="openModal('incomeModal')">
+                            <button class="btn btn-emerald btn-action" id="fin-collect-fee" onclick="openModal('incomeModal')">
                                 <i class="fa-solid fa-hand-holding-dollar"></i> Collect Fee
                             </button>
-                            <button class="btn btn-rose btn-action" onclick="openModal('expenseModal')">
+                            <button class="btn btn-rose btn-action" id="fin-record-expense" onclick="openModal('expenseModal')">
                                 <i class="fa-solid fa-money-bill-transfer"></i> Record Expense
                             </button>
                         </div>
 
+                    </section>
+
+                    <!-- Cultural Event Contributions -->
+                    <section class="card" style="box-shadow:none; border:none; padding:0; margin-bottom:16px;">
+                        <div class="card-header" style="padding:0 0 8px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <h2 style="font-size:1rem;"><i class="fa-solid fa-hand-holding-heart" style="color:var(--color-indigo);"></i> Event Contributions</h2>
+                            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                <select id="finance-event-select" onchange="loadEventContributionsFinance()" style="padding:4px 8px; border:1px solid rgba(255,255,255,0.12); border-radius:4px; background:rgba(255,255,255,0.04); color:var(--text-primary); font-size:0.8rem; outline:none;">
+                                    <option value="">-- Select Event --</option>
+                                </select>
+                                <button class="btn btn-indigo btn-action" onclick="openContributionModalFromFinance()" style="font-size:0.75rem; padding:4px 12px;"><i class="fa-solid fa-plus"></i> Pay</button>
+                            </div>
+                        </div>
+                        <div id="finance-event-contributions" style="min-height:40px;">
+                            <p style="color:var(--text-muted); font-size:0.85rem; padding:8px 0;">Select an event to view contributions.</p>
+                        </div>
                     </section>
 
                     <section class="card table-card" style="box-shadow: none; border: none; padding: 0;">
@@ -1818,6 +1998,166 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-slate" onclick="closeModal('visitorPassModal')">Cancel</button>
                         <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-ticket"></i> Generate Pass</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: SEND NOTIFICATION -->
+        <div id="sendNotificationModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-bullhorn"></i> Send Notification</h2>
+                    <span class="close" onclick="closeModal('sendNotificationModal')">&times;</span>
+                </div>
+                <form id="notif-form" onsubmit="sendEventNotificationFromModal(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="notif-event-id" value="">
+                        <div class="input-field">
+                            <label for="notif-title">Title</label>
+                            <input type="text" id="notif-title" required placeholder="e.g. Performance Update">
+                        </div>
+                        <div class="input-field">
+                            <label for="notif-message">Message</label>
+                            <textarea id="notif-message" rows="4" required placeholder="Type your notification message here..."></textarea>
+                        </div>
+                        <p style="font-size:0.75rem; color:var(--text-muted);">Sends a browser push notification to all subscribed residents.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('sendNotificationModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo" id="btn-send-notif"><i class="fa-solid fa-paper-plane"></i> Send</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: ADD PHOTO TO GALLERY -->
+        <div id="galleryPhotoModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-image"></i> Add Photo</h2>
+                    <span class="close" onclick="closeModal('galleryPhotoModal')">&times;</span>
+                </div>
+                <form id="gallery-photo-form" onsubmit="addGalleryPhoto(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="gallery-event-id" value="">
+                        <div id="gdrive-btn-area" style="display:none; margin-bottom:12px;">
+                            <button type="button" class="btn btn-outline" style="width:100%;" onclick="openDrivePicker(pickDrivePhoto)">
+                                <i class="fa-brands fa-google-drive"></i> Browse from Google Drive
+                            </button>
+                            <div style="text-align:center; margin:8px 0; position:relative;">
+                                <hr style="border:none; border-top:1px solid var(--border-color);">
+                                <span style="position:absolute; top:-8px; left:50%; transform:translateX(-50%); background:var(--bg-card); padding:0 8px; font-size:0.75rem; color:var(--text-muted);">OR enter URL manually</span>
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="gallery-url">Image URL</label>
+                            <input type="url" id="gallery-url" required placeholder="https://example.com/photo.jpg">
+                        </div>
+                        <div class="input-field">
+                            <label for="gallery-caption">Caption</label>
+                            <input type="text" id="gallery-caption" placeholder="e.g. Inaugural Ceremony">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('galleryPhotoModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-check"></i> Add Photo</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: EVENT EXPENSE -->
+        <div id="eventExpenseModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-file-invoice"></i> Add Event Expense</h2>
+                    <span class="close" onclick="closeModal('eventExpenseModal')">&times;</span>
+                </div>
+                <form id="event-expense-form" onsubmit="addEventExpense(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="expense-event-id" value="">
+                        <div class="input-field">
+                            <label for="expense-desc">Description</label>
+                            <input type="text" id="expense-desc" required placeholder="e.g. Sound System Rental">
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="input-field">
+                                <label for="expense-amount">Amount (₹)</label>
+                                <input type="number" id="expense-amount" step="0.01" min="0" required>
+                            </div>
+                            <div class="input-field">
+                                <label for="expense-category">Category</label>
+                                <select id="expense-category">
+                                    <option value="decoration">Decoration</option>
+                                    <option value="sound">Sound / Light</option>
+                                    <option value="catering">Catering</option>
+                                    <option value="venue">Venue / Tent</option>
+                                    <option value="prize">Prizes / Gifts</option>
+                                    <option value="marketing">Marketing / Print</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="expense-vendor">Vendor Name</label>
+                            <input type="text" id="expense-vendor" placeholder="e.g. Shyam Sound Co.">
+                        </div>
+                        <div class="input-field">
+                            <label for="expense-invoice">Invoice URL (optional)</label>
+                            <input type="url" id="expense-invoice" placeholder="https://example.com/invoice.pdf">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('eventExpenseModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-check"></i> Add Expense</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: VOLUNTEER SIGNUP -->
+        <div id="volunteerModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-handshake-angle"></i> Volunteer for Event</h2>
+                    <span class="close" onclick="closeModal('volunteerModal')">&times;</span>
+                </div>
+                <form id="volunteer-form" onsubmit="submitVolunteer(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="volunteer-event-id" value="">
+                        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:12px;">
+                            Help make this event a success! Sign up to volunteer.
+                        </p>
+                        <div class="input-field">
+                            <label for="volunteer-name">Your Name</label>
+                            <input type="text" id="volunteer-name" required placeholder="e.g. Ashis Mandal">
+                        </div>
+                        <div class="input-field">
+                            <label for="volunteer-contact">Contact</label>
+                            <input type="text" id="volunteer-contact" placeholder="Phone number">
+                        </div>
+                        <div class="input-field">
+                            <label for="volunteer-role">Role Preference</label>
+                            <select id="volunteer-role">
+                                <option value="">Any role</option>
+                                <option value="greeting">Guest Welcome / Greeting</option>
+                                <option value="stage">Stage Management</option>
+                                <option value="audio">Audio / Visual</option>
+                                <option value="food">Food / Stalls Coordination</option>
+                                <option value="security">Security / Crowd Management</option>
+                                <option value="cleanup">Cleanup / Logistics</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="input-field">
+                            <label for="volunteer-availability">Availability</label>
+                            <textarea id="volunteer-availability" rows="2" placeholder="e.g. Available all day on Oct 5, morning only on Oct 6"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('volunteerModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-check"></i> Sign Up</button>
                     </div>
                 </form>
             </div>
