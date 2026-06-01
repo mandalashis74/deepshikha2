@@ -186,7 +186,7 @@ async function loadDashStats() {
     const ticketsResult = await safeQuery('tickets', async () => {
         const { data } = await sbClient.from('tickets')
             .select('id')
-            .in('status', ['open', 'in_progress', 'pending_approval']);
+            .in('status', ['Pending', 'Recommended', 'Approved', 'Reopened']);
         return (data || []).length;
     });
     document.getElementById('dash-open-tickets').textContent = ticketsResult ?? '-';
@@ -245,7 +245,7 @@ async function loadDashStats() {
     (recentBoardPosts || []).forEach(r => {
         const sender = r.is_anonymous
             ? 'Verified Resident'
-            : `${r.owner_name || 'Resident'}${r.owner_flat_no ? ' (' + r.owner_flat_no + ')' : ''}`;
+            : `${displayStructured(r.owner_name, 'name') || 'Resident'}${r.owner_flat_no ? ' (' + r.owner_flat_no + ')' : ''}`;
         activity.push({
             icon: 'fa-message',
             color: 'var(--color-violet)',
@@ -1846,8 +1846,15 @@ window.loadFamilyMembers = async function(flatNo, clearSearch = false) {
             dropdown.innerHTML = '<div class="sd-empty">No data found for this flat.</div>';
             return;
         }
-        const ownerName = data.owner_name || '';
-        if (ownerName) _familyMembersList.push({ name: ownerName, label: ownerName + ' (Self)' });
+        const ownerNames = parseStructuredField(data.owner_name, 'owner') || [];
+        if (ownerNames.length > 0) {
+            ownerNames.forEach(o => {
+                if (o.name) _familyMembersList.push({ name: o.name, label: o.name + ' (Self)' });
+            });
+        } else {
+            const ownerName = data.owner_name || '';
+            if (ownerName) _familyMembersList.push({ name: ownerName, label: ownerName + ' (Self)' });
+        }
         let members = [];
         try { members = JSON.parse(data.family_members || '[]'); } catch(e) { members = []; }
         if (!Array.isArray(members)) members = [];
@@ -2557,7 +2564,7 @@ function renderPostCard(post) {
     const canCreate = hasPermission('board:create');
     const hasUpvoted = boardMyUpvotes.has(post.id);
     const timeAgo = formatRelativeTime(post.created_at);
-    const authorDisplay = post.is_anonymous ? 'Verified Resident (Anonymous)' : (post.owner_name || 'Resident');
+    const authorDisplay = post.is_anonymous ? 'Verified Resident (Anonymous)' : (displayStructured(post.owner_name, 'name') || 'Resident');
     const isClosed = post.status === 'closed';
     const priceHtml = post.price ? `<div class="board-meta-row"><span class="board-price"><i class="fa-solid fa-indian-rupee-sign"></i> ${Number(post.price).toLocaleString()}${post.tag === 'Selling' || post.tag === 'Rent out' ? '' : ''}</span></div>` : '';
     const tagBadge = post.tag ? `<span class="board-tag">${post.tag}</span>` : '';
@@ -2664,7 +2671,7 @@ window.saveBoardPost = async function(e) {
     let ownerName = `Flat ${flatNo}`;
     if (flatNo) {
         const { data } = await sbClient.from('owners').select('owner_name').eq('flat_no', flatNo).maybeSingle();
-        if (data?.owner_name) ownerName = data.owner_name;
+        if (data?.owner_name) ownerName = displayStructured(data.owner_name, 'name');
     }
     const categorySlug = document.getElementById('post-category').value;
     const tagSelect = document.getElementById('post-tag');
@@ -2762,6 +2769,17 @@ window.openFinancePage = function() {
     openModal('financeModal');
     refreshDashboard();
     setTimeout(loadEventContributionsFinance, 100);
+};
+
+// Toggle collapsible sidebar sections
+window.toggleCollapse = function(id) {
+    const wrap = document.getElementById(id);
+    const header = wrap && wrap.previousElementSibling;
+    if (!wrap) return;
+    wrap.classList.toggle("collapsed");
+    if (header && header.classList.contains("collapse-header")) {
+        header.classList.toggle("collapsed");
+    }
 };
 
 // Update DB connection status pill in Header & Sidebar
@@ -3222,12 +3240,13 @@ async function loadFlats() {
             flatSelect.innerHTML = '<option value="" disabled selected>Select Room & Tenant</option>';
             data.forEach(item => {
                 const opt = document.createElement("option");
-                const label = `${item.flat_no} - ${item.owner_name}`;
+                const ownerDisp = displayStructured(item.owner_name, 'name');
+                const label = `${item.flat_no} - ${ownerDisp || 'Unknown'}`;
                 opt.value = label;
                 opt.textContent = label;
                 flatSelect.appendChild(opt);
             });
-            if (currentVal && data.some(item => `${item.flat_no} - ${item.owner_name}` === currentVal)) {
+            if (currentVal && data.some(item => `${item.flat_no} - ${displayStructured(item.owner_name, 'name') || 'Unknown'}` === currentVal)) {
                 flatSelect.value = currentVal;
             }
         }
@@ -3237,7 +3256,7 @@ async function loadFlats() {
             data.forEach(item => {
                 const opt = document.createElement("option");
                 opt.value = item.flat_no;
-                opt.textContent = `${item.flat_no} - ${item.owner_name}`;
+                opt.textContent = `${item.flat_no} - ${displayStructured(item.owner_name, 'name') || 'Unknown'}`;
                 histFlat.appendChild(opt);
             });
             histFlat.value = currentHistVal;
@@ -3255,7 +3274,7 @@ async function loadFlats() {
                 }
                 const opt = document.createElement("option");
                 opt.value = item.flat_no;
-                opt.textContent = `${item.flat_no} - ${item.owner_name}`;
+                opt.textContent = `${item.flat_no} - ${displayStructured(item.owner_name, 'name') || 'Unknown'}`;
                 if (isSoftLogin && item.flat_no === softLoginFlatNo) {
                     opt.selected = true;
                 }
@@ -3759,8 +3778,8 @@ function renderOwnersGrid(data, filterText = "", floorText = "") {
         if (combinedFlatsSet.has(item.flat_no)) return false;
         
         const matchesQuery = item.flat_no.toLowerCase().includes(query) || 
-               item.owner_name.toLowerCase().includes(query) || 
-               (item.contact_no && item.contact_no.includes(query)) ||
+               displayStructured(item.owner_name, 'name').toLowerCase().includes(query) || 
+               displayStructured(item.contact_no, 'phone').toLowerCase().includes(query) ||
                (item.parking_no && item.parking_no.toLowerCase().includes(query));
         
         const matchesFloor = floorText === "" || item.flat_no.startsWith(floorText);
@@ -3801,7 +3820,7 @@ function renderOwnersGrid(data, filterText = "", floorText = "") {
         
         card.innerHTML = `
             <h4>${item.flat_no}${isMyFlat ? ' <i class="fa-solid fa-house" style="color:var(--color-indigo);font-size:0.7rem;"></i>' : ''}</h4>
-            <p style="font-weight: 600;">${item.owner_name}</p>
+            <p style="font-weight: 600;">${displayStructured(item.owner_name, 'name')}</p>
             <div style="display:flex; gap:4px; flex-wrap:wrap;">
                 <span class="badge ${badgeClass}" style="font-size: 0.6rem; padding: 1px 6px;">${statusText}</span>
                 ${item.flat_type ? `<span class="badge badge-income" style="font-size: 0.6rem; padding: 1px 6px; background:rgba(99,102,241,0.12); color:var(--color-indigo);">${item.flat_type}</span>` : ''}
@@ -3819,6 +3838,12 @@ window.filterOwnersDirectory = function() {
 
 // Field definitions for structured rows
 const STRUCTURED_FIELDS = {
+    owner: [
+        { key: 'name', label: 'Name', type: 'text' }
+    ],
+    contact: [
+        { key: 'phone', label: 'Phone', type: 'text' }
+    ],
     family: [
         { key: 'name', label: 'Name', type: 'text' },
         { key: 'relation', label: 'Relation', type: 'text' },
@@ -3837,8 +3862,20 @@ const STRUCTURED_FIELDS = {
 };
 
 function getContainerId(prefix) {
-    const map = { family: 'family-members-container', service: 'service-person-container', vehicle: 'vehicle-container' };
+    const map = { owner: 'owner-names-container', contact: 'contact-numbers-container', family: 'family-members-container', service: 'service-person-container', vehicle: 'vehicle-container' };
     return map[prefix] || '';
+}
+
+// Helper: display structured data as comma-separated string
+function displayStructured(value, key) {
+    if (!value) return '';
+    if (typeof value === 'string') {
+        try { value = JSON.parse(value); } catch (e) { return value; }
+    }
+    if (Array.isArray(value)) {
+        return value.map(o => o[key] || '').filter(Boolean).join(', ');
+    }
+    return String(value);
 }
 
 // Helper: parse JSON array from owner field (handles plain text fallback for family_members)
@@ -3849,6 +3886,9 @@ function parseStructuredField(value, prefix) {
             const parsed = JSON.parse(value);
             if (Array.isArray(parsed)) return parsed;
         } catch (e) {
+            // Plain string fallback: treat as single entry for owner/contact
+            if (prefix === 'owner') return [{ name: value }];
+            if (prefix === 'contact') return [{ phone: value }];
             if (prefix === 'family') {
                 return value.split(',').map(s => ({ name: s.trim(), relation: '', gender: '' })).filter(s => s.name);
             }
@@ -4000,29 +4040,43 @@ window.selectFlatForEdit = function(flatNo) {
     
     const showPasscode = isOwnFlat || canEditAny;
     
+    const statusColor = item.occupancy_status === 'vacant' ? 'var(--color-rose)' : item.occupancy_status === 'tenant-occupied' ? 'var(--color-orange)' : 'var(--color-emerald)';
+    const statusIcon = item.occupancy_status === 'vacant' ? 'fa-door-closed' : item.occupancy_status === 'tenant-occupied' ? 'fa-user-tie' : 'fa-house-chimney-user';
+    
     detailSide.innerHTML = `
-        <div class="card" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 16px;">
-                <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--color-indigo);">Flat ${item.flat_no} Details</h3>
-                <span class="badge ${item.occupancy_status === 'vacant' ? 'badge-expense' : 'badge-income'}">${item.occupancy_status.replace('-', ' ')}</span>
+        <div class="card" style="background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(99,102,241,0.04)); border: 1px solid var(--border-color); padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 16px;">
+                <div>
+                    <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--color-indigo); margin:0;"><i class="fa-solid fa-door-open" style="color:var(--color-indigo);margin-right:8px;"></i> Flat ${item.flat_no}</h3>
+                    <span style="font-size:0.7rem;color:var(--text-muted);">${item.flat_type || ''}</span>
+                </div>
+                <span class="badge ${item.occupancy_status === 'vacant' ? 'badge-expense' : 'badge-income'}" style="border-color:${statusColor};">
+                    <i class="fa-solid ${statusIcon}" style="margin-right:4px;"></i> ${item.occupancy_status.replace('-', ' ')}
+                </span>
             </div>
             
             <form id="edit-owner-form" onsubmit="saveOwnerProfile(event)">
                 <input type="hidden" id="edit-flat-no" value="${item.flat_no}">
                 
                 <div class="input-field">
-                    <label for="edit-owner-name">Owner Name</label>
-                    <input type="text" id="edit-owner-name" value="${item.owner_name || ''}" disabled required>
+                    <label><i class="fa-solid fa-user" style="color:var(--color-indigo);width:16px;margin-right:6px;"></i> Owner Names</label>
+                    <div id="owner-names-container">
+                        ${renderStructuredRows('owner', item.owner_name, false)}
+                    </div>
+                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'owner\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Owner</button>' : ''}
                 </div>
                 
                 <div class="input-field">
-                    <label for="edit-contact">Contact No</label>
-                    <input type="text" id="edit-contact" value="${item.contact_no || ''}" disabled>
+                    <label><i class="fa-solid fa-phone" style="color:var(--color-emerald);width:16px;margin-right:6px;"></i> Contact Numbers</label>
+                    <div id="contact-numbers-container">
+                        ${renderStructuredRows('contact', item.contact_no, false)}
+                    </div>
+                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'contact\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Contact</button>' : ''}
                 </div>
                 
                 ${showPasscode ? `
                 <div class="input-field">
-                    <label for="edit-passcode">Passcode (For Soft Login)</label>
+                    <label for="edit-passcode"><i class="fa-solid fa-lock" style="color:var(--color-yellow);width:16px;margin-right:6px;"></i> Passcode</label>
                     <div style="display:flex; gap:6px; align-items:center;">
                         <input type="password" id="edit-passcode" placeholder="e.g. 1234" value="${item.passcode || ''}" disabled style="flex:1;">
                         ${canEditAny ? `
@@ -4035,17 +4089,17 @@ window.selectFlatForEdit = function(flatNo) {
                 ` : ''}
                 
                 <div class="input-field">
-                    <label for="edit-parking">Parking Space No</label>
+                    <label for="edit-parking"><i class="fa-solid fa-square-parking" style="color:var(--color-violet);width:16px;margin-right:6px;"></i> Parking Space No</label>
                     <input type="text" id="edit-parking" value="${item.parking_no || 'None'}" disabled>
                 </div>
                 
                 <div class="input-field">
-                    <label for="edit-status">Occupancy Status</label>
+                    <label for="edit-status"><i class="fa-solid fa-house-circle-check" style="color:${statusColor};width:16px;margin-right:6px;"></i> Occupancy Status</label>
                     ${selectHTML}
                 </div>
                 
                 <div class="input-field">
-                    <label for="edit-flat-type">Flat Type</label>
+                    <label for="edit-flat-type"><i class="fa-solid fa-layer-group" style="color:var(--color-violet);width:16px;margin-right:6px;"></i> Flat Type</label>
                     <select id="edit-flat-type" disabled>
                         <option value="">-- Select --</option>
                         ${getFlatTypesList().map(t => `<option value="${t}" ${item.flat_type === t ? 'selected' : ''}>${t}</option>`).join('')}
@@ -4053,7 +4107,7 @@ window.selectFlatForEdit = function(flatNo) {
                 </div>
                 
                 <div class="input-field">
-                    <label>Family Members</label>
+                    <label><i class="fa-solid fa-people-group" style="color:var(--color-rose);width:16px;margin-right:6px;"></i> Family Members</label>
                     <div id="family-members-container">
                         ${renderStructuredRows('family', item.family_members, false)}
                     </div>
@@ -4061,7 +4115,7 @@ window.selectFlatForEdit = function(flatNo) {
                 </div>
                 
                 <div class="input-field">
-                    <label>Service Person Details</label>
+                    <label><i class="fa-solid fa-hand-sparkles" style="color:var(--color-yellow);width:16px;margin-right:6px;"></i> Service Person</label>
                     <div id="service-person-container">
                         ${renderStructuredRows('service', item.service_person, false)}
                     </div>
@@ -4069,7 +4123,7 @@ window.selectFlatForEdit = function(flatNo) {
                 </div>
                 
                 <div class="input-field">
-                    <label>Vehicle Details</label>
+                    <label><i class="fa-solid fa-truck" style="color:var(--color-teal);width:16px;margin-right:6px;"></i> Vehicle Details</label>
                     <div id="vehicle-container">
                         ${renderStructuredRows('vehicle', item.vehicle_details, false)}
                     </div>
@@ -4119,6 +4173,12 @@ window.enableOwnerEditing = function() {
     form.querySelectorAll("input, select, textarea").forEach(el => el.disabled = false);
     
     // Re-render structured rows with canEdit=true to get editable fields
+    const ownerContainer = document.getElementById("owner-names-container");
+    if (ownerContainer) ownerContainer.innerHTML = renderStructuredRows('owner', item.owner_name, true);
+    
+    const contactContainer = document.getElementById("contact-numbers-container");
+    if (contactContainer) contactContainer.innerHTML = renderStructuredRows('contact', item.contact_no, true);
+    
     const familyContainer = document.getElementById("family-members-container");
     if (familyContainer) familyContainer.innerHTML = renderStructuredRows('family', item.family_members, true);
     
@@ -4153,8 +4213,8 @@ window.saveOwnerProfile = async function(e) {
         return;
     }
     
-    const ownerName = document.getElementById("edit-owner-name").value.trim();
-    const contactNo = document.getElementById("edit-contact").value.trim();
+    const ownerName = collectStructuredRows('owner');
+    const contactNo = collectStructuredRows('contact');
     
     const passcodeInput = document.getElementById("edit-passcode");
     let passcode = undefined;
@@ -4339,7 +4399,7 @@ window.generateReceipt = async function(entryId) {
         
         // Fetch owner name
         const { data: ownerData } = await sbClient.from('owners').select('owner_name').eq('flat_no', data.flat_no).single();
-        const ownerName = ownerData ? ownerData.owner_name : `Flat ${data.flat_no}`;
+        const ownerName = ownerData ? displayStructured(ownerData.owner_name, 'name') || `Flat ${data.flat_no}` : `Flat ${data.flat_no}`;
         
         let receiptYear = data.year;
         try {
@@ -4617,7 +4677,7 @@ window.fetchHistory = async function() {
         const ownersMap = {};
         if (owners) {
             owners.forEach(o => {
-                ownersMap[o.flat_no] = o.owner_name;
+                ownersMap[o.flat_no] = displayStructured(o.owner_name, 'name') || 'Unknown';
             });
         }
         
@@ -5384,7 +5444,7 @@ function renderIncomeExpenditure(data) {
             detailsRowsHTML += `
                 <tr>
                     <td><strong>Flat ${det.flat_no}</strong></td>
-                    <td>${det.owner_name}</td>
+                    <td>${displayStructured(det.owner_name, 'name')}</td>
                     <td class="text-right amt-dr">${formatCurrency(det.amount)}</td>
                 </tr>
             `;
@@ -7377,7 +7437,7 @@ async function loadFlatsForSoftLogin() {
             data.forEach(item => {
                 const opt = document.createElement("option");
                 opt.value = item.flat_no;
-                opt.label = item.owner_name ? `${item.flat_no} - ${item.owner_name}` : item.flat_no;
+                opt.label = item.owner_name ? `${item.flat_no} - ${displayStructured(item.owner_name, 'name')}` : item.flat_no;
                 softOptions.appendChild(opt);
             });
         }
@@ -7443,7 +7503,8 @@ window.handleSoftLoginSubmit = async function(e) {
         }
         
         // Clean and compare contact number and passcode
-        const dbContact = String(data.contact_no || '').trim().replace(/\D/g, '');
+        const contactVal = displayStructured(data.contact_no, 'phone');
+        const dbContact = String(contactVal || '').trim().replace(/\D/g, '');
         const inputClean = verifyCode.replace(/\D/g, '');
         
         const dbPasscode = data.passcode ? String(data.passcode).trim() : '';

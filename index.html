@@ -39,19 +39,6 @@
                 </span>
             </div>
 
-            <!-- Quick Actions -->
-            <div class="sidebar-section-label">Quick Actions</div>
-            <nav class="sidebar-nav">
-                <button class="sidebar-btn" id="side-collect-fee" onclick="openModal('incomeModal')">
-                    <i class="fa-solid fa-hand-holding-dollar"></i>
-                    <span>Collect Fee</span>
-                </button>
-                <button class="sidebar-btn" id="side-record-expense" onclick="openModal('expenseModal')">
-                    <i class="fa-solid fa-money-bill-transfer"></i>
-                    <span>Record Expense</span>
-                </button>
-            </nav>
-
             <div class="sidebar-section-label">Navigation</div>
             <nav class="sidebar-nav">
                 <button class="sidebar-btn active" id="side-dashboard" onclick="scrollToTop()">
@@ -86,41 +73,51 @@
                         </button>
                     </nav>
 
-            <div class="sidebar-section-label">Data</div>
-            <nav class="sidebar-nav">
-                <button class="sidebar-btn" id="side-import" onclick="openModal('importModal')">
-                    <i class="fa-solid fa-file-import"></i>
-                    <span>Import Ledger</span>
-                </button>
-                <button class="sidebar-btn" id="side-owners-upload" onclick="openModal('ownersModal')">
-                    <i class="fa-solid fa-users-gear"></i>
-                    <span>Upload Owners</span>
-                </button>
-                <button class="sidebar-btn" id="side-export" onclick="exportLedgerToExcel()">
-                    <i class="fa-solid fa-file-export"></i>
-                    <span>Export Ledger</span>
-                </button>
-            </nav>
+            <div class="sidebar-section-label collapse-header" onclick="toggleCollapse('data-section')">
+                <span>Data</span>
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapse-wrap" id="data-section">
+                <nav class="sidebar-nav">
+                    <button class="sidebar-btn" id="side-import" onclick="openModal('importModal')">
+                        <i class="fa-solid fa-file-import"></i>
+                        <span>Import Ledger</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-owners-upload" onclick="openModal('ownersModal')">
+                        <i class="fa-solid fa-users-gear"></i>
+                        <span>Upload Owners</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-export" onclick="exportLedgerToExcel()">
+                        <i class="fa-solid fa-file-export"></i>
+                        <span>Export Ledger</span>
+                    </button>
+                </nav>
+            </div>
 
-            <div class="sidebar-section-label" id="side-admin-label" style="display:none;">Administration</div>
-            <nav class="sidebar-nav" id="side-admin-nav" style="display:none;">
-                <button class="sidebar-btn" id="side-manage-users" onclick="openUsersModal()">
-                    <i class="fa-solid fa-user-shield"></i>
-                    <span>Manage Users</span>
-                </button>
-                <button class="sidebar-btn" id="side-manage-roles" onclick="openRolesModal()">
-                    <i class="fa-solid fa-diagram-project"></i>
-                    <span>Manage Roles</span>
-                </button>
-                <button class="sidebar-btn" id="side-building-config" onclick="openBuildingConfigModal()">
-                    <i class="fa-solid fa-building"></i>
-                    <span>Building Setup</span>
-                </button>
-                <button class="sidebar-btn" id="side-notif-toggle" onclick="togglePushSubscription()" style="display:none;">
-                    <i class="fa-solid fa-bell-slash"></i>
-                    <span>Notifications: OFF</span>
-                </button>
-            </nav>
+            <div class="sidebar-section-label collapse-header" id="side-admin-label" style="display:none;" onclick="toggleCollapse('admin-section')">
+                <span>Administration</span>
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapse-wrap" id="admin-section">
+                <nav class="sidebar-nav" id="side-admin-nav" style="display:none;">
+                    <button class="sidebar-btn" id="side-manage-users" onclick="openUsersModal()">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span>Manage Users</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-manage-roles" onclick="openRolesModal()">
+                        <i class="fa-solid fa-diagram-project"></i>
+                        <span>Manage Roles</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-building-config" onclick="openBuildingConfigModal()">
+                        <i class="fa-solid fa-building"></i>
+                        <span>Building Setup</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-notif-toggle" onclick="togglePushSubscription()" style="display:none;">
+                        <i class="fa-solid fa-bell-slash"></i>
+                        <span>Notifications: OFF</span>
+                    </button>
+                </nav>
+            </div>
 
             <!-- Spacer -->
             <div class="sidebar-spacer"></div>
@@ -783,7 +780,7 @@
                                     placeholder="Search flat or owner name..." oninput="filterOwnersDirectory()"
                                     style="flex: 1;">
                                 <select id="directory-floor-filter" class="directory-search"
-                                    style="flex: 0.5; cursor: pointer;" onchange="filterOwnersDirectory()">
+                                    style="flex: 0.5;" onchange="filterOwnersDirectory()">
                                     <option value="">All Floors</option>
                                 </select>
                             </div>
@@ -2218,7 +2215,7 @@
                         <!-- Left Column -->
                         <div>
                             <div class="dash-section-title"><i class="fa-solid fa-bolt"></i> Quick Actions</div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-bottom: 20px;">
                                 <button class="dash-action-card" onclick="openModal('incomeModal'); closeModal('lavishDashboardModal')">
                                     <i class="fa-solid fa-hand-holding-dollar" style="color: var(--color-emerald);"></i>
                                     <span>Collect Fee</span>
