@@ -7645,7 +7645,7 @@ window.updateUserRole = async function(userId) {
         showToast("User role updated successfully!", "success");
     } catch (err) {
         console.error("Error updating user role:", err);
-        showToast("Failed to update user role.", "error");
+        showToast("Failed to update user role: " + (err.message || err.details || JSON.stringify(err)), "error");
     }
 };
 
