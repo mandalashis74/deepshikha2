@@ -1,20 +1,4 @@
 {
-  "name": "deepsikha-ledger",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "vite": "^5.2.11"
-  },
-  "dependencies": {
-    "xlsx": "^0.18.5"
-  }
-}
-{
   "name": "deepsikha-maint-app",
   "version": "1.0.0",
   "type": "module",
