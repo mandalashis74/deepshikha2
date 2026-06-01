@@ -2018,6 +2018,20 @@ select.directory-search {
     display: flex;
     gap: 8px;
     align-items: center;
+    padding: 4px 0 4px 16px;
+    position: relative;
+}
+
+.structured-row::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    opacity: 0.35;
 }
 
 .structured-row span {

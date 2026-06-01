@@ -3903,7 +3903,7 @@ function renderStructuredRows(prefix, value, canEdit) {
     if (!fields) return '';
     const rows = parseStructuredField(value, prefix);
     if (rows.length === 0 && !canEdit) {
-        return '<span style="color:var(--text-muted); font-size:0.85rem;">None</span>';
+        return '<span style="color:var(--text-muted); font-size:0.82rem; padding:4px 0 4px 22px; display:block; position:relative;"><span style="position:absolute; left:0; top:10px; width:6px; height:6px; border-radius:50%; background:var(--text-muted); opacity:0.25;"></span>None</span>';
     }
     if (rows.length === 0) {
         return '';
@@ -3931,7 +3931,7 @@ function renderStructuredRows(prefix, value, canEdit) {
             html += '<div class="structured-row">';
             fields.forEach((f, fi) => {
                 const val = row[f.key] || '';
-                html += `<span style="flex:1; ${fi > 0 ? 'color:var(--text-secondary);' : ''}">${escapeHtml(val)}</span>`;
+                html += `<span style="flex:1; ${fi > 0 ? 'color:var(--text-secondary);font-size:0.78rem;' : 'font-weight:500;color:var(--text-primary);'}">${escapeHtml(val)}</span>`;
             });
             html += '</div>';
         }
@@ -4043,107 +4043,168 @@ window.selectFlatForEdit = function(flatNo) {
     const statusColor = item.occupancy_status === 'vacant' ? 'var(--color-rose)' : item.occupancy_status === 'tenant-occupied' ? 'var(--color-orange)' : 'var(--color-emerald)';
     const statusIcon = item.occupancy_status === 'vacant' ? 'fa-door-closed' : item.occupancy_status === 'tenant-occupied' ? 'fa-user-tie' : 'fa-house-chimney-user';
     
+    const isVacant = item.occupancy_status === 'vacant';
+    const isTenant = item.occupancy_status === 'tenant-occupied';
+    const headerGrad = isVacant ? 'linear-gradient(135deg, #1e1b4b, #881337)' : isTenant ? 'linear-gradient(135deg, #1e1b4b, #451a03)' : 'linear-gradient(135deg, #1e1b4b, #022c22)';
+    
     detailSide.innerHTML = `
-        <div class="card" style="background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(99,102,241,0.04)); border: 1px solid var(--border-color); padding: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 16px;">
-                <div>
-                    <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--color-indigo); margin:0;"><i class="fa-solid fa-door-open" style="color:var(--color-indigo);margin-right:8px;"></i> Flat ${item.flat_no}</h3>
-                    <span style="font-size:0.7rem;color:var(--text-muted);">${item.flat_type || ''}</span>
+        <div class="card" style="position:relative; background:#0f172a; border:1px solid var(--border-color); border-radius:var(--border-radius-lg); overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+            <!-- Decorative glow -->
+            <div style="position:absolute; top:-40px; right:-40px; width:140px; height:140px; border-radius:50%; background:radial-gradient(circle, ${statusColor}22, transparent 70%); pointer-events:none;"></div>
+            <div style="position:absolute; bottom:-30px; left:-30px; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle, ${statusColor}15, transparent 70%); pointer-events:none;"></div>
+            
+            <!-- Header -->
+            <div style="background:${headerGrad}; padding:18px 20px; position:relative;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h3 style="font-size:1.3rem; font-weight:800; color:#fff; margin:0; letter-spacing:0.5px;">
+                            <i class="fa-solid fa-door-open" style="margin-right:8px; color:${statusColor};"></i> Flat ${item.flat_no}
+                        </h3>
+                        <div style="display:flex; gap:8px; margin-top:4px;">
+                            ${item.flat_type ? `<span style="font-size:0.65rem; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1px; border:1px solid rgba(255,255,255,0.08); padding:2px 10px; border-radius:20px;"><i class="fa-solid fa-layer-group" style="margin-right:4px;"></i>${item.flat_type}</span>` : ''}
+                            <span class="badge" style="border-color:${statusColor}; background:rgba(0,0,0,0.3); padding:2px 10px; font-size:0.6rem;">
+                                <i class="fa-solid ${statusIcon}" style="color:${statusColor};margin-right:4px;"></i> ${item.occupancy_status.replace('-', ' ').toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                    <div style="width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center;">
+                        <i class="fa-solid fa-building" style="color:rgba(255,255,255,0.3); font-size:1.2rem;"></i>
+                    </div>
                 </div>
-                <span class="badge ${item.occupancy_status === 'vacant' ? 'badge-expense' : 'badge-income'}" style="border-color:${statusColor};">
-                    <i class="fa-solid ${statusIcon}" style="margin-right:4px;"></i> ${item.occupancy_status.replace('-', ' ')}
-                </span>
             </div>
             
-            <form id="edit-owner-form" onsubmit="saveOwnerProfile(event)">
+            <form id="edit-owner-form" onsubmit="saveOwnerProfile(event)" style="padding:16px 20px 20px;">
                 <input type="hidden" id="edit-flat-no" value="${item.flat_no}">
                 
-                <div class="input-field">
-                    <label><i class="fa-solid fa-user" style="color:var(--color-indigo);width:16px;margin-right:6px;"></i> Owner Names</label>
-                    <div id="owner-names-container">
-                        ${renderStructuredRows('owner', item.owner_name, false)}
+                <!-- Contact Section -->
+                <div style="margin-bottom:16px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.04);">
+                        <div style="width:3px; height:14px; border-radius:2px; background:var(--color-indigo);"></div>
+                        <span style="font-size:0.6rem; font-weight:700; color:var(--color-indigo); text-transform:uppercase; letter-spacing:1px;">Contact Information</span>
                     </div>
-                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'owner\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Owner</button>' : ''}
-                </div>
-                
-                <div class="input-field">
-                    <label><i class="fa-solid fa-phone" style="color:var(--color-emerald);width:16px;margin-right:6px;"></i> Contact Numbers</label>
-                    <div id="contact-numbers-container">
-                        ${renderStructuredRows('contact', item.contact_no, false)}
+                    
+                    <div class="input-field" style="margin-bottom:10px;">
+                        <label style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-user" style="color:var(--color-indigo);width:14px;"></i> Owner Names
+                        </label>
+                        <div id="owner-names-container">
+                            ${renderStructuredRows('owner', item.owner_name, false)}
+                        </div>
+                        ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'owner\')" style="margin-top: 6px; font-size:0.75rem; padding:3px 10px; display:none;"><i class="fa-solid fa-plus"></i> Add Owner</button>' : ''}
                     </div>
-                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'contact\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Contact</button>' : ''}
-                </div>
-                
-                ${showPasscode ? `
-                <div class="input-field">
-                    <label for="edit-passcode"><i class="fa-solid fa-lock" style="color:var(--color-yellow);width:16px;margin-right:6px;"></i> Passcode</label>
-                    <div style="display:flex; gap:6px; align-items:center;">
-                        <input type="password" id="edit-passcode" placeholder="e.g. 1234" value="${item.passcode || ''}" disabled style="flex:1;">
-                        ${canEditAny ? `
-                        <button type="button" class="btn btn-slate" onclick="togglePasscodeVisibility()" style="padding:10px;" title="Show/Hide Passcode">
-                            <i class="fa-solid fa-eye" id="passcode-toggle-icon"></i>
-                        </button>
-                        ` : ''}
+                    
+                    <div class="input-field" style="margin-bottom:10px;">
+                        <label style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-phone" style="color:var(--color-emerald);width:14px;"></i> Contact Numbers
+                        </label>
+                        <div id="contact-numbers-container">
+                            ${renderStructuredRows('contact', item.contact_no, false)}
+                        </div>
+                        ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'contact\')" style="margin-top: 6px; font-size:0.75rem; padding:3px 10px; display:none;"><i class="fa-solid fa-plus"></i> Add Contact</button>' : ''}
                     </div>
                 </div>
-                ` : ''}
                 
-                <div class="input-field">
-                    <label for="edit-parking"><i class="fa-solid fa-square-parking" style="color:var(--color-violet);width:16px;margin-right:6px;"></i> Parking Space No</label>
-                    <input type="text" id="edit-parking" value="${item.parking_no || 'None'}" disabled>
-                </div>
-                
-                <div class="input-field">
-                    <label for="edit-status"><i class="fa-solid fa-house-circle-check" style="color:${statusColor};width:16px;margin-right:6px;"></i> Occupancy Status</label>
-                    ${selectHTML}
-                </div>
-                
-                <div class="input-field">
-                    <label for="edit-flat-type"><i class="fa-solid fa-layer-group" style="color:var(--color-violet);width:16px;margin-right:6px;"></i> Flat Type</label>
-                    <select id="edit-flat-type" disabled>
-                        <option value="">-- Select --</option>
-                        ${getFlatTypesList().map(t => `<option value="${t}" ${item.flat_type === t ? 'selected' : ''}>${t}</option>`).join('')}
-                    </select>
-                </div>
-                
-                <div class="input-field">
-                    <label><i class="fa-solid fa-people-group" style="color:var(--color-rose);width:16px;margin-right:6px;"></i> Family Members</label>
-                    <div id="family-members-container">
-                        ${renderStructuredRows('family', item.family_members, false)}
+                <!-- Property Section -->
+                <div style="margin-bottom:16px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.04);">
+                        <div style="width:3px; height:14px; border-radius:2px; background:var(--color-violet);"></div>
+                        <span style="font-size:0.6rem; font-weight:700; color:var(--color-violet); text-transform:uppercase; letter-spacing:1px;">Property Details</span>
                     </div>
-                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'family\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Member</button>' : ''}
-                </div>
-                
-                <div class="input-field">
-                    <label><i class="fa-solid fa-hand-sparkles" style="color:var(--color-yellow);width:16px;margin-right:6px;"></i> Service Person</label>
-                    <div id="service-person-container">
-                        ${renderStructuredRows('service', item.service_person, false)}
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;" id="property-detail-grid">
+                        <div class="input-field" style="margin:0;">
+                            <label style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                                <i class="fa-solid fa-square-parking" style="color:var(--color-violet);width:14px;"></i> Parking
+                            </label>
+                            <span id="view-parking" style="font-size:0.85rem; font-weight:600; color:var(--text-primary); display:block; padding:4px 0;">${item.parking_no || 'None'}</span>
+                            <input type="text" id="edit-parking" value="${item.parking_no || 'None'}" style="display:none;">
+                        </div>
+                        
+                        <div class="input-field" style="margin:0;">
+                            <label style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                                <i class="fa-solid fa-house-circle-check" style="color:${statusColor};width:14px;"></i> Status
+                            </label>
+                            <span id="view-status" style="font-size:0.85rem; font-weight:600; color:var(--text-primary); display:block; padding:4px 0;">${statusOptions.find(o => o.value === item.occupancy_status)?.label || item.occupancy_status || 'Not set'}</span>
+                            ${selectHTML.replace('disabled', 'style="display:none;"')}
+                        </div>
+                        
+                        <div class="input-field" style="margin:0;">
+                            <label style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                                <i class="fa-solid fa-layer-group" style="color:var(--color-indigo);width:14px;"></i> Flat Type
+                            </label>
+                            <span id="view-flat-type" style="font-size:0.85rem; font-weight:600; color:var(--text-primary); display:block; padding:4px 0;">${item.flat_type || 'Not set'}</span>
+                            <select id="edit-flat-type" style="display:none;">
+                                <option value="">-- Select --</option>
+                                ${getFlatTypesList().map(t => `<option value="${t}" ${item.flat_type === t ? 'selected' : ''}>${t}</option>`).join('')}
+                            </select>
+                        </div>
+                        
+                        ${showPasscode ? `
+                        <div class="input-field" style="margin:0;">
+                            <label style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                                <i class="fa-solid fa-lock" style="color:var(--color-yellow);width:14px;"></i> Passcode
+                            </label>
+                            <div style="display:flex; gap:4px; align-items:center;">
+                                <span id="view-passcode" style="font-size:0.85rem; font-weight:600; color:var(--text-primary); flex:1;">${item.passcode ? '••••' : 'Not set'}</span>
+                                <input type="password" id="edit-passcode" value="${item.passcode || ''}" style="flex:1;display:none;">
+                                ${canEditAny ? `<button type="button" class="btn btn-slate" onclick="togglePasscodeVisibility()" style="padding:6px;display:none;font-size:0.75rem;" id="passcode-toggle-btn" title="Show/Hide Passcode"><i class="fa-solid fa-eye" id="passcode-toggle-icon"></i></button>` : ''}
+                            </div>
+                        </div>` : ''}
                     </div>
-                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'service\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Person</button>' : ''}
                 </div>
                 
-                <div class="input-field">
-                    <label><i class="fa-solid fa-truck" style="color:var(--color-teal);width:16px;margin-right:6px;"></i> Vehicle Details</label>
-                    <div id="vehicle-container">
-                        ${renderStructuredRows('vehicle', item.vehicle_details, false)}
+                <!-- People Section -->
+                <div style="margin-bottom:16px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.04);">
+                        <div style="width:3px; height:14px; border-radius:2px; background:var(--color-rose);"></div>
+                        <span style="font-size:0.6rem; font-weight:700; color:var(--color-rose); text-transform:uppercase; letter-spacing:1px;">People & Vehicles</span>
                     </div>
-                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'vehicle\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Vehicle</button>' : ''}
+                    
+                    <div class="input-field" style="margin-bottom:10px;">
+                        <label style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-people-group" style="color:var(--color-rose);width:14px;"></i> Family Members
+                        </label>
+                        <div id="family-members-container">
+                            ${renderStructuredRows('family', item.family_members, false)}
+                        </div>
+                        ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'family\')" style="margin-top: 6px; font-size:0.75rem; padding:3px 10px; display:none;"><i class="fa-solid fa-plus"></i> Add Member</button>' : ''}
+                    </div>
+                    
+                    <div class="input-field" style="margin-bottom:10px;">
+                        <label style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-hand-sparkles" style="color:var(--color-yellow);width:14px;"></i> Service Person
+                        </label>
+                        <div id="service-person-container">
+                            ${renderStructuredRows('service', item.service_person, false)}
+                        </div>
+                        ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'service\')" style="margin-top: 6px; font-size:0.75rem; padding:3px 10px; display:none;"><i class="fa-solid fa-plus"></i> Add Person</button>' : ''}
+                    </div>
+                    
+                    <div class="input-field" style="margin:0;">
+                        <label style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-truck" style="color:var(--color-teal);width:14px;"></i> Vehicle Details
+                        </label>
+                        <div id="vehicle-container">
+                            ${renderStructuredRows('vehicle', item.vehicle_details, false)}
+                        </div>
+                        ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'vehicle\')" style="margin-top: 6px; font-size:0.75rem; padding:3px 10px; display:none;"><i class="fa-solid fa-plus"></i> Add Vehicle</button>' : ''}
+                    </div>
                 </div>
                 
-                <div style="display: flex; gap: 8px; margin-top: 16px;">
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
                     ${canEdit ? `
-                        <button type="button" class="btn btn-indigo" id="btn-enable-edit" onclick="enableOwnerEditing()" style="flex: 1;">
+                        <button type="button" class="btn btn-indigo" id="btn-enable-edit" onclick="enableOwnerEditing()" style="flex:1; padding:10px; font-size:0.82rem;">
                             <i class="fa-solid fa-pen"></i> Enable Editing
                         </button>
                     ` : `
-                        <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; width: 100%; padding: 8px;">
-                            <i class="fa-solid fa-lock"></i> Edit restricted to Owner or Administrators.
+                        <div style="text-align: center; color: var(--text-muted); font-size:0.75rem; width:100%; padding:10px; border:1px dashed rgba(255,255,255,0.06); border-radius:var(--border-radius-sm);">
+                            <i class="fa-solid fa-lock" style="margin-right:6px; color:var(--color-rose);"></i> Edit restricted to Owner or Administrators.
                         </div>
                     `}
                 </div>
                 
                 <div class="modal-actions" style="margin-top: 16px; display: none;" id="save-profile-actions">
-                    <button type="submit" class="btn btn-emerald" style="width: 100%;">
+                    <button type="submit" class="btn btn-emerald" style="width: 100%; padding:10px; font-size:0.85rem;">
                         <i class="fa-solid fa-floppy-disk"></i> Save Profile
                     </button>
                 </div>
@@ -4169,8 +4230,21 @@ window.enableOwnerEditing = function() {
     const item = allOwnersData.find(o => o.flat_no === flatNo);
     if (!item) return;
     
-    // Enable all inputs and selects inside the form
-    form.querySelectorAll("input, select, textarea").forEach(el => el.disabled = false);
+    // Hide view-mode spans, show editable inputs/selects
+    form.querySelectorAll("[id^=view-]").forEach(el => el.style.display = "none");
+    form.querySelectorAll("#edit-passcode, #edit-parking, #edit-status, #edit-flat-type").forEach(el => {
+        el.style.display = "block";
+        el.style.width = "100%";
+        el.disabled = false;
+    });
+    
+    // Switch property details grid to single column for editing
+    const propGrid = document.getElementById("property-detail-grid");
+    if (propGrid) propGrid.style.gridTemplateColumns = "1fr";
+    
+    // Show passcode toggle for admins
+    const toggleBtn = document.getElementById("passcode-toggle-btn");
+    if (toggleBtn) toggleBtn.style.display = "";
     
     // Re-render structured rows with canEdit=true to get editable fields
     const ownerContainer = document.getElementById("owner-names-container");
