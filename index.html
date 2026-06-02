@@ -120,6 +120,12 @@
                         <button class="sidebar-btn" id="side-analytics" onclick="openAnalyticsModal()">
                             <i class="fa-solid fa-chart-line"></i> <span>Analytics</span>
                         </button>
+                        <button class="sidebar-btn" id="side-maintenance" onclick="openMaintenanceModal()">
+                            <i class="fa-solid fa-coins"></i> <span>Maintenance Fees</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-security" onclick="openSecurityModal()">
+                            <i class="fa-solid fa-shield-halved"></i> <span>Security</span>
+                        </button>
                     </nav>
 
             <div class="sidebar-section-label">Data</div>
@@ -2038,6 +2044,160 @@
     </div>
 </div>
 
+<!-- MODAL: MAINTENANCE FEES -->
+<div id="maintenanceModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 1100px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-coins"></i> Maintenance Fees</h2>
+            <span class="close" onclick="closeModal('maintenanceModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+            <div class="filter-pills" id="maintenance-tabs">
+                <button class="pill active" data-mt="rates" onclick="switchMaintenanceTab('rates')">Rate Cards</button>
+                <button class="pill" data-mt="collections" onclick="switchMaintenanceTab('collections')">Collections</button>
+                <button class="pill" data-mt="arrears" onclick="switchMaintenanceTab('arrears')">Arrears / Pending</button>
+            </div>
+            <div id="maintenance-toolbar" style="margin:12px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center;"></div>
+            <div id="maintenance-container"><div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREATE/EDIT MAINTENANCE RATE -->
+<div id="createRateModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 480px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-tag"></i> <span id="create-rate-title">New Rate Card</span></h2>
+            <span class="close" onclick="closeModal('createRateModal')">&times;</span>
+        </div>
+        <form id="create-rate-form" onsubmit="saveRate(event)">
+            <div class="modal-body">
+                <input type="hidden" id="edit-rate-id">
+                <div class="input-field">
+                    <label>Flat Type</label>
+                    <select id="rate-flat-type" required>
+                        <option value="">— Select —</option>
+                        <option value="1BHK">1BHK</option>
+                        <option value="2BHK">2BHK</option>
+                        <option value="3BHK">3BHK</option>
+                        <option value="2+3BHK">2+3BHK</option>
+                        <option value="Studio">Studio</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="input-field">
+                    <label>Amount (₹)</label>
+                    <input type="number" id="rate-amount" step="0.01" min="0" required placeholder="e.g. 2500">
+                </div>
+                <div class="input-field">
+                    <label>Effective From</label>
+                    <input type="date" id="rate-effective-from" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-save"></i> Save Rate</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: RECORD MAINTENANCE COLLECTION -->
+<div id="recordCollectionModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 480px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-hand-holding-dollar"></i> Record Collection</h2>
+            <span class="close" onclick="closeModal('recordCollectionModal')">&times;</span>
+        </div>
+        <form id="record-collection-form" onsubmit="saveCollection(event)">
+            <div class="modal-body">
+                <input type="hidden" id="collection-flat-no">
+                <input type="hidden" id="collection-flat-type">
+                <input type="hidden" id="collection-month">
+                <input type="hidden" id="collection-year">
+                <p style="margin-bottom:12px;"><strong>Flat:</strong> <span id="collection-display-flat"></span></p>
+                <p style="margin-bottom:12px;"><strong>Period:</strong> <span id="collection-display-period"></span></p>
+                <p style="margin-bottom:12px;"><strong>Amount:</strong> ₹<span id="collection-display-amount"></span></p>
+                <div class="input-field">
+                    <label>Paid Date</label>
+                    <input type="date" id="collection-paid-date" required>
+                </div>
+                <div class="input-field">
+                    <label>Payment Method</label>
+                    <select id="collection-method" required>
+                        <option value="cash">Cash</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="upi">UPI</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="input-field">
+                    <label>Transaction Ref (optional)</label>
+                    <input type="text" id="collection-ref" placeholder="Cheque no / UPI ref / Receipt no">
+                </div>
+                <div class="input-field">
+                    <label>Remarks (optional)</label>
+                    <input type="text" id="collection-remarks" placeholder="Any notes">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-check"></i> Confirm Collection</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: SECURITY PERSONNEL ROSTER -->
+<div id="securityModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-shield-halved"></i> Security Personnel</h2>
+            <span class="close" onclick="closeModal('securityModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+            <div id="security-toolbar" style="margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;"></div>
+            <div id="security-container"><div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: MANAGE SECURITY PERSONNEL -->
+<div id="createSecurityModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 480px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-user-shield"></i> <span id="create-security-title">Add Security Personnel</span></h2>
+            <span class="close" onclick="closeModal('createSecurityModal')">&times;</span>
+        </div>
+        <form id="create-security-form" onsubmit="saveSecurityPersonnel(event)">
+            <div class="modal-body">
+                <input type="hidden" id="edit-security-id">
+                <div class="input-field">
+                    <label>Name</label>
+                    <input type="text" id="security-name" required placeholder="Full name">
+                </div>
+                <div class="input-field">
+                    <label>Shift</label>
+                    <select id="security-shift" required>
+                        <option value="">— Select —</option>
+                        <option value="morning">Morning (6 AM – 2 PM)</option>
+                        <option value="evening">Evening (2 PM – 10 PM)</option>
+                        <option value="night">Night (10 PM – 6 AM)</option>
+                    </select>
+                </div>
+                <div class="input-field">
+                    <label>Phone</label>
+                    <input type="text" id="security-phone" placeholder="Contact number">
+                </div>
+                <div class="input-field">
+                    <label>Designation</label>
+                    <input type="text" id="security-designation" placeholder="e.g. Head Guard, Security Guard">
+                </div>
+                <div class="input-field">
+                    <label>Photo URL (optional)</label>
+                    <input type="url" id="security-photo" placeholder="https://example.com/photo.jpg">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-save"></i> Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- MODAL: CREATE/EDIT EVENT -->
 <div id="createEventModal" class="modal">
             <div class="modal-content animate-zoom" style="max-width: 600px;">
@@ -2933,9 +3093,11 @@
     <script type="module" src="/static/js/meetings.js"></script>
     <script type="module" src="/static/js/phase3.js"></script>
     <script type="module" src="/static/js/phase4.js"></script>
-    <script type="module" src="/static/js/handover.js"></script>
-    <script type="module" src="/static/js/analytics.js"></script>
-    <script type="module" src="/static/js/owners.js"></script>
+<script type="module" src="/static/js/handover.js"></script>
+<script type="module" src="/static/js/analytics.js"></script>
+<script type="module" src="/static/js/maintenance.js"></script>
+<script type="module" src="/static/js/security.js"></script>
+<script type="module" src="/static/js/owners.js"></script>
     <script type="module" src="/static/js/reports.js"></script>
     <script type="module" src="/static/js/helpdesk.js"></script>
     <script type="module" src="/static/js/users.js"></script>

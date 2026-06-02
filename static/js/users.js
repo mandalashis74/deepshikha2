@@ -328,7 +328,12 @@ const ALL_PERMISSIONS = [
     { id: 'parking:manage', label: 'Manage Parking (Status/Setup)' },
     { id: 'handover:view', label: 'View Committee Handover' },
     { id: 'handover:create', label: 'Create/Manage Handover' },
-    { id: 'analytics:view', label: 'View Dashboard Analytics' }
+    { id: 'analytics:view', label: 'View Dashboard Analytics' },
+    { id: 'maintenance:view', label: 'View Maintenance Fees' },
+    { id: 'maintenance:manage_rates', label: 'Manage Maintenance Rates' },
+    { id: 'maintenance:collect', label: 'Collect Maintenance Fees' },
+    { id: 'security:view', label: 'View Security Roster' },
+    { id: 'security:manage', label: 'Manage Security Personnel' }
 ];
 
 window.openRolesModal = async function() {

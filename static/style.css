@@ -2665,6 +2665,47 @@ select.directory-search {
 }
 
 /* ==========================================
+   MAINTENANCE FEES
+   ========================================== */
+#maintenance-container .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+#maintenance-container .data-table th {
+    text-align: left;
+    padding: 8px 10px;
+    background: rgba(99,102,241,0.08);
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-bottom: 2px solid var(--border-color);
+}
+#maintenance-container .data-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+#maintenance-container .data-table tr:hover td {
+    background: rgba(99,102,241,0.03);
+}
+
+/* ==========================================
+   SECURITY ROSTER
+   ========================================== */
+#security-container .data-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: 14px 16px;
+    transition: var(--transition-fast);
+}
+#security-container .data-card:hover {
+    border-color: rgba(99,102,241,0.25);
+}
+
+/* ==========================================
    COMMUNITY BOARD
    ========================================== */
 .doc-card {
