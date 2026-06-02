@@ -34,10 +34,23 @@
                     <span id="sidebar-building-sub">Residence Management</span>
                 </div>
                 <span id="db-status-badge-side" class="badge badge-expense"
-                    style="padding: 1px 6px; font-size: 0.55rem;">
+                    style="cursor: pointer; padding: 1px 6px; font-size: 0.55rem;" onclick="openSupabaseConfig()">
                     <i class="fa-solid fa-database"></i> <span id="db-status-text-side">Offline</span>
                 </span>
             </div>
+
+            <!-- Quick Actions -->
+            <div class="sidebar-section-label">Quick Actions</div>
+            <nav class="sidebar-nav">
+                <button class="sidebar-btn" id="side-collect-fee" onclick="openModal('incomeModal')">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                    <span>Collect Fee</span>
+                </button>
+                <button class="sidebar-btn" id="side-record-expense" onclick="openModal('expenseModal')">
+                    <i class="fa-solid fa-money-bill-transfer"></i>
+                    <span>Record Expense</span>
+                </button>
+            </nav>
 
             <div class="sidebar-section-label">Navigation</div>
             <nav class="sidebar-nav">
@@ -71,53 +84,83 @@
                         <button class="sidebar-btn" id="side-board" onclick="openBoardModal()">
                             <i class="fa-solid fa-message"></i> <span>Community Board</span>
                         </button>
+                        <button class="sidebar-btn" id="side-committee" onclick="openCommitteeModal()">
+                            <i class="fa-solid fa-users-gear"></i> <span>Committee</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-meetings" onclick="openMeetingsModal()">
+                            <i class="fa-solid fa-handshake"></i> <span>Meetings</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-resolutions" onclick="openResolutionsModal()">
+                            <i class="fa-solid fa-scale-balanced"></i> <span>Resolutions</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-documents" onclick="openDocumentsModal()">
+                            <i class="fa-solid fa-folder-open"></i> <span>Document Vault</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-compliance" onclick="openComplianceModal()">
+                            <i class="fa-solid fa-calendar-check"></i> <span>Compliance Calendar</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-vendors" onclick="openVendorsModal()">
+                            <i class="fa-solid fa-handshake"></i> <span>Vendors</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-visitors" onclick="openVisitorsModal()">
+                            <i class="fa-solid fa-address-card"></i> <span>Visitor Passes</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-assets" onclick="openAssetsModal()">
+                            <i class="fa-solid fa-cubes"></i> <span>Assets</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-polls" onclick="openPollsModal()">
+                            <i class="fa-solid fa-square-poll-vertical"></i> <span>Polls</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-parking" onclick="openParkingModal()">
+                            <i class="fa-solid fa-square-parking"></i> <span>Parking</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-handover" onclick="openHandoverModal()">
+                            <i class="fa-solid fa-handshake"></i> <span>Handover Tool</span>
+                        </button>
+                        <button class="sidebar-btn" id="side-analytics" onclick="openAnalyticsModal()">
+                            <i class="fa-solid fa-chart-line"></i> <span>Analytics</span>
+                        </button>
                     </nav>
 
-            <div class="sidebar-section-label collapse-header" onclick="toggleCollapse('data-section')">
-                <span>Data</span>
-                <i class="fa-solid fa-chevron-down collapse-icon"></i>
-            </div>
-            <div class="collapse-wrap" id="data-section">
-                <nav class="sidebar-nav">
-                    <button class="sidebar-btn" id="side-import" onclick="openModal('importModal')">
-                        <i class="fa-solid fa-file-import"></i>
-                        <span>Import Ledger</span>
-                    </button>
-                    <button class="sidebar-btn" id="side-owners-upload" onclick="openModal('ownersModal')">
-                        <i class="fa-solid fa-users-gear"></i>
-                        <span>Upload Owners</span>
-                    </button>
-                    <button class="sidebar-btn" id="side-export" onclick="exportLedgerToExcel()">
-                        <i class="fa-solid fa-file-export"></i>
-                        <span>Export Ledger</span>
-                    </button>
-                </nav>
-            </div>
+            <div class="sidebar-section-label">Data</div>
+            <nav class="sidebar-nav">
+                <button class="sidebar-btn" id="side-import" onclick="openModal('importModal')">
+                    <i class="fa-solid fa-file-import"></i>
+                    <span>Import Ledger</span>
+                </button>
+                <button class="sidebar-btn" id="side-owners-upload" onclick="openModal('ownersModal')">
+                    <i class="fa-solid fa-users-gear"></i>
+                    <span>Upload Owners</span>
+                </button>
+                <button class="sidebar-btn" id="side-export" onclick="exportLedgerToExcel()">
+                    <i class="fa-solid fa-file-export"></i>
+                    <span>Export Ledger</span>
+                </button>
+            </nav>
 
-            <div class="sidebar-section-label collapse-header" id="side-admin-label" style="display:none;" onclick="toggleCollapse('admin-section')">
-                <span>Administration</span>
-                <i class="fa-solid fa-chevron-down collapse-icon"></i>
-            </div>
-            <div class="collapse-wrap" id="admin-section">
-                <nav class="sidebar-nav" id="side-admin-nav" style="display:none;">
-                    <button class="sidebar-btn" id="side-manage-users" onclick="openUsersModal()">
-                        <i class="fa-solid fa-user-shield"></i>
-                        <span>Manage Users</span>
-                    </button>
-                    <button class="sidebar-btn" id="side-manage-roles" onclick="openRolesModal()">
-                        <i class="fa-solid fa-diagram-project"></i>
-                        <span>Manage Roles</span>
-                    </button>
-                    <button class="sidebar-btn" id="side-building-config" onclick="openBuildingConfigModal()">
-                        <i class="fa-solid fa-building"></i>
-                        <span>Building Setup</span>
-                    </button>
-                    <button class="sidebar-btn" id="side-notif-toggle" onclick="togglePushSubscription()" style="display:none;">
-                        <i class="fa-solid fa-bell-slash"></i>
-                        <span>Notifications: OFF</span>
-                    </button>
-                </nav>
-            </div>
+            <div class="sidebar-section-label" id="side-admin-label" style="display:none;">Administration</div>
+            <nav class="sidebar-nav" id="side-admin-nav" style="display:none;">
+                <button class="sidebar-btn" id="side-manage-users" onclick="openUsersModal()">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <span>Manage Users</span>
+                </button>
+                <button class="sidebar-btn" id="side-manage-roles" onclick="openRolesModal()">
+                    <i class="fa-solid fa-diagram-project"></i>
+                    <span>Manage Roles</span>
+                </button>
+                <button class="sidebar-btn" id="side-building-config" onclick="openBuildingConfigModal()">
+                    <i class="fa-solid fa-building"></i>
+                    <span>Building Setup</span>
+                </button>
+                <button class="sidebar-btn" id="side-manage-committee" onclick="openCommitteeManageModal()">
+                    <i class="fa-solid fa-users-gear"></i>
+                    <span>Manage Committee</span>
+                </button>
+                <button class="sidebar-btn" id="side-notif-toggle" onclick="togglePushSubscription()" style="display:none;">
+                    <i class="fa-solid fa-bell-slash"></i>
+                    <span>Notifications: OFF</span>
+                </button>
+            </nav>
 
             <!-- Spacer -->
             <div class="sidebar-spacer"></div>
@@ -780,7 +823,7 @@
                                     placeholder="Search flat or owner name..." oninput="filterOwnersDirectory()"
                                     style="flex: 1;">
                                 <select id="directory-floor-filter" class="directory-search"
-                                    style="flex: 0.5;" onchange="filterOwnersDirectory()">
+                                    style="flex: 0.5; cursor: pointer;" onchange="filterOwnersDirectory()">
                                     <option value="">All Floors</option>
                                 </select>
                             </div>
@@ -1023,7 +1066,7 @@
 
         <!-- MODAL: ADD/EDIT ROLE -->
         <div id="editRoleModal" class="modal">
-            <div class="modal-content animate-zoom" style="max-width: 900px;">
+            <div class="modal-content animate-zoom" style="max-width: 600px;">
                 <div class="modal-header">
                     <h2 id="edit-role-modal-title"><i class="fa-solid fa-pen"></i> Edit Role</h2>
                     <span class="close" onclick="closeModal('editRoleModal')">&times;</span>
@@ -1033,26 +1076,30 @@
                         <input type="hidden" id="edit-role-mode" value="add">
                         <input type="hidden" id="edit-role-original-name" value="">
 
-                        <div style="display:flex; gap:16px; flex-wrap:wrap;">
-                            <div class="input-field" style="flex:1; min-width:180px;">
-                                <label for="edit-role-name">Role Key</label>
+                        <div class="grid-two-cols">
+                            <div class="input-field">
+                                <label for="edit-role-name">Role Key (unique, lowercase, no spaces)</label>
                                 <input type="text" id="edit-role-name" placeholder="e.g. security_guard" required
                                     pattern="[a-z_][a-z0-9_]*" title="Lowercase letters, numbers, and underscores only">
                             </div>
-                            <div class="input-field" style="flex:1; min-width:180px;">
-                                <label for="edit-role-label">Label</label>
+                            <div class="input-field">
+                                <label for="edit-role-label">Display Label</label>
                                 <input type="text" id="edit-role-label" placeholder="e.g. Security Guard" required>
                             </div>
-                            <div class="input-field" style="flex:1; min-width:140px;">
-                                <label for="edit-role-color">Badge Color</label>
-                                <input type="text" id="edit-role-color" placeholder="var(--color-emerald)" value="var(--text-secondary)">
-                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="edit-role-color">Badge Color (CSS variable or hex)</label>
+                            <input type="text" id="edit-role-color" placeholder="var(--color-emerald) or #10b981"
+                                value="var(--text-secondary)">
                         </div>
 
                         <div style="margin-top: 16px;">
-                            <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Permission Matrix</label>
-                            <div style="overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 8px; background: rgba(0,0,0,0.1);">
-                                <div id="edit-role-permissions" style="min-width:660px;">
+                            <label
+                                style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Permissions</label>
+                            <div
+                                style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 12px; background: rgba(0,0,0,0.1);">
+                                <div id="edit-role-permissions">
+                                    <!-- Populated dynamically -->
                                 </div>
                             </div>
                         </div>
@@ -1398,8 +1445,601 @@
             </div>
         </div>
 
-        <!-- MODAL: CREATE/EDIT EVENT -->
-        <div id="createEventModal" class="modal">
+
+<!-- MODAL: COMMITTEE -->
+<div id="committeeModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 700px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-users-gear"></i> Managing Committee</h2>
+            <span class="close" onclick="closeModal('committeeModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div id="committee-list-container">
+                <div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: MANAGE COMMITTEE -->
+<div id="committeeManageModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-users-gear"></i> Manage Committee Members</h2>
+            <span class="close" onclick="closeModal('committeeManageModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div id="committee-manage-container">
+                <div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: MEETINGS -->
+<div id="meetingsModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-handshake"></i> Meetings</h2>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn btn-indigo" id="btn-create-meeting" onclick="openCreateMeetingModal()" style="font-size:0.75rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> New Meeting</button>
+                <span class="close" onclick="closeModal('meetingsModal')" style="position:static;">&times;</span>
+            </div>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div id="meetings-list-container">
+                <div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREATE/EDIT MEETING -->
+<div id="createMeetingModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 550px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-calendar-plus"></i> <span id="create-meeting-title">New Meeting</span></h2>
+            <span class="close" onclick="closeModal('createMeetingModal')">&times;</span>
+        </div>
+        <form id="create-meeting-form" onsubmit="saveMeeting(event)">
+            <div class="modal-body">
+                <div class="input-field">
+                    <label>Meeting Title</label>
+                    <input type="text" id="meeting-title" required maxlength="150" placeholder="e.g. Annual General Meeting 2026">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field">
+                        <label>Type</label>
+                        <select id="meeting-type">
+                            <option value="AGM">AGM</option>
+                            <option value="SGM">SGM (Special General Meeting)</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="input-field">
+                        <label>Date</label>
+                        <input type="date" id="meeting-date" required>
+                    </div>
+                </div>
+                <div class="input-field">
+                    <label>Description / Agenda Summary</label>
+                    <textarea id="meeting-description" rows="3" placeholder="Brief agenda..."></textarea>
+                </div>
+                <div class="input-field">
+                    <label>Quorum Required</label>
+                    <input type="number" id="meeting-quorum" min="0" placeholder="Minimum attendance required">
+                </div>
+                <input type="hidden" id="edit-meeting-id" value="">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-slate" onclick="closeModal('createMeetingModal')">Cancel</button>
+                <button type="submit" class="btn btn-emerald" id="btn-submit-meeting"><i class="fa-solid fa-save"></i> Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: RESOLUTIONS -->
+<div id="resolutionsModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-scale-balanced"></i> Resolution Ledger</h2>
+            <span class="close" onclick="closeModal('resolutionsModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div id="resolutions-container">
+                <div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: DOCUMENT VAULT -->
+<div id="documentsModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-folder-open"></i> Document Vault</h2>
+            <span class="close" onclick="closeModal('documentsModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <div class="filter-pills" id="doc-filter-pills">
+                    <button class="pill active" data-cat="all" onclick="filterDocuments('all')">All</button>
+                    <button class="pill" data-cat="legal" onclick="filterDocuments('legal')">Legal</button>
+                    <button class="pill" data-cat="insurance" onclick="filterDocuments('insurance')">Insurance</button>
+                    <button class="pill" data-cat="tax" onclick="filterDocuments('tax')">Tax</button>
+                    <button class="pill" data-cat="maintenance_contract" onclick="filterDocuments('maintenance_contract')">Contracts</button>
+                    <button class="pill" data-cat="financial" onclick="filterDocuments('financial')">Financial</button>
+                    <button class="pill" data-cat="government" onclick="filterDocuments('government')">Govt.</button>
+                    <button class="pill" data-cat="general" onclick="filterDocuments('general')">General</button>
+                </div>
+                <button class="btn btn-primary" id="btn-upload-doc" onclick="openUploadDocModal()" style="white-space:nowrap;"><i class="fa-solid fa-upload"></i> Upload</button>
+            </div>
+            <div id="documents-container">
+                <div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: UPLOAD DOCUMENT -->
+<div id="uploadDocModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 520px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-upload"></i> <span id="upload-doc-title">Upload Document</span></h2>
+            <span class="close" onclick="closeModal('uploadDocModal')">&times;</span>
+        </div>
+        <form id="upload-doc-form" onsubmit="saveDocument(event)">
+            <div class="modal-body">
+                <input type="hidden" id="edit-doc-id" value="">
+                <div class="input-field">
+                    <label for="doc-title">Document Title</label>
+                    <input type="text" id="doc-title" required placeholder="e.g. Society By-Laws 2026">
+                </div>
+                <div class="input-field">
+                    <label for="doc-description">Description</label>
+                    <textarea id="doc-description" rows="2" placeholder="Brief description..."></textarea>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field">
+                        <label for="doc-category">Category</label>
+                        <select id="doc-category">
+                            <option value="legal">Legal</option>
+                            <option value="insurance">Insurance</option>
+                            <option value="tax">Tax</option>
+                            <option value="maintenance_contract">Maintenance Contract</option>
+                            <option value="financial">Financial</option>
+                            <option value="government">Government</option>
+                            <option value="general">General</option>
+                        </select>
+                    </div>
+                    <div class="input-field">
+                        <label for="doc-tags">Tags (comma-separated)</label>
+                        <input type="text" id="doc-tags" placeholder="e.g. by-laws, registration">
+                    </div>
+                </div>
+                <div class="input-field">
+                    <label for="doc-file">File Upload</label>
+                    <input type="file" id="doc-file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png">
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Or paste a URL:</div>
+                    <input type="url" id="doc-url" placeholder="https://drive.google.com/...">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;" id="btn-submit-doc"><i class="fa-solid fa-save"></i> Save Document</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: COMPLIANCE CALENDAR -->
+<div id="complianceModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-calendar-check"></i> Compliance Calendar</h2>
+            <span class="close" onclick="closeModal('complianceModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <div class="filter-pills" id="comp-filter-pills">
+                    <button class="pill active" data-status="all" onclick="filterCompliance('all')">All</button>
+                    <button class="pill" data-status="pending" onclick="filterCompliance('pending')">Pending</button>
+                    <button class="pill" data-status="overdue" onclick="filterCompliance('overdue')">Overdue</button>
+                    <button class="pill" data-status="completed" onclick="filterCompliance('completed')">Completed</button>
+                    <button class="pill" data-status="waived" onclick="filterCompliance('waived')">Waived</button>
+                </div>
+                <button class="btn btn-primary" id="btn-create-compliance" onclick="openCreateComplianceModal()" style="white-space:nowrap;"><i class="fa-solid fa-plus"></i> Add Event</button>
+            </div>
+            <div id="compliance-container">
+                <div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREATE/EDIT COMPLIANCE EVENT -->
+<div id="createComplianceModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 520px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-calendar-plus"></i> <span id="create-compliance-title">New Compliance Event</span></h2>
+            <span class="close" onclick="closeModal('createComplianceModal')">&times;</span>
+        </div>
+        <form id="create-compliance-form" onsubmit="saveCompliance(event)">
+            <div class="modal-body">
+                <input type="hidden" id="edit-compliance-id" value="">
+                <div class="input-field">
+                    <label for="comp-title">Event Title</label>
+                    <input type="text" id="comp-title" required placeholder="e.g. Fire NOC Renewal">
+                </div>
+                <div class="input-field">
+                    <label for="comp-description">Description</label>
+                    <textarea id="comp-description" rows="2" placeholder="Details about this compliance requirement..."></textarea>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field">
+                        <label for="comp-category">Category</label>
+                        <select id="comp-category">
+                            <option value="government_filing">Govt. Filing</option>
+                            <option value="inspection">Inspection</option>
+                            <option value="renewal">Renewal</option>
+                            <option value="audit">Audit</option>
+                            <option value="election">Election</option>
+                            <option value="general">General</option>
+                        </select>
+                    </div>
+                    <div class="input-field">
+                        <label for="comp-due-date">Due Date</label>
+                        <input type="date" id="comp-due-date" required>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field">
+                        <label for="comp-reminder">Reminder (days before)</label>
+                        <input type="number" id="comp-reminder" value="7" min="0" max="365">
+                    </div>
+                    <div class="input-field">
+                        <label for="comp-recurring">Recurring</label>
+                        <select id="comp-recurring" onchange="document.getElementById('comp-recurrence-pattern').style.display=this.value==='true'?'':'none'">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="input-field" id="comp-recurrence-pattern" style="display:none;">
+                    <label for="comp-recurrence">Recurrence Pattern</label>
+                    <select id="comp-recurrence">
+                        <option value="yearly">Yearly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;" id="btn-submit-compliance"><i class="fa-solid fa-save"></i> Save Event</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: VENDORS -->
+<div id="vendorsModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-handshake"></i> Vendors & Contracts</h2>
+            <span class="close" onclick="closeModal('vendorsModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+                <button class="btn btn-primary" id="btn-create-vendor" onclick="openCreateVendorModal()" style="display:none;"><i class="fa-solid fa-plus"></i> Add Vendor</button>
+            </div>
+            <div id="vendors-container"><div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREATE VENDOR -->
+<div id="createVendorModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-handshake"></i> <span id="create-vendor-title">New Vendor</span></h2>
+            <span class="close" onclick="closeModal('createVendorModal')">&times;</span>
+        </div>
+        <form id="create-vendor-form" onsubmit="saveVendor(event)">
+            <div class="modal-body">
+                <input type="hidden" id="edit-vendor-id">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Vendor Name</label><input type="text" id="vendor-name" required placeholder="e.g. Jain Elevators"></div>
+                    <div class="input-field"><label>Service Type</label><select id="vendor-service"><option value="lift">Lift/Elevator</option><option value="generator">Generator</option><option value="electrical">Electrical</option><option value="plumbing">Plumbing</option><option value="cleaning">Cleaning/Housekeeping</option><option value="security">Security</option><option value="pest_control">Pest Control</option><option value="insurance">Insurance</option><option value="legal">Legal</option><option value="general">General</option></select></div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Contact Person</label><input type="text" id="vendor-contact" placeholder="Name"></div>
+                    <div class="input-field"><label>Phone</label><input type="text" id="vendor-phone" placeholder="+91-9999999999"></div>
+                </div>
+                <div class="input-field"><label>Email</label><input type="email" id="vendor-email" placeholder="vendor@example.com"></div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Contract Start</label><input type="date" id="vendor-start"></div>
+                    <div class="input-field"><label>Contract End</label><input type="date" id="vendor-end"></div>
+                </div>
+                <div class="input-field"><label>AMC Amount (₹)</label><input type="number" id="vendor-amc" step="0.01" min="0" placeholder="0"></div>
+                <div class="input-field"><label>Documents URL</label><input type="url" id="vendor-docs" placeholder="https://drive.google.com/..."></div>
+                <div class="input-field"><label>Notes</label><textarea id="vendor-notes" rows="2" placeholder="Any remarks..."></textarea></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-save"></i> Save Vendor</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: VISITOR PASSES -->
+<div id="visitorsModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-address-card"></i> Visitor Passes</h2>
+            <span class="close" onclick="closeModal('visitorsModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <div class="filter-pills" id="visitor-filter-pills">
+                    <button class="pill active" data-visitor="all" onclick="filterVisitors('all')">All</button>
+                    <button class="pill" data-visitor="pending" onclick="filterVisitors('pending')">Pending</button>
+                    <button class="pill" data-visitor="approved" onclick="filterVisitors('approved')">Approved</button>
+                    <button class="pill" data-visitor="checked_in" onclick="filterVisitors('checked_in')">Checked In</button>
+                    <button class="pill" data-visitor="checked_out" onclick="filterVisitors('checked_out')">Checked Out</button>
+                    <button class="pill" data-visitor="rejected" onclick="filterVisitors('rejected')">Rejected</button>
+                </div>
+                <button class="btn btn-primary" id="btn-create-visitor" onclick="openCreateVisitorModal()" style="display:none;"><i class="fa-solid fa-plus"></i> New Pass</button>
+            </div>
+            <div id="visitors-container"><div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREATE VISITOR PASS -->
+<div id="createVisitorModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 520px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-address-card"></i> <span id="create-visitor-title">New Visitor Pass</span></h2>
+            <span class="close" onclick="closeModal('createVisitorModal')">&times;</span>
+        </div>
+        <form id="create-visitor-form" onsubmit="saveVisitor(event)">
+            <div class="modal-body">
+                <input type="hidden" id="edit-visitor-id">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Visitor Name</label><input type="text" id="visitor-name" required placeholder="Full name"></div>
+                    <div class="input-field"><label>Phone</label><input type="text" id="visitor-phone" placeholder="+91-9999999999"></div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Flat No.</label><input type="text" id="visitor-flat" required placeholder="e.g. A-101"></div>
+                    <div class="input-field"><label>Purpose</label><input type="text" id="visitor-purpose" placeholder="e.g. Delivery, Guest"></div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Vehicle Type</label><select id="visitor-vehicle-type"><option value="none">None</option><option value="car">Car</option><option value="bike">Bike</option><option value="other">Other</option></select></div>
+                    <div class="input-field"><label>Vehicle No.</label><input type="text" id="visitor-vehicle" placeholder="MH-01-AB-1234"></div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Valid From</label><input type="datetime-local" id="visitor-from"></div>
+                    <div class="input-field"><label>Valid Until</label><input type="datetime-local" id="visitor-until"></div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-save"></i> Create Pass</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: ASSETS -->
+<div id="assetsModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-cubes"></i> Asset Inventory</h2>
+            <span class="close" onclick="closeModal('assetsModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <div class="filter-pills" id="asset-filter-pills">
+                    <button class="pill active" data-asset="all" onclick="filterAssets('all')">All</button>
+                    <button class="pill" data-asset="operational" onclick="filterAssets('operational')">Operational</button>
+                    <button class="pill" data-asset="under_maintenance" onclick="filterAssets('under_maintenance')">Maintenance</button>
+                    <button class="pill" data-asset="broken" onclick="filterAssets('broken')">Broken</button>
+                    <button class="pill" data-asset="decommissioned" onclick="filterAssets('decommissioned')">Decom.</button>
+                </div>
+                <button class="btn btn-primary" id="btn-create-asset" onclick="openCreateAssetModal()" style="display:none;"><i class="fa-solid fa-plus"></i> Add Asset</button>
+            </div>
+            <div id="assets-container"><div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREATE ASSET -->
+<div id="createAssetModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-cubes"></i> <span id="create-asset-title">New Asset</span></h2>
+            <span class="close" onclick="closeModal('createAssetModal')">&times;</span>
+        </div>
+        <form id="create-asset-form" onsubmit="saveAsset(event)">
+            <div class="modal-body">
+                <input type="hidden" id="edit-asset-id">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Asset Name</label><input type="text" id="asset-name" required placeholder="e.g. Lift 1"></div>
+                    <div class="input-field"><label>Category</label><select id="asset-category"><option value="equipment">Equipment</option><option value="electrical">Electrical</option><option value="plumbing">Plumbing</option><option value="safety">Safety</option><option value="furniture">Furniture</option><option value="it">IT</option><option value="other">Other</option></select></div>
+                </div>
+                <div class="input-field"><label>Location</label><input type="text" id="asset-location" placeholder="e.g. Ground Floor Lobby"></div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Purchase Date</label><input type="date" id="asset-purchase-date"></div>
+                    <div class="input-field"><label>Purchase Cost (₹)</label><input type="number" id="asset-cost" step="0.01" min="0" placeholder="0"></div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Warranty Expiry</label><input type="date" id="asset-warranty"></div>
+                    <div class="input-field"><label>Serial No.</label><input type="text" id="asset-serial" placeholder="Serial number"></div>
+                </div>
+                <div class="input-field"><label>Status</label><select id="asset-status"><option value="operational">Operational</option><option value="under_maintenance">Under Maintenance</option><option value="broken">Broken</option><option value="decommissioned">Decommissioned</option></select></div>
+                <div class="input-field"><label>Notes</label><textarea id="asset-notes" rows="2" placeholder="Any remarks..."></textarea></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-save"></i> Save Asset</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: POLLS & SURVEYS -->
+<div id="pollsModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-square-poll-vertical"></i> Polls & Surveys</h2>
+            <span class="close" onclick="closeModal('pollsModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+                <button class="btn btn-primary" id="btn-create-poll" onclick="openCreatePollModal()" style="display:none;"><i class="fa-solid fa-plus"></i> Create Poll</button>
+            </div>
+            <div id="polls-container"><div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREATE POLL -->
+<div id="createPollModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-square-poll-vertical"></i> <span id="create-poll-title">New Poll</span></h2>
+            <span class="close" onclick="closeModal('createPollModal')">&times;</span>
+        </div>
+        <form id="create-poll-form" onsubmit="savePoll(event)">
+            <div class="modal-body">
+                <input type="hidden" id="edit-poll-id">
+                <div class="input-field"><label>Poll Question</label><input type="text" id="poll-title" required placeholder="e.g. Should we install EV charging stations?"></div>
+                <div class="input-field"><label>Description</label><textarea id="poll-description" rows="2" placeholder="Additional context..."></textarea></div>
+                <div class="input-field"><label>Poll Type</label><select id="poll-type"><option value="single">Single Choice</option><option value="multiple">Multiple Choice</option></select></div>
+                <div class="input-field"><label>Options (one per line)</label><textarea id="poll-options" rows="4" required placeholder="Option 1&#10;Option 2&#10;Option 3"></textarea></div>
+                <div class="input-field"><label>Expires At</label><input type="datetime-local" id="poll-expires"></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-save"></i> Save Poll</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: PARKING -->
+<div id="parkingModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-square-parking"></i> Parking Management</h2>
+            <span class="close" onclick="closeModal('parkingModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <div class="filter-pills" id="parking-filter-pills">
+                    <button class="pill active" data-park="all" onclick="filterParking('all')">All</button>
+                    <button class="pill" data-park="available" onclick="filterParking('available')">Available</button>
+                    <button class="pill" data-park="allotted" onclick="filterParking('allotted')">Allotted</button>
+                    <button class="pill" data-park="reserved" onclick="filterParking('reserved')">Reserved</button>
+                    <button class="pill" data-park="maintenance" onclick="filterParking('maintenance')">Maintenance</button>
+                </div>
+                <button class="btn btn-primary" id="btn-create-parking" onclick="openCreateParkingModal()" style="display:none;"><i class="fa-solid fa-plus"></i> Add Slot</button>
+            </div>
+            <div id="parking-container"><div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREATE PARKING SLOT -->
+<div id="createParkingModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 500px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-square-parking"></i> <span id="create-parking-title">Parking Slot</span></h2>
+            <span class="close" onclick="closeModal('createParkingModal')">&times;</span>
+        </div>
+        <form id="create-parking-form" onsubmit="saveParking(event)">
+            <div class="modal-body">
+                <input type="hidden" id="edit-parking-id">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Slot Number</label><input type="text" id="parking-slot" required placeholder="e.g. P1-A"></div>
+                    <div class="input-field"><label>Floor</label><input type="text" id="parking-floor" placeholder="e.g. B1, Ground"></div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Type</label><select id="parking-type"><option value="car">Car</option><option value="bike">Bike</option><option value="visitor">Visitor</option><option value="disabled">Disabled</option></select></div>
+                    <div class="input-field"><label>Status</label><select id="parking-status"><option value="available">Available</option><option value="allotted">Allotted</option><option value="reserved">Reserved</option><option value="maintenance">Maintenance</option></select></div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>Allotted To (Flat)</label><input type="text" id="parking-flat" placeholder="e.g. A-101"></div>
+                    <div class="input-field"><label>Vehicle No.</label><input type="text" id="parking-vehicle" placeholder="MH-01-AB-1234"></div>
+                </div>
+                <div class="input-field"><label>Notes</label><textarea id="parking-notes" rows="2" placeholder="Any remarks..."></textarea></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-save"></i> Save Slot</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: COMMITTEE HANDOVER TOOL -->
+<div id="handoverModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-handshake"></i> Committee Handover Tool</h2>
+            <span class="close" onclick="closeModal('handoverModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <div class="filter-pills" id="handover-filter-pills">
+                    <button class="pill active" data-ho="all" onclick="filterHandovers('all')">All</button>
+                    <button class="pill" data-ho="draft" onclick="filterHandovers('draft')">Draft</button>
+                    <button class="pill" data-ho="in_progress" onclick="filterHandovers('in_progress')">In Progress</button>
+                    <button class="pill" data-ho="completed" onclick="filterHandovers('completed')">Completed</button>
+                </div>
+                <button class="btn btn-primary" id="btn-create-handover" onclick="openCreateHandoverModal()" style="display:none;"><i class="fa-solid fa-plus"></i> New Handover</button>
+            </div>
+            <div id="handover-container"><div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREATE/EDIT HANDOVER -->
+<div id="createHandoverModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-handshake"></i> <span id="create-handover-title">New Committee Handover</span></h2>
+            <span class="close" onclick="closeModal('createHandoverModal')">&times;</span>
+        </div>
+        <form id="create-handover-form" onsubmit="saveHandover(event)">
+            <div class="modal-body">
+                <input type="hidden" id="edit-handover-id">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field"><label>From Term</label><input type="text" id="handover-from" required placeholder="e.g. 2024-2026"></div>
+                    <div class="input-field"><label>To Term</label><input type="text" id="handover-to" required placeholder="e.g. 2026-2028"></div>
+                </div>
+                <div class="input-field"><label>Handover Date</label><input type="date" id="handover-date"></div>
+                <div class="input-field"><label>Notes / Summary</label><textarea id="handover-notes" rows="3" placeholder="Key highlights, pending items, recommendations for the incoming committee..."></textarea></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-save"></i> Create Handover</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: HANDOVER DETAIL (Checklist) -->
+<div id="handoverDetailModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-list-check"></i> <span id="handover-detail-title">Handover Checklist</span></h2>
+            <span class="close" onclick="closeModal('handoverDetailModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div id="handover-detail-meta" style="margin-bottom:12px; font-size:0.85rem; color:var(--text-secondary);"></div>
+            <div id="handover-checklist-container"><div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
+            <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;" id="handover-detail-actions"></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ADMIN DASHBOARD ANALYTICS -->
+<div id="analyticsModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 1000px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-chart-line"></i> Dashboard Analytics</h2>
+            <span class="close" onclick="closeModal('analyticsModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+            <div id="analytics-container">
+                <div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREATE/EDIT EVENT -->
+<div id="createEventModal" class="modal">
             <div class="modal-content animate-zoom" style="max-width: 600px;">
                 <div class="modal-header">
                     <h2><i class="fa-solid fa-calendar-plus"></i> <span id="create-event-title">New Event</span></h2>
@@ -2215,7 +2855,7 @@
                         <!-- Left Column -->
                         <div>
                             <div class="dash-section-title"><i class="fa-solid fa-bolt"></i> Quick Actions</div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
                                 <button class="dash-action-card" onclick="openModal('incomeModal'); closeModal('lavishDashboardModal')">
                                     <i class="fa-solid fa-hand-holding-dollar" style="color: var(--color-emerald);"></i>
                                     <span>Collect Fee</span>
@@ -2287,6 +2927,18 @@
     </footer>
 
     <script type="module" src="/static/app.js"></script>
+    <script type="module" src="/static/js/events.js"></script>
+    <script type="module" src="/static/js/community-board.js"></script>
+    <script type="module" src="/static/js/committee.js"></script>
+    <script type="module" src="/static/js/meetings.js"></script>
+    <script type="module" src="/static/js/phase3.js"></script>
+    <script type="module" src="/static/js/phase4.js"></script>
+    <script type="module" src="/static/js/handover.js"></script>
+    <script type="module" src="/static/js/analytics.js"></script>
+    <script type="module" src="/static/js/owners.js"></script>
+    <script type="module" src="/static/js/reports.js"></script>
+    <script type="module" src="/static/js/helpdesk.js"></script>
+    <script type="module" src="/static/js/users.js"></script>
 </body>
 
 </html>
