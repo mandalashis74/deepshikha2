@@ -2679,6 +2679,88 @@
             </div>
         </div>
 
+        <!-- MODAL: FOOD COUPON TYPE -->
+        <div id="couponModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-ticket"></i> <span id="create-coupon-title">Add Coupon Type</span></h2>
+                    <span class="close" onclick="closeModal('couponModal')">&times;</span>
+                </div>
+                <form id="create-coupon-form" onsubmit="saveCoupon(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="edit-coupon-id" value="">
+                        <input type="hidden" id="coupon-event-id" value="">
+                        <div class="input-field">
+                            <label>Coupon Type</label>
+                            <select id="coupon-type" required>
+                                <option value="">— Select —</option>
+                                <option value="full_family">Full Family</option>
+                                <option value="part_family">Part Family</option>
+                                <option value="individual">Individual</option>
+                                <option value="guest">Guest</option>
+                            </select>
+                        </div>
+                        <div class="input-field">
+                            <label>Display Label (optional)</label>
+                            <input type="text" id="coupon-label" placeholder="e.g. Full Family Dinner">
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="input-field">
+                                <label>Price (₹) — 0 = Free</label>
+                                <input type="number" id="coupon-price" step="0.01" min="0" required>
+                            </div>
+                            <div class="input-field">
+                                <label>Quantity (0 = Unlimited)</label>
+                                <input type="number" id="coupon-qty" min="0" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('couponModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: FOOD COUPON REGISTRATION -->
+        <div id="couponRegModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 460px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-hand"></i> Register for <span id="reg-coupon-label">Coupon</span></h2>
+                    <span class="close" onclick="closeModal('couponRegModal')">&times;</span>
+                </div>
+                <form id="coupon-reg-form" onsubmit="saveCouponRegistration(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="reg-coupon-id" value="">
+                        <p style="margin-bottom:12px;font-size:0.85rem;color:var(--text-secondary);">Price: <strong id="reg-price">Free</strong></p>
+                        <div class="input-field">
+                            <label>Flat No</label>
+                            <input type="text" id="reg-flat" required>
+                        </div>
+                        <div class="input-field">
+                            <label>Your Name</label>
+                            <input type="text" id="reg-name" required>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="input-field">
+                                <label>Count</label>
+                                <input type="number" id="reg-count" min="1" value="1" required>
+                            </div>
+                            <div class="input-field">
+                                <label>Phone (optional)</label>
+                                <input type="text" id="reg-phone">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-slate" onclick="closeModal('couponRegModal')">Cancel</button>
+                        <button type="submit" class="btn btn-indigo" id="reg-submit-btn"><i class="fa-solid fa-check"></i> Register</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- MODAL: COMPETITION -->
         <div id="competitionModal" class="modal">
             <div class="modal-content animate-zoom" style="max-width: 600px;">

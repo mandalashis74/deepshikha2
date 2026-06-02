@@ -101,7 +101,7 @@ function renderOwnersGrid(data, filterText = "", floorText = "") {
         
         card.innerHTML = `
             <h4>${item.flat_no}${isMyFlat ? ' <i class="fa-solid fa-house" style="color:var(--color-indigo);font-size:0.7rem;"></i>' : ''}</h4>
-            <p style="font-weight: 600;">${item.owner_name}</p>
+            <p style="font-weight: 600;">${item.owner_name}${item.occupancy_status === 'tenant-occupied' && item.tenant_name ? `<br><span style="font-weight:400;font-size:0.75rem;color:var(--text-muted);">Tenant: ${item.tenant_name}</span>` : ''}</p>
             <div style="display:flex; gap:4px; flex-wrap:wrap;">
                 <span class="badge ${badgeClass}" style="font-size: 0.6rem; padding: 1px 6px;">${statusText}</span>
                 ${item.flat_type ? `<span class="badge badge-income" style="font-size: 0.6rem; padding: 1px 6px; background:rgba(99,102,241,0.12); color:var(--color-indigo);">${item.flat_type}</span>` : ''}
@@ -313,6 +313,13 @@ window.selectFlatForEdit = function(flatNo) {
                     <input type="text" id="edit-owner-name" value="${item.owner_name || ''}" ${disabledAttr} required>
                 </div>
                 
+                ${item.occupancy_status === 'tenant-occupied' ? `
+                <div class="input-field">
+                    <label for="edit-tenant-name">Tenant Name</label>
+                    <input type="text" id="edit-tenant-name" value="${item.tenant_name || ''}" ${disabledAttr}>
+                </div>
+                ` : `<input type="hidden" id="edit-tenant-name" value="${item.tenant_name || ''}">`}
+                
                 <div class="input-field">
                     <label for="edit-contact">Contact No</label>
                     <input type="text" id="edit-contact" value="${item.contact_no || ''}" ${disabledAttr}>
@@ -394,6 +401,7 @@ window.saveOwnerProfile = async function(e) {
     }
     
     const ownerName = document.getElementById("edit-owner-name").value.trim();
+    const tenantName = document.getElementById("edit-tenant-name") ? document.getElementById("edit-tenant-name").value.trim() : '';
     const contactNo = document.getElementById("edit-contact").value.trim();
     
     const passcodeInput = document.getElementById("edit-passcode");
@@ -418,6 +426,7 @@ window.saveOwnerProfile = async function(e) {
     try {
         const updateData = {
             owner_name: ownerName,
+            tenant_name: tenantName,
             contact_no: contactNo,
             parking_no: parkingNo,
             occupancy_status: status,

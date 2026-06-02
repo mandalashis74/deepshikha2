@@ -2706,6 +2706,35 @@ select.directory-search {
 }
 
 /* ==========================================
+   FOOD COUPONS
+   ========================================== */
+.food-coupon-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: 14px 16px;
+    transition: var(--transition-fast);
+}
+.food-coupon-card:hover {
+    border-color: rgba(99,102,241,0.25);
+}
+.food-coupon-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.food-coupon-type {
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-transform: capitalize;
+}
+.food-coupon-price {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--color-violet);
+}
+
+/* ==========================================
    COMMUNITY BOARD
    ========================================== */
 .doc-card {

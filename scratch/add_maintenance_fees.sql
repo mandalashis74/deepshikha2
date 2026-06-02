@@ -64,3 +64,44 @@ CREATE POLICY "Anyone can read security" ON security_personnel FOR SELECT USING 
 CREATE POLICY "Admin/committee can manage security" ON security_personnel FOR ALL USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin','committee_member'))
 );
+
+-- Add tenant_name column to owners table
+ALTER TABLE owners ADD COLUMN IF NOT EXISTS tenant_name TEXT DEFAULT '';
+
+-- Food Coupons for Events
+CREATE TABLE IF NOT EXISTS event_food_coupons (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER REFERENCES cultural_events(id) ON DELETE CASCADE,
+    coupon_type TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    price NUMERIC(10,2) DEFAULT 0,
+    quantity INTEGER DEFAULT 0,
+    created_by UUID REFERENCES auth.users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS food_coupon_registrations (
+    id SERIAL PRIMARY KEY,
+    coupon_id INTEGER REFERENCES event_food_coupons(id) ON DELETE CASCADE,
+    flat_no TEXT NOT NULL,
+    resident_name TEXT NOT NULL,
+    count INTEGER DEFAULT 1,
+    amount NUMERIC(10,2) DEFAULT 0,
+    status TEXT DEFAULT 'registered',
+    phone TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE event_food_coupons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE food_coupon_registrations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read food coupons" ON event_food_coupons FOR SELECT USING (true);
+CREATE POLICY "Admin/committee can manage food coupons" ON event_food_coupons FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin','committee_member'))
+);
+
+CREATE POLICY "Anyone can read coupon registrations" ON food_coupon_registrations FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert registrations" ON food_coupon_registrations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin/committee can manage registrations" ON food_coupon_registrations FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin','committee_member'))
+);

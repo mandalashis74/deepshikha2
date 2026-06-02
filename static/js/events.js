@@ -382,6 +382,7 @@ window.openEventDetail = async function(event) {
             <button class="event-tab" data-tab="performances" onclick="switchDetailTab('performances')"><i class="fa-solid fa-palette"></i> Performances</button>
             <button class="event-tab" data-tab="competitions" onclick="switchDetailTab('competitions')"><i class="fa-solid fa-trophy"></i> Competitions</button>
             <button class="event-tab" data-tab="gallery" onclick="switchDetailTab('gallery')"><i class="fa-solid fa-image"></i> Gallery</button>
+            <button class="event-tab" data-tab="coupons" onclick="switchDetailTab('coupons')"><i class="fa-solid fa-ticket"></i> Food Coupons</button>
         </div>
         <div id="detail-tab-content">
             ${renderScheduleTab(schedules)}
@@ -436,6 +437,10 @@ window.switchDetailTab = function(tabName) {
             content.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">Loading...</div>';
             loadTabData('gallery');
             break;
+        case 'coupons':
+            content.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">Loading...</div>';
+            loadTabData('coupons');
+            break;
     }
 };
 
@@ -463,6 +468,11 @@ async function loadTabData(tabName) {
         } else if (tabName === 'gallery') {
             const { data } = await sbClient.from('event_gallery').select('*').eq('event_id', currentEvent.id).order('created_at', { ascending: false });
             content.innerHTML = renderGalleryTab(data || [], hasPermission('events:upload_gallery'));
+        } else if (tabName === 'coupons') {
+            const { data: coupons } = await sbClient.from('event_food_coupons').select('*').eq('event_id', currentEvent.id);
+            const { data: registrations } = await sbClient.from('food_coupon_registrations').select('*');
+            const myFlat = localStorage.getItem('currentFlatNo') || '';
+            content.innerHTML = renderCouponsTab(coupons || [], registrations || [], myFlat, hasPermission('events:create'));
         }
     } catch (err) {
         console.error(`Error loading ${tabName}:`, err);
@@ -2011,5 +2021,195 @@ function downloadVisitorPass(data) {
     }
 }
 
-// Add "Generate Visitor Pass" button to event detail footer
-// (handled inside openEventDetail)
+// ===== FOOD COUPONS =====
+
+function renderCouponsTab(coupons, registrations, myFlat, isAdmin) {
+    const totalRegs = registrations.reduce((acc, r) => { acc[r.coupon_id] = (acc[r.coupon_id] || 0) + r.count; return acc; }, {});
+    const myRegs = registrations.filter(r => r.flat_no === myFlat);
+    const myRegMap = {};
+    myRegs.forEach(r => { myRegMap[r.coupon_id] = r; });
+
+    let html = '';
+
+    if (isAdmin) {
+        html += `<div style="margin-bottom:12px;">
+            <button class="btn btn-indigo" style="font-size:0.8rem;padding:4px 12px;" onclick="openCouponModal()"><i class="fa-solid fa-plus"></i> Add Coupon Type</button>
+            <button class="btn btn-slate" style="font-size:0.8rem;padding:4px 12px;margin-left:6px;" onclick="toggleCouponRegView()"><i class="fa-solid fa-list"></i> <span id="coupon-reg-toggle">View Registrations</span></button>
+        </div>`;
+    }
+
+    const showRegs = sessionStorage.getItem('couponShowRegs') === 'true';
+    if (showRegs && isAdmin) {
+        return renderCouponRegistrations(registrations, coupons);
+    }
+
+    if (!coupons || coupons.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fa-solid fa-ticket" style="font-size:1.5rem;display:block;margin-bottom:8px;"></i>No food coupons configured for this event.</div>';
+        return html;
+    }
+
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;">';
+    for (const c of coupons) {
+        const booked = totalRegs[c.id] || 0;
+        const remaining = c.quantity > 0 ? c.quantity - booked : -1;
+        const isFull = remaining === 0;
+        const myReg = myRegMap[c.id];
+        html += `<div class="food-coupon-card">
+            <div class="food-coupon-header">
+                <span class="food-coupon-type">${escapeHtml(c.label || c.coupon_type.replace('_',' '))}</span>
+                <span class="food-coupon-price">${c.price > 0 ? '₹'+formatCurrency(c.price) : '<span style="color:var(--color-emerald);">Free</span>'}</span>
+            </div>
+            <div style="margin-top:8px;font-size:0.8rem;color:var(--text-secondary);">
+                ${c.quantity > 0 ? `<span>${remaining} / ${c.quantity} remaining</span>` : '<span>Unlimited</span>'}
+                <span style="margin-left:8px;">${booked} booked</span>
+            </div>
+            ${c.quantity > 0 ? `<div style="margin-top:6px;height:6px;background:var(--border-color);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${Math.min(100,(booked/c.quantity)*100)}%;background:var(--color-violet);border-radius:3px;"></div>
+            </div>` : ''}
+            <div style="margin-top:10px;display:flex;gap:6px;">
+                ${myReg
+                    ? `<span style="font-size:0.8rem;color:var(--color-emerald);"><i class="fa-solid fa-check-circle"></i> Registered (${myReg.count})</span>`
+                    : !isFull && myFlat
+                        ? `<button class="btn btn-sm" onclick="openCouponRegistration(${c.id},'${escapeHtml(c.label || c.coupon_type)}',${c.price})"><i class="fa-solid fa-hand"></i> Register</button>`
+                        : isFull ? '<span style="font-size:0.75rem;color:var(--color-rose);">Full</span>' : ''
+                }
+                ${isAdmin ? `
+                    <button class="btn btn-sm" onclick="openCouponModal(${c.id})" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn btn-sm" style="color:var(--color-rose);" onclick="deleteCoupon(${c.id})" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                ` : ''}
+            </div>
+        </div>`;
+    }
+    html += '</div>';
+    return html;
+}
+
+function renderCouponRegistrations(registrations, coupons) {
+    if (!registrations || registrations.length === 0) {
+        return '<div style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fa-solid fa-users" style="font-size:1.5rem;display:block;margin-bottom:8px;"></i>No registrations yet.</div>';
+    }
+    const couponMap = {};
+    coupons.forEach(c => { couponMap[c.id] = c; });
+    let html = `<div style="margin-bottom:8px;font-size:0.85rem;color:var(--text-secondary);">${registrations.length} registration(s)</div>
+    <table class="data-table"><thead><tr><th>Flat</th><th>Name</th><th>Coupon</th><th>Count</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>`;
+    for (const r of registrations) {
+        const cp = couponMap[r.coupon_id];
+        html += `<tr>
+            <td>${escapeHtml(r.flat_no)}</td>
+            <td>${escapeHtml(r.resident_name)}</td>
+            <td>${cp ? escapeHtml(cp.label || cp.coupon_type) : '—'}</td>
+            <td>${r.count}</td>
+            <td>₹${formatCurrency(r.amount)}</td>
+            <td>${r.status}</td>
+            <td style="font-size:0.75rem;">${new Date(r.created_at).toLocaleDateString('en-IN')}</td>
+        </tr>`;
+    }
+    html += '</tbody></table>';
+    return html;
+}
+
+window.toggleCouponRegView = function() {
+    const show = sessionStorage.getItem('couponShowRegs') === 'true';
+    sessionStorage.setItem('couponShowRegs', !show);
+    const toggle = document.getElementById('coupon-reg-toggle');
+    if (toggle) toggle.textContent = show ? 'View Registrations' : 'View Coupons';
+    loadTabData('coupons');
+};
+
+window.openCouponModal = async function(couponId) {
+    if (!hasPermission('events:create')) { showToast('Access Denied.', 'error'); return; }
+    document.getElementById('edit-coupon-id').value = couponId || '';
+    document.getElementById('coupon-event-id').value = currentEvent ? currentEvent.id : '';
+    document.getElementById('create-coupon-title').textContent = couponId ? 'Edit Coupon Type' : 'Add Coupon Type';
+    if (couponId) {
+        const { data } = await sbClient.from('event_food_coupons').select('*').eq('id', couponId).single();
+        if (data) {
+            document.getElementById('coupon-type').value = data.coupon_type;
+            document.getElementById('coupon-label').value = data.label || '';
+            document.getElementById('coupon-price').value = data.price;
+            document.getElementById('coupon-qty').value = data.quantity;
+        }
+    } else {
+        document.getElementById('create-coupon-form').reset();
+        document.getElementById('edit-coupon-id').value = '';
+        document.getElementById('coupon-price').value = '0';
+        document.getElementById('coupon-qty').value = '0';
+    }
+    openModal('couponModal');
+};
+
+window.saveCoupon = async function(e) {
+    e.preventDefault();
+    if (!hasPermission('events:create')) { showToast('Access Denied.', 'error'); return; }
+    const editId = document.getElementById('edit-coupon-id').value;
+    const eventId = parseInt(document.getElementById('coupon-event-id').value);
+    const couponType = document.getElementById('coupon-type').value;
+    const label = document.getElementById('coupon-label').value.trim();
+    const price = parseFloat(document.getElementById('coupon-price').value) || 0;
+    const quantity = parseInt(document.getElementById('coupon-qty').value) || 0;
+
+    const payload = { event_id: eventId, coupon_type: couponType, label, price, quantity };
+    if (editId) {
+        const { error } = await sbClient.from('event_food_coupons').update(payload).eq('id', editId);
+        if (error) { showToast('Error: ' + error.message, 'error'); return; }
+        showToast('Coupon type updated!', 'success');
+    } else {
+        payload.created_by = window.currentUserId;
+        const { error } = await sbClient.from('event_food_coupons').insert(payload);
+        if (error) { showToast('Error: ' + error.message, 'error'); return; }
+        showToast('Coupon type added!', 'success');
+    }
+    closeModal('couponModal');
+    loadTabData('coupons');
+};
+
+window.deleteCoupon = async function(couponId) {
+    if (!hasPermission('events:create')) { showToast('Access Denied.', 'error'); return; }
+    if (!confirm('Delete this coupon type?')) return;
+    const { error } = await sbClient.from('event_food_coupons').delete().eq('id', couponId);
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+    showToast('Coupon deleted.', 'success');
+    loadTabData('coupons');
+};
+
+window.openCouponRegistration = function(couponId, couponLabel, price) {
+    document.getElementById('reg-coupon-id').value = couponId;
+    document.getElementById('reg-coupon-label').textContent = couponLabel;
+    document.getElementById('reg-price').textContent = price > 0 ? '₹' + formatCurrency(price) + ' each' : 'Free';
+    document.getElementById('reg-flat').value = localStorage.getItem('currentFlatNo') || '';
+    document.getElementById('reg-name').value = localStorage.getItem('currentFlatOwnerName') || '';
+    document.getElementById('reg-count').value = 1;
+    document.getElementById('reg-phone').value = '';
+    document.getElementById('reg-submit-btn').textContent = price > 0 ? 'Register (Pay at Event)' : 'Register Free';
+    openModal('couponRegModal');
+};
+
+window.saveCouponRegistration = async function(e) {
+    e.preventDefault();
+    const couponId = parseInt(document.getElementById('reg-coupon-id').value);
+    const flatNo = document.getElementById('reg-flat').value.trim();
+    const name = document.getElementById('reg-name').value.trim();
+    const count = parseInt(document.getElementById('reg-count').value) || 1;
+    const phone = document.getElementById('reg-phone').value.trim();
+
+    if (!flatNo || !name) { showToast('Flat and name required.', 'error'); return; }
+
+    const { data: coupon } = await sbClient.from('event_food_coupons').select('*').eq('id', couponId).single();
+    if (!coupon) { showToast('Coupon not found.', 'error'); return; }
+
+    const amount = coupon.price * count;
+
+    const { data: existing } = await sbClient.from('food_coupon_registrations').select('*').eq('coupon_id', couponId).eq('flat_no', flatNo);
+    if (existing && existing.length > 0) {
+        showToast('You already registered for this coupon type.', 'error'); return;
+    }
+
+    const { error } = await sbClient.from('food_coupon_registrations').insert({
+        coupon_id: couponId, flat_no: flatNo,
+        resident_name: name, count, amount, phone
+    });
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+    showToast(`Registered for ${count} × ${coupon.label || coupon.coupon_type}!`, 'success');
+    closeModal('couponRegModal');
+    loadTabData('coupons');
+};

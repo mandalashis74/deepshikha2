@@ -7,7 +7,7 @@ let ownersList = [];
 
 async function loadOwnersForMaintenance() {
     try {
-        const { data } = await sbClient.from('owners').select('flat_no, flat_type, name').order('flat_no');
+        const { data } = await sbClient.from('owners').select('flat_no, flat_type, owner_name, tenant_name, occupancy_status').order('flat_no');
         if (data) ownersList = data;
     } catch { ownersList = []; }
 }
@@ -229,13 +229,20 @@ async function renderCollectionsData(container, month, year) {
 
     let allFlats = [];
     try {
-        const { data } = await sbClient.from('owners').select('flat_no, flat_type, name, occupant_type').order('flat_no');
+        const { data } = await sbClient.from('owners').select('flat_no, flat_type, owner_name, tenant_name, occupancy_status').order('flat_no');
         if (data) allFlats = data;
     } catch { allFlats = []; }
 
     if (allFlats.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-building"></i><br>No flats found. Import owners first.</div>';
         return;
+    }
+
+    function displayName(flat) {
+        if (flat.occupancy_status === 'tenant-occupied' && flat.tenant_name) {
+            return `${escapeHtml(flat.owner_name)} <span style="color:var(--text-muted);font-size:0.7rem;">(Tenant: ${escapeHtml(flat.tenant_name)})</span>`;
+        }
+        return escapeHtml(flat.owner_name || '—');
     }
 
     const now = new Date().toISOString().split('T')[0];
@@ -248,17 +255,19 @@ async function renderCollectionsData(container, month, year) {
         const activeRate = getActiveRate(flat.flat_type, rates);
         const rateAmount = activeRate ? activeRate.amount : 0;
         const collected = !!existing;
+        const nameDisplay = displayName(flat);
+        const occupantLabel = flat.occupancy_status === 'tenant-occupied' ? ' (T)' : flat.occupancy_status === 'vacant' ? ' (V)' : '';
         html += `<tr>
-            <td><strong>${escapeHtml(flat.flat_no)}</strong></td>
+            <td><strong>${escapeHtml(flat.flat_no)}</strong>${occupantLabel}</td>
             <td>${escapeHtml(flat.flat_type || '—')}</td>
-            <td>${escapeHtml(flat.name || '—')}</td>
+            <td>${nameDisplay}</td>
             <td>${rateAmount ? '₹'+formatCurrency(rateAmount) : '—'}</td>
             <td>${collected
                 ? '<span style="color:var(--color-emerald);font-weight:700;">✅ Paid</span>'
                 : '<span style="color:var(--color-rose);font-weight:700;">⏳ Pending</span>'
             }</td>
             <td>${!collected && hasMaintenancePermission('maintenance:collect') && rateAmount > 0
-                ? `<button class="btn btn-sm" onclick='openRecordCollection("${flat.flat_no}","${flat.flat_type}","${flat.name||''}",${month},${year},${rateAmount})'><i class="fa-solid fa-hand-holding-dollar"></i> Collect</button>`
+                ? `<button class="btn btn-sm" onclick='openRecordCollection("${flat.flat_no}","${flat.flat_type}","${(flat.owner_name||'')}",${month},${year},${rateAmount})'><i class="fa-solid fa-hand-holding-dollar"></i> Collect</button>`
                 : collected
                     ? `<span style="font-size:0.75rem;color:var(--text-secondary);">${existing.paid_date} (${existing.payment_method})</span>`
                     : ''
@@ -323,13 +332,20 @@ async function renderArrearsTab(container, toolbar) {
     const rates = await loadRates();
     let allFlats = [];
     try {
-        const { data } = await sbClient.from('owners').select('flat_no, flat_type, name').order('flat_no');
+        const { data } = await sbClient.from('owners').select('flat_no, flat_type, owner_name, tenant_name, occupancy_status').order('flat_no');
         if (data) allFlats = data;
     } catch { allFlats = []; }
 
     if (allFlats.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-building"></i><br>No flats found.</div>';
         return;
+    }
+
+    function displayName(flat) {
+        if (flat.occupancy_status === 'tenant-occupied' && flat.tenant_name) {
+            return `${escapeHtml(flat.owner_name)} <span style="color:var(--text-muted);font-size:0.7rem;">(Tenant: ${escapeHtml(flat.tenant_name)})</span>`;
+        }
+        return escapeHtml(flat.owner_name || '—');
     }
 
     const { data: allCollections } = await sbClient.from('maintenance_collections').select('*').order('year', { ascending: false }).order('month', { ascending: false });
@@ -397,7 +413,7 @@ async function renderArrearsTab(container, toolbar) {
         html += `<tr>
             <td><strong>${escapeHtml(af.flat.flat_no)}</strong></td>
             <td>${escapeHtml(af.flat.flat_type || '—')}</td>
-            <td>${escapeHtml(af.flat.name || '—')}</td>
+            <td>${displayName(af.flat)}</td>
             <td>${af.pendingCount}</td>
             <td style="color:var(--color-rose);font-weight:700;">₹${formatCurrency(af.pendingAmount)}</td>
             <td style="font-size:0.8rem;color:var(--text-secondary);">${af.lastPaid || 'Never'}</td>
