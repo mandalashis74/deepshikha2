@@ -278,18 +278,18 @@ async function loadBuildingConfig() {
     try {
         const { data, error } = await sbClient.from('building_config').select('*').eq('id', 1).single();
         if (error && error.code === 'PGRST116') {
-            buildingConfig = { ...DEFAULT_BUILDING_CONFIG };
+            window.buildingConfig = { ...DEFAULT_BUILDING_CONFIG };
             updateBuildingUI();
             return;
         }
         if (error) throw error;
-        buildingConfig = data || { ...DEFAULT_BUILDING_CONFIG };
+        window.buildingConfig = data || { ...DEFAULT_BUILDING_CONFIG };
         if (buildingConfig.floors) buildingConfig.floors = parseInt(buildingConfig.floors, 10);
         updateBuildingUI();
         initGoogleDrivePicker();
     } catch (err) {
         console.warn("Could not load building config, using defaults:", err);
-        buildingConfig = { ...DEFAULT_BUILDING_CONFIG };
+        window.buildingConfig = { ...DEFAULT_BUILDING_CONFIG };
         updateBuildingUI();
     }
 }
@@ -297,23 +297,8 @@ async function loadBuildingConfig() {
 // Save building config to Supabase
 async function saveBuildingConfig(config) {
     if (!sbClient) return false;
+    window.buildingConfig = config;
     try {
-        const { error } = await sbClient.from('building_config').upsert({
-            id: 1,
-            building_name: config.building_name,
-            block_name: config.block_name || '',
-            address: config.address || '',
-            google_api_key: config.google_api_key || '',
-            google_client_id: config.google_client_id || '',
-            vapid_public_key: config.vapid_public_key || '',
-            vapid_private_key: config.vapid_private_key || '',
-            floors: parseInt(config.floors, 10) || 8,
-            wings: config.wings || 'A,B,C,D,E,F,G,H',
-            flat_types: config.flat_types || '1BHK,2BHK,3BHK',
-            dashboard_bg_url: config.dashboard_bg_url || ''
-        }, { onConflict: 'id' });
-        if (error) throw error;
-        buildingConfig = config;
         if (buildingConfig.floors) buildingConfig.floors = parseInt(buildingConfig.floors, 10);
         initGoogleDrivePicker();
         updateBuildingUI();
@@ -349,7 +334,7 @@ function setupAuthListener() {
     // Bind sign in / sign out updates
     sbClient.auth.onAuthStateChange((event, session) => {
         if (session) {
-            currentUserId = session.user.id;
+            window.currentUserId = session.user.id;
             
             // Push to next tick to avoid Supabase Auth Web Locks deadlock
             setTimeout(async () => {
@@ -374,11 +359,11 @@ function setupAuthListener() {
                     localStorage.removeItem("currentFlatNo");
                     await sbClient.auth.signOut();
                     
-                    currentUserId = null;
+                    window.currentUserId = null;
                     document.getElementById("auth-container").style.display = "block";
                     const sideProfile = document.getElementById("side-user-profile");
                     if (sideProfile) sideProfile.style.display = "none";
-                    currentUserRole = 'viewer';
+                    window.currentUserRole = 'viewer';
                     applyRbacRestrictions('viewer');
                 }
             }, 0);
@@ -387,11 +372,11 @@ function setupAuthListener() {
                 const flatNo = localStorage.getItem("currentFlatNo");
                 autoLoginSharedAccount(flatNo);
             } else {
-                currentUserId = null;
+                window.currentUserId = null;
                 document.getElementById("auth-container").style.display = "block";
                 const sideProfile = document.getElementById("side-user-profile");
                 if (sideProfile) sideProfile.style.display = "none";
-                currentUserRole = 'viewer';
+                window.currentUserRole = 'viewer';
                 applyRbacRestrictions('viewer');
             }
         }
@@ -417,7 +402,7 @@ async function handleUserSession(user) {
             if (retryRes.error) throw retryRes.error;
         }
         
-        currentUserRole = data && data.role ? data.role.toLowerCase().trim() : "viewer";
+        window.currentUserRole = data && data.role ? data.role.toLowerCase().trim() : "viewer";
         currentUserAssignedFloors = data && Array.isArray(data.assigned_floors) ? data.assigned_floors : [];
         
         // Update user profile in sidebar
@@ -504,11 +489,11 @@ async function loadRoles() {
         if (error) {
             // roles table might not exist yet; use default hardcoded roles as fallback
             console.warn("Could not load roles from DB, using defaults:", error);
-            rolesData = getDefaultRoles();
+            window.rolesData = getDefaultRoles();
         } else if (data && data.length > 0) {
             // Merge DB roles with defaults to ensure new permissions propagate
             const defaults = getDefaultRoles();
-            rolesData = data.map(dbRole => {
+            window.rolesData = data.map(dbRole => {
                 const def = defaults.find(d => d.name === dbRole.name);
                 if (def) {
                     const merged = [...new Set([...(dbRole.permissions || []), ...def.permissions])];
@@ -517,11 +502,11 @@ async function loadRoles() {
                 return dbRole;
             });
         } else {
-            rolesData = getDefaultRoles();
+            window.rolesData = getDefaultRoles();
         }
     } catch (e) {
         console.warn("Error loading roles, using defaults:", e);
-        rolesData = getDefaultRoles();
+        window.rolesData = getDefaultRoles();
     }
 }
 
@@ -555,7 +540,7 @@ function getRoleLabel(roleName) {
 
 function applyRbacRestrictions(role) {
     const roleData = getRoleData(role);
-    currentRolePermissions = roleData ? [...roleData.permissions] : [];
+    window.currentRolePermissions = roleData ? [...roleData.permissions] : [];
     
     const setBlock = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? "block" : "none"; };
     const setNav = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? "flex" : "none"; };
@@ -1396,7 +1381,7 @@ async function handleSoftUserSession(user, flatNo) {
             sideProfile.style.display = "flex";
         }
         
-        currentUserRole = 'viewer';
+        window.currentUserRole = 'viewer';
         applyRbacRestrictions('viewer');
         
         await ensureOwnersPopulated();
@@ -1488,7 +1473,7 @@ window.initSupabase = function() {
     if (url && key && url !== 'YOUR_SUPABASE_URL' && key !== 'YOUR_SUPABASE_ANON_KEY' && url.trim() !== "" && key.trim() !== "") {
         try {
             console.log("Initializing Supabase client with URL:", url.trim());
-            sbClient = window.supabase.createClient(url.trim(), key.trim());
+            window.sbClient = window.supabase.createClient(url.trim(), key.trim());
             updateDbStatus(true);
             return true;
         } catch (e) {
