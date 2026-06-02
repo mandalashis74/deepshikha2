@@ -1,5 +1,3 @@
-import { sbClient, currentUserId, currentUserRole } from '/static/app.js';
-
 let maintenanceRates = [];
 let maintenanceCollections = [];
 let currentMaintenanceTab = 'rates';

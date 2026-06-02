@@ -1,5 +1,3 @@
-import { sbClient, currentUserId, currentUserRole } from '/static/app.js';
-
 let securityPersonnel = [];
 
 function hasSecurityPermission(perm) {
