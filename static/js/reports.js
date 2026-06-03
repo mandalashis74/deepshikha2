@@ -608,7 +608,7 @@ function renderIncomeExpenditure(data) {
 }
 
 // Convert numbers into words for PDF receipts
-function numberToWords(number) {
+window.numberToWords = function numberToWords(number) {
     try {
         const val = Math.round(parseFloat(number) * 100) / 100;
         if (isNaN(val)) return "";

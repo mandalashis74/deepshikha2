@@ -24,9 +24,11 @@ async function loadRates() {
 }
 
 async function loadCollections(month, year) {
-    let query = sbClient.from('maintenance_collections').select('*');
-    if (month) query = query.eq('month', month);
-    if (year) query = query.eq('year', year);
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthStr = monthNames[month - 1] || '';
+    let query = sbClient.from('income').select('*').eq('category', 'Monthly Maintenance');
+    if (monthStr) query = query.eq('month', monthStr);
+    if (year) query = query.eq('year', String(year));
     const { data, error } = await query.order('flat_no');
     if (error) { showToast('Error loading collections: ' + error.message, 'error'); return []; }
     maintenanceCollections = data || [];
@@ -286,12 +288,13 @@ async function renderCollectionsData(container, month, year) {
     let html = `<div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-secondary);">
         ${allFlats.length} flats · ${Object.keys(collectedMap).length} collected · ₹${formatCurrency(collections.reduce((s,c)=>s+parseFloat(c.amount),0))} total
     </div>`;
-    html += '<table class="data-table"><thead><tr><th>Flat</th><th>Type</th><th>Owner</th><th>Rate</th><th>Status</th><th>Paid On</th><th></th></tr></thead><tbody>';
+    html += '<table class="data-table"><thead><tr><th>Flat</th><th>Type</th><th>Owner</th><th>Rate</th><th>Paid</th><th>Status</th><th>Paid On</th><th></th></tr></thead><tbody>';
     for (const flat of allFlats) {
         const existing = collectedMap[flat.flat_no];
         const activeRate = getActiveRate(flat.flat_type, rates);
         const rateAmount = activeRate ? activeRate.amount : 0;
         const collected = !!existing;
+        const paidAmount = collected ? parseFloat(existing.amount) : 0;
         const today = new Date().toISOString().split('T')[0];
         const isVacant = flat.occupancy_status === 'vacant' || (flat.occupancy_to && flat.occupancy_to <= today);
         const nameDisplay = displayName(flat);
@@ -300,15 +303,16 @@ async function renderCollectionsData(container, month, year) {
             <td>${escapeHtml(flat.flat_type || '—')}</td>
             <td>${isVacant ? '<span style="color:var(--text-muted);font-style:italic;">Vacant</span>' : nameDisplay}</td>
             <td>${rateAmount ? '₹'+formatCurrency(rateAmount) : '—'}</td>
+            <td style="font-weight:700;${collected ? 'color:var(--color-emerald);' : 'color:var(--text-muted);'}">${collected ? '₹'+formatCurrency(paidAmount) : '—'}</td>
             <td>${collected
                 ? '<span style="color:var(--color-emerald);font-weight:700;">Paid</span>'
                 : '<span style="color:var(--color-rose);font-weight:700;">Due</span>'
             }</td>
-            <td style="font-size:0.8rem;color:var(--text-secondary);">${collected ? existing.paid_date + ' (' + existing.payment_method + ')' : '—'}</td>
+            <td style="font-size:0.8rem;color:var(--text-secondary);">${collected ? existing.date_received + (existing.remarks ? ' (' + existing.remarks + ')' : '') : '—'}</td>
             <td>${!collected && hasMaintenancePermission('maintenance:collect') && rateAmount > 0
                 ? `<button class="btn btn-sm" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}",${month},${year},${rateAmount})'><i class="fa-solid fa-hand-holding-dollar"></i> Collect</button>`
                 : collected
-                    ? `<span style="font-size:0.75rem;color:var(--text-secondary);">₹${formatCurrency(existing.amount)}</span>`
+                    ? `<button class="btn btn-sm" style="font-size:0.7rem;" onclick='generateReceipt("${existing.id}")' title="View Receipt"><i class="fa-solid fa-file-pdf"></i></button>`
                     : ''
             }</td>
         </tr>`;
@@ -331,8 +335,9 @@ window.openIncomeModalForCollection = function(flatNo, flatType, month, year, am
     if (cat) cat.value = 'Monthly Maintenance';
     const amt = document.getElementById('inc-amount');
     if (amt) amt.value = amount;
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const m = document.getElementById('inc-month');
-    if (m) m.value = month;
+    if (m) m.value = monthNames[month - 1] || month;
     const y = document.getElementById('inc-year');
     if (y) y.value = year;
     const date = document.getElementById('inc-date');
@@ -407,7 +412,7 @@ async function renderArrearsTab(container, toolbar) {
         return window.displayStructured(flat.owner_name, 'name') || escapeHtml(flat.owner_name) || '—';
     }
 
-    const { data: allCollections } = await sbClient.from('maintenance_collections').select('*').order('year', { ascending: false }).order('month', { ascending: false });
+    const { data: allCollections } = await sbClient.from('income').select('*').eq('category', 'Monthly Maintenance').order('year', { ascending: false }).order('month', { ascending: false });
     const collectionSet = new Set();
     const collMap = {};
     if (allCollections) {

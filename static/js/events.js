@@ -1443,7 +1443,7 @@ window.downloadContributionReceipt = function() {
     // Amount in words
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
-    const words = numberToWords(d.amount);
+    const words = window.numberToWords(d.amount);
     doc.text(`Rupees ${words} Only`, 14, 104);
     
     // Footer

@@ -694,7 +694,8 @@ window.generateReceipt = async function(entryId) {
         
         // Fetch owner name
         const { data: ownerData } = await sbClient.from('owners').select('owner_name').eq('flat_no', data.flat_no).single();
-        const ownerName = ownerData ? ownerData.owner_name : `Flat ${data.flat_no}`;
+        const rawName = ownerData ? ownerData.owner_name : '';
+        const ownerName = window.displayStructured(rawName, 'name') || rawName || `Flat ${data.flat_no}`;
         
         let receiptYear = data.year;
         try {
@@ -826,7 +827,7 @@ window.generateReceipt = async function(entryId) {
         doc.text(`Rs. ${data.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 34, 84);
         
         // Words text
-        const amtWords = numberToWords(data.amount);
+        const amtWords = window.numberToWords(data.amount);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8.5);
         doc.setTextColor(51, 65, 85);
