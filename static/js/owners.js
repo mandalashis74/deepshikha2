@@ -1,8 +1,10 @@
 // --- OWNERS & RESIDENTS DIRECTORY (CRM) ---
 let allOwnersData = [];
+let pendingSelectFlat = null;
 
-window.openOwnersDirectoryModal = function() {
+window.openOwnersDirectoryModal = function(selectFlatNo) {
     openModal('ownersDirectoryModal');
+    pendingSelectFlat = selectFlatNo || null;
     loadOwnersDirectory();
 };
 
@@ -33,6 +35,16 @@ window.loadOwnersDirectory = async function(filterText = "") {
         
         allOwnersData = filterFlatsByAssignment(data || []);
         renderOwnersGrid(allOwnersData, filterText);
+
+        if (pendingSelectFlat) {
+            const target = allOwnersData.find(o => o.flat_no === pendingSelectFlat);
+            if (target) {
+                window.selectFlatForEdit(pendingSelectFlat);
+                const search = document.getElementById("directory-search");
+                if (search) search.value = pendingSelectFlat;
+            }
+            pendingSelectFlat = null;
+        }
     } catch (err) {
         console.error("loadOwnersDirectory error:", err);
         showToast("Failed to load owners directory.", "error");
@@ -59,8 +71,8 @@ function renderOwnersGrid(data, filterText = "", floorText = "") {
         if (combinedFlatsSet.has(item.flat_no)) return false;
         
         const matchesQuery = item.flat_no.toLowerCase().includes(query) || 
-               item.owner_name.toLowerCase().includes(query) || 
-               (item.contact_no && item.contact_no.includes(query)) ||
+               window.displayStructured(item.owner_name, 'name').toLowerCase().includes(query) || 
+               window.displayStructured(item.contact_no, 'phone').toLowerCase().includes(query) ||
                (item.parking_no && item.parking_no.toLowerCase().includes(query));
         
         const matchesFloor = floorText === "" || item.flat_no.startsWith(floorText);
@@ -101,7 +113,7 @@ function renderOwnersGrid(data, filterText = "", floorText = "") {
         
         card.innerHTML = `
             <h4>${item.flat_no}${isMyFlat ? ' <i class="fa-solid fa-house" style="color:var(--color-indigo);font-size:0.7rem;"></i>' : ''}</h4>
-            <p style="font-weight: 600;">${item.owner_name}${item.occupancy_status === 'tenant-occupied' && item.tenant_name ? `<br><span style="font-weight:400;font-size:0.75rem;color:var(--text-muted);">Tenant: ${item.tenant_name}</span>` : ''}</p>
+            <p style="font-weight: 600;">${window.displayStructured(item.owner_name, 'name') || 'Unknown'}${item.occupancy_status === 'tenant-occupied' && item.tenant_name ? `<br><span style="font-weight:400;font-size:0.75rem;color:var(--text-muted);">Tenant: ${item.tenant_name}</span>` : ''}</p>
             <div style="display:flex; gap:4px; flex-wrap:wrap;">
                 <span class="badge ${badgeClass}" style="font-size: 0.6rem; padding: 1px 6px;">${statusText}</span>
                 ${item.flat_type ? `<span class="badge badge-income" style="font-size: 0.6rem; padding: 1px 6px; background:rgba(99,102,241,0.12); color:var(--color-indigo);">${item.flat_type}</span>` : ''}
@@ -119,6 +131,12 @@ window.filterOwnersDirectory = function() {
 
 // Field definitions for structured rows
 const STRUCTURED_FIELDS = {
+    owner: [
+        { key: 'name', label: 'Name', type: 'text' }
+    ],
+    contact: [
+        { key: 'phone', label: 'Phone', type: 'text' }
+    ],
     family: [
         { key: 'name', label: 'Name', type: 'text' },
         { key: 'relation', label: 'Relation', type: 'text' },
@@ -137,11 +155,13 @@ const STRUCTURED_FIELDS = {
 };
 
 function getContainerId(prefix) {
-    const map = { family: 'family-members-container', service: 'service-person-container', vehicle: 'vehicle-container' };
+    const map = { owner: 'owner-names-container', contact: 'contact-numbers-container', family: 'family-members-container', service: 'service-person-container', vehicle: 'vehicle-container' };
     return map[prefix] || '';
 }
 
-// Helper: parse JSON array from owner field (handles plain text fallback for family_members)
+// displayStructured is defined in app.js on window.*
+
+// Helper: parse JSON array from owner field (handles plain text fallback)
 function parseStructuredField(value, prefix) {
     if (!value) return [];
     if (typeof value === 'string') {
@@ -149,12 +169,37 @@ function parseStructuredField(value, prefix) {
             const parsed = JSON.parse(value);
             if (Array.isArray(parsed)) return parsed;
         } catch (e) {
+            if (prefix === 'owner') return [{ name: value }];
+            if (prefix === 'contact') return [{ phone: value }];
             if (prefix === 'family') {
                 return value.split(',').map(s => ({ name: s.trim(), relation: '', gender: '' })).filter(s => s.name);
             }
         }
     }
     return [];
+}
+
+// Collect structured rows data as JSON string
+function collectStructuredRows(prefix) {
+    const fields = STRUCTURED_FIELDS[prefix];
+    if (!fields) return '';
+    const container = document.getElementById(getContainerId(prefix));
+    if (!container) return '';
+    const rows = container.querySelectorAll('.structured-row');
+    if (rows.length === 0) return '';
+    const data = [];
+    rows.forEach(row => {
+        const entry = {};
+        fields.forEach(f => {
+            const input = row.querySelector(`[id^="${prefix}-${f.key}-"]`);
+            const val = input ? input.value.trim() : '';
+            entry[f.key] = val;
+        });
+        if (entry[fields[0].key]) {
+            data.push(entry);
+        }
+    });
+    return data.length > 0 ? JSON.stringify(data) : '';
 }
 
 // Helper: render structured rows inside selectFlatForEdit
@@ -168,35 +213,43 @@ function renderStructuredRows(prefix, value, canEdit) {
     if (rows.length === 0) {
         return '';
     }
-    let html = '<div class="structured-rows">';
+    
+    let html = '<div class="structured-table-container">';
+    html += '<table class="structured-table">';
+    html += '<thead><tr>';
+    fields.forEach(f => {
+        html += `<th>${f.label}</th>`;
+    });
+    if (canEdit) html += '<th></th>';
+    html += '</tr></thead>';
+    html += '<tbody class="structured-rows">';
+    
     rows.forEach((row, i) => {
-        if (canEdit) {
-            html += '<div class="structured-row">';
-            fields.forEach(f => {
-                const val = row[f.key] || '';
+        html += '<tr class="structured-row">';
+        fields.forEach(f => {
+            const val = row[f.key] || '';
+            if (canEdit) {
                 if (f.type === 'select') {
-                    html += `<select class="structured-input" id="${prefix}-${f.key}-${i}" style="flex:1;">`;
+                    html += `<td><select class="structured-input" id="${prefix}-${f.key}-${i}" style="width:100%;">`;
                     f.options.forEach(opt => {
                         const sel = opt === val ? 'selected' : '';
                         html += `<option value="${opt}" ${sel}>${opt || 'Select'}</option>`;
                     });
-                    html += '</select>';
+                    html += '</select></td>';
                 } else {
-                    html += `<input type="${f.type}" class="structured-input" id="${prefix}-${f.key}-${i}" value="${escapeHtml(val)}" placeholder="${f.label}" style="flex:1;">`;
+                    html += `<td><input type="${f.type}" class="structured-input" id="${prefix}-${f.key}-${i}" value="${escapeHtml(val)}" placeholder="${f.label}" style="width:100%;"></td>`;
                 }
-            });
-            html += `<button type="button" class="btn btn-rose" onclick="removeStructuredRow(this)" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-times"></i></button>`;
-            html += '</div>';
-        } else {
-            html += '<div class="structured-row">';
-            fields.forEach((f, fi) => {
-                const val = row[f.key] || '';
-                html += `<span style="flex:1; ${fi > 0 ? 'color:var(--text-secondary);' : ''}">${escapeHtml(val)}</span>`;
-            });
-            html += '</div>';
+            } else {
+                html += `<td>${escapeHtml(val) || '—'}</td>`;
+            }
+        });
+        if (canEdit) {
+            html += `<td><button type="button" class="btn btn-rose" onclick="removeStructuredRow(this)" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-times"></i></button></td>`;
         }
+        html += '</tr>';
     });
-    html += '</div>';
+    
+    html += '</tbody></table></div>';
     return html;
 }
 
@@ -206,31 +259,28 @@ window.addStructuredRow = function(prefix) {
     if (!fields) return;
     const container = document.getElementById(getContainerId(prefix));
     if (!container) return;
-    const count = container.querySelectorAll('.structured-row').length;
-    const row = document.createElement('div');
+    
+    const tbody = container.querySelector('.structured-rows');
+    if (!tbody) return;
+    
+    const count = tbody.querySelectorAll('.structured-row').length;
+    const row = document.createElement("tr");
     row.className = 'structured-row';
     let innerHtml = '';
     fields.forEach(f => {
         if (f.type === 'select') {
-            innerHtml += `<select class="structured-input" id="${prefix}-${f.key}-${count}" style="flex:1;">`;
+            innerHtml += `<td><select class="structured-input" id="${prefix}-${f.key}-${count}" style="width:100%;">`;
             f.options.forEach(opt => {
                 innerHtml += `<option value="${opt}">${opt || 'Select'}</option>`;
             });
-            innerHtml += '</select>';
+            innerHtml += '</select></td>';
         } else {
-            innerHtml += `<input type="${f.type}" class="structured-input" id="${prefix}-${f.key}-${count}" placeholder="${f.label}" style="flex:1;">`;
+            innerHtml += `<td><input type="${f.type}" class="structured-input" id="${prefix}-${f.key}-${count}" placeholder="${f.label}" style="width:100%;"></td>`;
         }
     });
-    innerHtml += `<button type="button" class="btn btn-rose" onclick="removeStructuredRow(this)" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-times"></i></button>`;
+    innerHtml += `<td><button type="button" class="btn btn-rose" onclick="removeStructuredRow(this)" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-times"></i></button></td>`;
     row.innerHTML = innerHtml;
-    if (container.querySelector('.structured-rows')) {
-        container.querySelector('.structured-rows').appendChild(row);
-    } else {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'structured-rows';
-        wrapper.appendChild(row);
-        container.appendChild(wrapper);
-    }
+    tbody.appendChild(row);
 };
 
 // Remove a structured row
@@ -238,34 +288,6 @@ window.removeStructuredRow = function(btn) {
     const row = btn.closest('.structured-row');
     if (row) row.remove();
 };
-
-// Collect structured rows data as JSON string
-function collectStructuredRows(prefix) {
-    const fields = STRUCTURED_FIELDS[prefix];
-    if (!fields) return '';
-    const container = document.getElementById(getContainerId(prefix));
-    if (!container) return '';
-    const rows = container.querySelectorAll('.structured-row');
-    if (rows.length === 0) return '';
-    const data = [];
-    rows.forEach(row => {
-        const entry = {};
-        let hasValue = false;
-        fields.forEach(f => {
-            const input = row.querySelector(`[id^="${prefix}-${f.key}-"]`);
-            const val = input ? input.value.trim() : '';
-            entry[f.key] = val;
-            if (f.key === 'name') {
-                if (val) hasValue = true;
-            }
-        });
-        // Require at least the first field (name/number) to have a value
-        if (entry[fields[0].key]) {
-            data.push(entry);
-        }
-    });
-    return data.length > 0 ? JSON.stringify(data) : '';
-}
 
 window.selectFlatForEdit = function(flatNo) {
     document.querySelectorAll(".flat-card").forEach(card => {
@@ -283,7 +305,9 @@ window.selectFlatForEdit = function(flatNo) {
     const canEditAny = hasPermission('owners:edit_any');
     const isOwnFlat = localStorage.getItem("isSoftLogin") === "true" && localStorage.getItem("currentFlatNo") === flatNo;
     const canEdit = canEditAny || (hasPermission('owners:edit_own') && isOwnFlat);
-    const disabledAttr = canEdit ? "" : "disabled";
+    
+    const statusColor = item.occupancy_status === 'vacant' ? 'var(--color-rose)' : item.occupancy_status === 'tenant-occupied' ? 'var(--color-orange)' : 'var(--color-emerald)';
+    const statusIcon = item.occupancy_status === 'vacant' ? 'fa-door-closed' : item.occupancy_status === 'tenant-occupied' ? 'fa-user-tie' : 'fa-house-chimney-user';
     
     const statusOptions = [
         { value: 'owner-occupied', label: 'Owner Occupied' },
@@ -291,102 +315,211 @@ window.selectFlatForEdit = function(flatNo) {
         { value: 'vacant', label: 'Vacant' }
     ];
     
-    let selectHTML = `<select id="edit-status" ${disabledAttr}>`;
+    let selectHTML = `<select id="edit-status" onchange="autoFillOccupancyTo()" disabled>`;
     statusOptions.forEach(opt => {
         const selected = opt.value === item.occupancy_status ? "selected" : "";
         selectHTML += `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
     });
     selectHTML += `</select>`;
     
+    const showPasscode = isOwnFlat || canEditAny;
+    
     detailSide.innerHTML = `
-        <div class="card" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); padding: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 16px;">
-                <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--color-indigo);">Flat ${item.flat_no} Details</h3>
-                <span class="badge ${item.occupancy_status === 'vacant' ? 'badge-expense' : 'badge-income'}">${item.occupancy_status.replace('-', ' ')}</span>
+        <div class="card" style="background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(99,102,241,0.04)); border: 1px solid var(--border-color); padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 16px;">
+                <div>
+                    <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--color-indigo); margin:0;"><i class="fa-solid fa-door-open" style="color:var(--color-indigo);margin-right:8px;"></i> Flat ${item.flat_no}</h3>
+                    <span style="font-size:0.7rem;color:var(--text-muted);">${item.flat_type || ''}</span>
+                </div>
+                <span class="badge ${item.occupancy_status === 'vacant' ? 'badge-expense' : 'badge-income'}" style="border-color:${statusColor};">
+                    <i class="fa-solid ${statusIcon}" style="margin-right:4px;"></i> ${item.occupancy_status.replace('-', ' ')}
+                </span>
             </div>
             
             <form id="edit-owner-form" onsubmit="saveOwnerProfile(event)">
                 <input type="hidden" id="edit-flat-no" value="${item.flat_no}">
                 
                 <div class="input-field">
-                    <label for="edit-owner-name">Owner Name</label>
-                    <input type="text" id="edit-owner-name" value="${item.owner_name || ''}" ${disabledAttr} required>
+                    <label><i class="fa-solid fa-user" style="color:var(--color-indigo);width:16px;margin-right:6px;"></i> Owner Names</label>
+                    <div id="owner-names-container">
+                        ${renderStructuredRows('owner', item.owner_name, false)}
+                    </div>
+                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'owner\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Owner</button>' : ''}
                 </div>
                 
                 ${item.occupancy_status === 'tenant-occupied' ? `
                 <div class="input-field">
                     <label for="edit-tenant-name">Tenant Name</label>
-                    <input type="text" id="edit-tenant-name" value="${item.tenant_name || ''}" ${disabledAttr}>
+                    <input type="text" id="edit-tenant-name" value="${item.tenant_name || ''}" disabled>
                 </div>
                 ` : `<input type="hidden" id="edit-tenant-name" value="${item.tenant_name || ''}">`}
                 
                 <div class="input-field">
-                    <label for="edit-contact">Contact No</label>
-                    <input type="text" id="edit-contact" value="${item.contact_no || ''}" ${disabledAttr}>
+                    <label><i class="fa-solid fa-phone" style="color:var(--color-emerald);width:16px;margin-right:6px;"></i> Contact Numbers</label>
+                    <div id="contact-numbers-container">
+                        ${renderStructuredRows('contact', item.contact_no, false)}
+                    </div>
+                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'contact\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Contact</button>' : ''}
                 </div>
                 
-                ${isOwnFlat || canEditAny ? `
+                ${showPasscode ? `
                 <div class="input-field">
-                    <label for="edit-passcode">Passcode (For Soft Login)</label>
-                    <input type="text" id="edit-passcode" placeholder="e.g. 1234" value="${item.passcode || ''}" ${canEdit ? '' : 'disabled'}>
+                    <label for="edit-passcode"><i class="fa-solid fa-lock" style="color:var(--color-yellow);width:16px;margin-right:6px;"></i> Passcode</label>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <input type="password" id="edit-passcode" placeholder="e.g. 1234" value="${item.passcode || ''}" disabled style="flex:1;">
+                        ${canEditAny ? `
+                        <button type="button" class="btn btn-slate" onclick="togglePasscodeVisibility()" style="padding:10px;" title="Show/Hide Passcode">
+                            <i class="fa-solid fa-eye" id="passcode-toggle-icon"></i>
+                        </button>
+                        ` : ''}
+                    </div>
                 </div>
                 ` : ''}
                 
                 <div class="input-field">
-                    <label for="edit-parking">Parking Space No</label>
-                    <input type="text" id="edit-parking" value="${item.parking_no || 'None'}" ${disabledAttr}>
+                    <label><i class="fa-solid fa-square-parking" style="color:var(--color-violet);width:16px;margin-right:6px;"></i> Parking Space No</label>
+                    <span class="field-display" id="display-parking">${escapeHtml(item.parking_no || 'None')}</span>
+                    <input type="text" id="edit-parking" value="${item.parking_no || 'None'}" style="display:none;">
                 </div>
-                
+
                 <div class="input-field">
-                    <label for="edit-status">Occupancy Status</label>
-                    ${selectHTML}
+                    <label><i class="fa-solid fa-house-circle-check" style="color:${statusColor};width:16px;margin-right:6px;"></i> Occupancy Status</label>
+                    <span class="field-display" id="display-status" style="color:${statusColor};font-weight:600;">${item.occupancy_status ? item.occupancy_status.replace(/-/g, ' ') : '—'}</span>
+                    <div id="edit-status-wrap" style="display:none;">${selectHTML}</div>
                 </div>
-                
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="input-field">
+                        <label><i class="fa-regular fa-calendar-check" style="color:var(--color-emerald);width:16px;margin-right:6px;"></i> Occupied From</label>
+                        <span class="field-display" id="display-occupancy-from">${item.occupancy_from || '—'}</span>
+                        <input type="date" id="edit-occupancy-from" value="${item.occupancy_from || ''}" style="display:none;">
+                    </div>
+                    <div class="input-field">
+                        <label><i class="fa-regular fa-calendar-xmark" style="color:var(--color-rose);width:16px;margin-right:6px;"></i> Occupied To</label>
+                        <span class="field-display" id="display-occupancy-to">${item.occupancy_to || '—'}</span>
+                        <input type="date" id="edit-occupancy-to" value="${item.occupancy_to || ''}" style="display:none;">
+                    </div>
+                </div>
+
                 <div class="input-field">
-                    <label for="edit-flat-type">Flat Type</label>
-                    <select id="edit-flat-type" ${disabledAttr}>
+                    <label><i class="fa-solid fa-layer-group" style="color:var(--color-violet);width:16px;margin-right:6px;"></i> Flat Type</label>
+                    <span class="field-display" id="display-flat-type">${escapeHtml(item.flat_type || '—')}</span>
+                    <select id="edit-flat-type" style="display:none;">
                         <option value="">-- Select --</option>
                         ${getFlatTypesList().map(t => `<option value="${t}" ${item.flat_type === t ? 'selected' : ''}>${t}</option>`).join('')}
                     </select>
                 </div>
                 
                 <div class="input-field">
-                    <label>Family Members</label>
+                    <label><i class="fa-solid fa-people-group" style="color:var(--color-rose);width:16px;margin-right:6px;"></i> Family Members</label>
                     <div id="family-members-container">
-                        ${renderStructuredRows('family', item.family_members, canEdit)}
+                        ${renderStructuredRows('family', item.family_members, false)}
                     </div>
-                    ${canEdit ? '<button type="button" class="btn btn-slate" onclick="addStructuredRow(\'family\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px;"><i class="fa-solid fa-plus"></i> Add Member</button>' : ''}
+                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'family\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Member</button>' : ''}
                 </div>
                 
                 <div class="input-field">
-                    <label>Service Person Details</label>
+                    <label><i class="fa-solid fa-hand-sparkles" style="color:var(--color-yellow);width:16px;margin-right:6px;"></i> Service Person</label>
                     <div id="service-person-container">
-                        ${renderStructuredRows('service', item.service_person, canEdit)}
+                        ${renderStructuredRows('service', item.service_person, false)}
                     </div>
-                    ${canEdit ? '<button type="button" class="btn btn-slate" onclick="addStructuredRow(\'service\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px;"><i class="fa-solid fa-plus"></i> Add Person</button>' : ''}
+                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'service\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Person</button>' : ''}
                 </div>
                 
                 <div class="input-field">
-                    <label>Vehicle Details</label>
+                    <label><i class="fa-solid fa-truck" style="color:var(--color-teal);width:16px;margin-right:6px;"></i> Vehicle Details</label>
                     <div id="vehicle-container">
-                        ${renderStructuredRows('vehicle', item.vehicle_details, canEdit)}
+                        ${renderStructuredRows('vehicle', item.vehicle_details, false)}
                     </div>
-                    ${canEdit ? '<button type="button" class="btn btn-slate" onclick="addStructuredRow(\'vehicle\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px;"><i class="fa-solid fa-plus"></i> Add Vehicle</button>' : ''}
+                    ${canEdit ? '<button type="button" class="btn btn-slate btn-add-structured-row" onclick="addStructuredRow(\'vehicle\')" style="margin-top: 6px; font-size:0.8rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> Add Vehicle</button>' : ''}
                 </div>
                 
-                ${canEdit 
-                    ? `<div class="modal-actions" style="margin-top: 16px;">
-                            <button type="submit" class="btn btn-indigo" style="width: 100%;">
-                                <i class="fa-solid fa-floppy-disk"></i> Save Profile
-                            </button>
-                       </div>`
-                    : `<div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-top: 10px;">
+                <div style="display: flex; gap: 8px; margin-top: 16px;">
+                    ${canEdit ? `
+                        <button type="button" class="btn btn-indigo" id="btn-enable-edit" onclick="enableOwnerEditing()" style="flex: 1;">
+                            <i class="fa-solid fa-pen"></i> Enable Editing
+                        </button>
+                    ` : `
+                        <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; width: 100%; padding: 8px;">
                             <i class="fa-solid fa-lock"></i> Edit restricted to Owner or Administrators.
-                       </div>`
-                }
+                        </div>
+                    `}
+                </div>
+                
+                <div class="modal-actions" style="margin-top: 16px; display: none;" id="save-profile-actions">
+                    <button type="submit" class="btn btn-emerald" style="width: 100%;">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Profile
+                    </button>
+                </div>
             </form>
         </div>
     `;
+};
+
+window.togglePasscodeVisibility = function() {
+    const input = document.getElementById("edit-passcode");
+    const icon = document.getElementById("passcode-toggle-icon");
+    if (!input || !icon) return;
+    const isPassword = input.type === "password";
+    input.type = isPassword ? "text" : "password";
+    icon.className = isPassword ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
+};
+
+window.autoFillOccupancyTo = function() {
+    const status = document.getElementById("edit-status");
+    const occTo = document.getElementById("edit-occupancy-to");
+    if (!status || !occTo) return;
+    if (status.value === 'vacant' && !occTo.value) {
+        occTo.value = new Date().toISOString().split('T')[0];
+    }
+};
+
+window.enableOwnerEditing = function() {
+    const form = document.getElementById("edit-owner-form");
+    if (!form) return;
+
+    const flatNo = document.getElementById("edit-flat-no").value;
+    const item = allOwnersData.find(o => o.flat_no === flatNo);
+    if (!item) return;
+
+    document.querySelectorAll('.field-display').forEach(el => el.style.display = 'none');
+    const editFields = ['edit-parking', 'edit-occupancy-from', 'edit-occupancy-to'];
+    editFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = '';
+    });
+    const editWrap = document.getElementById('edit-status-wrap');
+    if (editWrap) editWrap.style.display = '';
+    const flatType = document.getElementById('edit-flat-type');
+    if (flatType) flatType.style.display = '';
+    // Re-query the select inside wrap so autoFillOccupancyTo works
+    const statusSelect = document.getElementById('edit-status');
+    if (statusSelect) statusSelect.disabled = false;
+
+    const ownerContainer = document.getElementById("owner-names-container");
+    if (ownerContainer) ownerContainer.innerHTML = renderStructuredRows('owner', item.owner_name, true);
+
+    const contactContainer = document.getElementById("contact-numbers-container");
+    if (contactContainer) contactContainer.innerHTML = renderStructuredRows('contact', item.contact_no, true);
+    
+    const familyContainer = document.getElementById("family-members-container");
+    if (familyContainer) familyContainer.innerHTML = renderStructuredRows('family', item.family_members, true);
+    
+    const serviceContainer = document.getElementById("service-person-container");
+    if (serviceContainer) serviceContainer.innerHTML = renderStructuredRows('service', item.service_person, true);
+    
+    const vehicleContainer = document.getElementById("vehicle-container");
+    if (vehicleContainer) vehicleContainer.innerHTML = renderStructuredRows('vehicle', item.vehicle_details, true);
+    
+    const saveActions = document.getElementById("save-profile-actions");
+    if (saveActions) saveActions.style.display = "flex";
+    
+    const enableBtn = document.getElementById("btn-enable-edit");
+    if (enableBtn) enableBtn.style.display = "none";
+    
+    document.querySelectorAll(".btn-add-structured-row").forEach(btn => btn.style.display = "inline-flex");
+    
+    showToast("Editing enabled. Make your changes and click Save Profile.", "info");
 };
 
 window.saveOwnerProfile = async function(e) {
@@ -400,10 +533,9 @@ window.saveOwnerProfile = async function(e) {
         return;
     }
     
-    const ownerName = document.getElementById("edit-owner-name").value.trim();
-    const tenantName = document.getElementById("edit-tenant-name") ? document.getElementById("edit-tenant-name").value.trim() : '';
-    const contactNo = document.getElementById("edit-contact").value.trim();
-    
+    const ownerName = collectStructuredRows('owner');
+    const contactNo = collectStructuredRows('contact');
+
     const passcodeInput = document.getElementById("edit-passcode");
     let passcode = undefined;
     if (passcodeInput) {
@@ -413,10 +545,30 @@ window.saveOwnerProfile = async function(e) {
     const parkingNo = document.getElementById("edit-parking").value.trim();
     const status = document.getElementById("edit-status").value;
     const flatType = document.getElementById("edit-flat-type").value;
+    const occupancyFrom = document.getElementById("edit-occupancy-from")?.value || null;
+    const occupancyTo = document.getElementById("edit-occupancy-to")?.value || null;
     const family = collectStructuredRows('family');
     const servicePerson = collectStructuredRows('service');
     const vehicleDetails = collectStructuredRows('vehicle');
+
+    // Use ownerName or contactNo directly; if empty JSON, fall back to empty string
+    const updateData = {
+        owner_name: ownerName || '',
+        contact_no: contactNo || '',
+        parking_no: parkingNo,
+        occupancy_status: status,
+        flat_type: flatType,
+        occupancy_from: occupancyFrom,
+        occupancy_to: occupancyTo,
+        family_members: family,
+        service_person: servicePerson,
+        vehicle_details: vehicleDetails
+    };
     
+    if (passcode !== undefined) {
+        updateData.passcode = passcode;
+    }
+
     const submitBtn = e.target.querySelector("button[type=submit]");
     if (submitBtn) {
         submitBtn.disabled = true;
@@ -424,22 +576,6 @@ window.saveOwnerProfile = async function(e) {
     }
     
     try {
-        const updateData = {
-            owner_name: ownerName,
-            tenant_name: tenantName,
-            contact_no: contactNo,
-            parking_no: parkingNo,
-            occupancy_status: status,
-            flat_type: flatType,
-            family_members: family,
-            service_person: servicePerson,
-            vehicle_details: vehicleDetails
-        };
-        
-        if (passcode !== undefined) {
-            updateData.passcode = passcode;
-        }
-
         const { error } = await sbClient.from('owners').update(updateData).eq('flat_no', flatNo);
         
         if (error) throw error;
@@ -639,7 +775,7 @@ window.generateReceipt = async function(entryId) {
         
         doc.setFont("helvetica", "normal");
         doc.text(receiptId, 160, 40);
-        doc.text(formatDateDisplay(data.date_received), 160, 45);
+        doc.text(window.formatDateDisplay(data.date_received), 160, 45);
         
         // Receipt details box
         doc.setFillColor(248, 250, 252); // slate 50
@@ -1012,7 +1148,7 @@ function renderHistoryTable(entries) {
             : '';
 
         tr.innerHTML = `
-            <td>${formatDateDisplay(entry.date)}</td>
+            <td>${window.formatDateDisplay(entry.date)}</td>
             <td>${typeBadge}</td>
             <td><strong>${entry.description}</strong></td>
             <td class="text-right ${entry.type === "INCOME" ? "icon-emerald" : "icon-rose"}" style="font-weight: 600;">

@@ -12,8 +12,8 @@ window.rolesData = [];
 window.currentRolePermissions = [];
 let currentUserAssignedFloors = [];
 window.buildingConfig = null;
-let googlePickerReady = false;
-let gdrivePickerInited = false;
+window.googlePickerReady = false;
+window.gdrivePickerInited = false;
 
 // Default building config fallback
 const DEFAULT_BUILDING_CONFIG = {
@@ -30,29 +30,29 @@ const DEFAULT_BUILDING_CONFIG = {
     dashboard_bg_url: ''
 };
 
-function getWingsList() {
+window.getWingsList = function() {
     return (buildingConfig?.wings || DEFAULT_BUILDING_CONFIG.wings).split(',').map(s => s.trim()).filter(Boolean);
-}
+};
 
-function getFlatTypesList() {
+window.getFlatTypesList = function() {
     return (buildingConfig?.flat_types || DEFAULT_BUILDING_CONFIG.flat_types).split(',').map(s => s.trim()).filter(Boolean);
-}
+};
 
-function getFloorCount() {
+window.getFloorCount = function() {
     return buildingConfig?.floors || DEFAULT_BUILDING_CONFIG.floors;
-}
+};
 
-function getBuildingName() {
+window.getBuildingName = function() {
     return buildingConfig?.building_name || DEFAULT_BUILDING_CONFIG.building_name;
-}
+};
 
-function getBlockName() {
+window.getBlockName = function() {
     return buildingConfig?.block_name || '';
-}
+};
 
-function getAllFlats() {
-    const floors = getFloorCount();
-    const wings = getWingsList();
+window.getAllFlats = function() {
+    const floors = window.getFloorCount();
+    const wings = window.getWingsList();
     const flats = [];
     for (let f = 1; f <= floors; f++) {
         wings.forEach(w => {
@@ -60,12 +60,11 @@ function getAllFlats() {
         });
     }
     return flats;
-}
+};
 
-// Update all UI elements with building name from config
-function updateBuildingUI() {
-    const name = getBuildingName();
-    const block = getBlockName();
+window.updateBuildingUI = function() {
+    const name = window.getBuildingName();
+    const block = window.getBlockName();
     const fullName = block ? `${name} (${block})` : name;
     
     const sidebarName = document.getElementById('sidebar-building-name');
@@ -81,7 +80,6 @@ function updateBuildingUI() {
     if (authSub) authSub.textContent = block ? `${block} - Flat Owners Portal` : 'Flat Owners Portal';
     
     document.title = `${name} - Residence Management`;
-    // Apply dashboard background image
     const workspace = document.querySelector('.workspace');
     if (workspace) {
         const bgUrl = buildingConfig?.dashboard_bg_url || '';
@@ -94,7 +92,7 @@ function updateBuildingUI() {
         }
     }
     renderLavishDashboard();
-}
+};
 
 // ==========================================
 // LAVISH DASHBOARD
@@ -110,22 +108,20 @@ function renderLavishDashboard() {
     const greetEl = document.getElementById('dashboard-greeting');
     if (greetEl) greetEl.textContent = greet + '!';
     const nameEl = document.getElementById('dashboard-building-name');
-    if (nameEl) nameEl.textContent = getBuildingName().toUpperCase();
+    if (nameEl) nameEl.textContent = window.getBuildingName().toUpperCase();
     const dtEl = document.getElementById('dashboard-date-time');
     if (dtEl) dtEl.textContent = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     
-    loadDashStats();
+    window.loadDashStats();
 }
 
-async function loadDashStats() {
+window.loadDashStats = async function() {
     if (!sbClient) return;
     
-    // Wrap each query individually so one failure doesn't break all
     async function safeQuery(label, fn) {
         try { return await fn(); } catch (e) { console.warn('Dashboard stat [' + label + ']:', e); return null; }
     }
     
-    // Owner stats
     const ownersResult = await safeQuery('owners', async () => {
         const { data } = await sbClient.from('owners').select('flat_no, occupancy_status');
         return data || [];
@@ -148,7 +144,6 @@ async function loadDashStats() {
     document.getElementById('dash-vacant-pct').textContent = pct(vacant) + '%';
     document.getElementById('dash-vacant-bar').style.width = pct(vacant) + '%';
     
-    // Events
     const eventsData = await safeQuery('events', async () => {
         const { data } = await sbClient.from('cultural_events')
             .select('id, name, start_date, status')
@@ -182,7 +177,6 @@ async function loadDashStats() {
         }).join('');
     }
     
-    // Tickets
     const ticketsResult = await safeQuery('tickets', async () => {
         const { data } = await sbClient.from('tickets')
             .select('id')
@@ -191,7 +185,6 @@ async function loadDashStats() {
     });
     document.getElementById('dash-open-tickets').textContent = ticketsResult ?? '-';
     
-    // This month income
     const year = new Date().getFullYear().toString();
     const month = new Date().toLocaleString('en-US', { month: 'long' });
     const incomeResult = await safeQuery('income', async () => {
@@ -203,7 +196,6 @@ async function loadDashStats() {
     });
     document.getElementById('dash-month-income').textContent = incomeResult !== null ? '₹' + incomeResult.toLocaleString('en-IN') : '-';
     
-    // Recent activity
     const recentIncome = await safeQuery('recent_income', async () => {
         const { data } = await sbClient.from('income')
             .select('flat_no, amount, date_received, category')
@@ -245,7 +237,7 @@ async function loadDashStats() {
     (recentBoardPosts || []).forEach(r => {
         const sender = r.is_anonymous
             ? 'Verified Resident'
-            : `${r.owner_name || 'Resident'}${r.owner_flat_no ? ' (' + r.owner_flat_no + ')' : ''}`;
+            : `${window.displayStructured(r.owner_name, 'name') || 'Resident'}${r.owner_flat_no ? ' (' + r.owner_flat_no + ')' : ''}`;
         activity.push({
             icon: 'fa-message',
             color: 'var(--color-violet)',
@@ -270,56 +262,54 @@ async function loadDashStats() {
             </div>
         `).join('');
     }
-}
+};
 
-// Load building config from Supabase
-async function loadBuildingConfig() {
+window.loadBuildingConfig = async function() {
     if (!sbClient) return;
     try {
         const { data, error } = await sbClient.from('building_config').select('*').eq('id', 1).single();
         if (error && error.code === 'PGRST116') {
             window.buildingConfig = { ...DEFAULT_BUILDING_CONFIG };
-            updateBuildingUI();
+            window.updateBuildingUI();
             return;
         }
         if (error) throw error;
         window.buildingConfig = data || { ...DEFAULT_BUILDING_CONFIG };
         if (buildingConfig.floors) buildingConfig.floors = parseInt(buildingConfig.floors, 10);
-        updateBuildingUI();
+        window.updateBuildingUI();
         initGoogleDrivePicker();
     } catch (err) {
         console.warn("Could not load building config, using defaults:", err);
         window.buildingConfig = { ...DEFAULT_BUILDING_CONFIG };
-        updateBuildingUI();
+        window.updateBuildingUI();
     }
-}
+};
 
-// Save building config to Supabase
-async function saveBuildingConfig(config) {
+window.saveBuildingConfig = async function(config) {
     if (!sbClient) return false;
     window.buildingConfig = config;
     try {
         if (buildingConfig.floors) buildingConfig.floors = parseInt(buildingConfig.floors, 10);
         initGoogleDrivePicker();
-        updateBuildingUI();
+        window.updateBuildingUI();
         return true;
     } catch (err) {
         console.error("saveBuildingConfig error:", err);
         showToast("Failed to save building configuration.", "error");
         return false;
     }
-}
+};
 
 // Generate floor options HTML for any select element
-function getFloorOptions(selectedFloor) {
-    const count = getFloorCount();
+window.getFloorOptions = function(selectedFloor) {
+    const count = window.getFloorCount();
     let html = '<option value="">All Floors</option>';
     for (let i = 1; i <= count; i++) {
         const sel = String(i) === String(selectedFloor) ? 'selected' : '';
         html += `<option value="${i}" ${sel}>Floor ${i}</option>`;
     }
     return html;
-}
+};
 
 // Cultural Events module loaded from static/js/events.js
 
@@ -328,33 +318,29 @@ function getFloorOptions(selectedFloor) {
 
 // --- AUTHENTICATION & SESSION CONTROLLERS ---
 
-function setupAuthListener() {
+window.setupAuthListener = function() {
     if (!sbClient) return;
     
-    // Bind sign in / sign out updates
     sbClient.auth.onAuthStateChange((event, session) => {
         if (session) {
             window.currentUserId = session.user.id;
             
-            // Push to next tick to avoid Supabase Auth Web Locks deadlock
             setTimeout(async () => {
                 try {
                     if (localStorage.getItem("isSoftLogin") === "true") {
                         const flatNo = localStorage.getItem("currentFlatNo");
-                        await handleSoftUserSession(session.user, flatNo);
+                        await window.handleSoftUserSession(session.user, flatNo);
                     } else {
-                        await handleUserSession(session.user);
+                        await window.handleUserSession(session.user);
                     }
-                    // Hide only on successful session loading
                     document.getElementById("auth-container").style.display = "none";
                     const openTarget = new URLSearchParams(window.location.search).get('open');
-                    if (openTarget === 'board' && hasPermission('board:view')) {
+                    if (openTarget === 'board' && window.hasPermission('board:view')) {
                         setTimeout(() => openBoardModal(), 200);
                         window.history.replaceState({}, document.title, window.location.pathname);
                     }
                 } catch (err) {
                     console.error("Session initialization failed:", err);
-                    // Clear any invalid session
                     localStorage.removeItem("isSoftLogin");
                     localStorage.removeItem("currentFlatNo");
                     await sbClient.auth.signOut();
@@ -364,37 +350,34 @@ function setupAuthListener() {
                     const sideProfile = document.getElementById("side-user-profile");
                     if (sideProfile) sideProfile.style.display = "none";
                     window.currentUserRole = 'viewer';
-                    applyRbacRestrictions('viewer');
+                    window.applyRbacRestrictions('viewer');
                 }
             }, 0);
         } else {
             if (localStorage.getItem("isSoftLogin") === "true") {
                 const flatNo = localStorage.getItem("currentFlatNo");
-                autoLoginSharedAccount(flatNo);
+                window.autoLoginSharedAccount(flatNo);
             } else {
                 window.currentUserId = null;
                 document.getElementById("auth-container").style.display = "block";
                 const sideProfile = document.getElementById("side-user-profile");
                 if (sideProfile) sideProfile.style.display = "none";
                 window.currentUserRole = 'viewer';
-                applyRbacRestrictions('viewer');
+                window.applyRbacRestrictions('viewer');
             }
         }
     });
-}
+};
 
-async function handleUserSession(user) {
+window.handleUserSession = async function(user) {
     if (!sbClient) return;
     
     try {
-        // Load roles first
-        await loadRoles();
+        await window.loadRoles();
         
-        // Query user's profile role + assigned floors from the profiles table
         let { data, error } = await sbClient.from('profiles').select('role, assigned_floors').eq('id', user.id).single();
         
         if (error) {
-            // Profile row might not have been created yet by the DB trigger due to latency
             console.warn("Profile fetching failed, retrying in 1s...", error);
             await new Promise(resolve => setTimeout(resolve, 1000));
             const retryRes = await sbClient.from('profiles').select('role, assigned_floors').eq('id', user.id).single();
@@ -405,7 +388,6 @@ async function handleUserSession(user) {
         window.currentUserRole = data && data.role ? data.role.toLowerCase().trim() : "viewer";
         currentUserAssignedFloors = data && Array.isArray(data.assigned_floors) ? data.assigned_floors : [];
         
-        // Update user profile in sidebar
         const sideProfile = document.getElementById("side-user-profile");
         const sideEmail = document.getElementById("side-user-email");
         const sideRole = document.getElementById("side-user-role");
@@ -413,7 +395,7 @@ async function handleUserSession(user) {
         if (sideProfile && sideEmail && sideRole) {
             sideEmail.textContent = user.email;
             sideRole.textContent = currentUserRole.toUpperCase();
-            const roleColor = getRoleColor(currentUserRole);
+            const roleColor = window.getRoleColor(currentUserRole);
             sideRole.className = "badge";
             sideRole.style.borderColor = roleColor.replace('var(', '').replace(')', '').trim()
                 ? `rgba(255,255,255,0.2)` : 'var(--border-color)';
@@ -421,21 +403,17 @@ async function handleUserSession(user) {
             sideProfile.style.display = "flex";
         }
         
-        // Show notification toggle
         const notifBtn = document.getElementById('side-notif-toggle');
         if (notifBtn) {
             notifBtn.style.display = 'flex';
             updateNotificationBtn();
         }
-        // Auto-subscribe if previously subscribed
         if (localStorage.getItem('pushSubscribed') === 'true' && buildingConfig?.vapid_public_key) {
             doSubscribe().catch(() => {});
         }
         
-        // Apply RBAC modifications to view buttons and actions
-        applyRbacRestrictions(currentUserRole);
+        window.applyRbacRestrictions(currentUserRole);
         
-        // Merge committee position permissions on top of base role
         if (currentUserId) {
             try {
                 const { data: cm } = await sbClient.from('committee_members')
@@ -446,53 +424,38 @@ async function handleUserSession(user) {
                 if (cm?.committee_positions?.permissions_override?.length) {
                     const overrides = cm.committee_positions.permissions_override;
                     overrides.forEach(p => { if (!currentRolePermissions.includes(p)) currentRolePermissions.push(p); });
-                    applyRbacRestrictions(currentUserRole);
+                    window.applyRbacRestrictions(currentUserRole);
                 }
             } catch (_) {}
         }
         
-        // Seed owners defaults if they don't exist yet
-        await ensureOwnersPopulated();
+        await window.ensureOwnersPopulated();
         
-        // Load data registries
-        loadFlats();
-        loadExpenseHeads();
-        refreshDashboard();
+        window.loadFlats();
+        window.loadExpenseHeads();
+        window.refreshDashboard();
     } catch (e) {
         console.error("handleUserSession error:", e);
         showToast("Error retrieving user profile role credentials.", "error");
     }
-}
+};
 
 // Committee module loaded from static/js/committee.js
 
 // ==========================================
 // Meetings & Resolutions module loaded from static/js/meetings.js
 
-// ==========================================
-// Phase 3: Document Vault & Compliance module loaded from static/js/phase3.js
+window.rolesData = [];
 
-// Phase 4: Vendors, Visitors, Assets, Polls, Parking loaded from static/js/phase4.js
-
-// Committee Handover Tool loaded from static/js/handover.js
-
-// Admin Dashboard Analytics loaded from static/js/analytics.js
-
-// ==========================================
-// DYNAMIC ROLE & PERMISSION SYSTEM
-// ==========================================
-
-async function loadRoles() {
+window.loadRoles = async function() {
     if (!sbClient) return;
     try {
         const { data, error } = await sbClient.from('roles').select('*').order('priority', { ascending: false });
         if (error) {
-            // roles table might not exist yet; use default hardcoded roles as fallback
             console.warn("Could not load roles from DB, using defaults:", error);
-            window.rolesData = getDefaultRoles();
+            window.rolesData = window.getDefaultRoles();
         } else if (data && data.length > 0) {
-            // Merge DB roles with defaults to ensure new permissions propagate
-            const defaults = getDefaultRoles();
+            const defaults = window.getDefaultRoles();
             window.rolesData = data.map(dbRole => {
                 const def = defaults.find(d => d.name === dbRole.name);
                 if (def) {
@@ -502,126 +465,128 @@ async function loadRoles() {
                 return dbRole;
             });
         } else {
-            window.rolesData = getDefaultRoles();
+            window.rolesData = window.getDefaultRoles();
         }
     } catch (e) {
         console.warn("Error loading roles, using defaults:", e);
-        window.rolesData = getDefaultRoles();
+        window.rolesData = window.getDefaultRoles();
     }
-}
+};
 
-function getDefaultRoles() {
+window.getDefaultRoles = function() {
     return [
         { name: 'admin', label: 'Administrator', permissions: ['dashboard:view','income:create','income:delete','expense:create','expense:delete','history:view','reports:view','ledger:import','ledger:export','owners:upload','owners:edit_any','owners:edit_own','expense_heads:manage','expense_heads:create','expense_heads:delete','users:manage','users:role_change','tickets:assign','tickets:recommend','tickets:approve','tickets:resolve','tickets:close','tickets:reopen','tickets:archive','tickets:delete','tickets:comment','events:view','events:create','events:delete','events:contribute','events:perform','events:manage_vendors','events:manage_competitions','events:vote','events:score','events:upload_gallery','events:generate_passes','board:view','board:create','board:moderate','committee:view','committee:manage','meetings:view','meetings:create','meetings:manage','resolutions:view','documents:view','documents:upload','documents:delete','compliance:view','compliance:create','compliance:manage','vendors:view','vendors:create','vendors:manage','visitors:view','visitors:create','visitors:approve','assets:view','assets:create','assets:manage','polls:view','polls:create','polls:vote','parking:view','parking:assign','parking:manage','handover:view','handover:create','analytics:view','maintenance:view','maintenance:manage_rates','maintenance:collect','security:view','security:manage'], color: 'var(--color-emerald)' },
-        { name: 'editor', label: 'Editor', permissions: ['dashboard:view','income:create','expense:create','history:view','reports:view','ledger:export','tickets:resolve','tickets:comment','board:view','board:create','board:moderate'], color: 'var(--color-rose)' },
-        { name: 'floor_manager', label: 'Floor Manager', permissions: ['dashboard:view','income:create','history:view','reports:view','tickets:recommend','tickets:comment','board:view','board:create'], color: 'var(--color-yellow)' },
+        { name: 'editor', label: 'Editor', permissions: ['dashboard:view','income:create','expense:create','history:view','reports:view','ledger:export','tickets:resolve','tickets:comment','board:view','board:create','board:moderate','meetings:view','resolutions:view'], color: 'var(--color-rose)' },
+        { name: 'floor_manager', label: 'Floor Manager', permissions: ['dashboard:view','income:create','history:view','reports:view','tickets:recommend','tickets:comment','board:view','board:create','meetings:view','resolutions:view'], color: 'var(--color-yellow)' },
         { name: 'committee_member', label: 'Committee Member', permissions: ['dashboard:view','history:view','reports:view','tickets:approve','tickets:comment','board:view','board:create','board:moderate','committee:view','meetings:view','meetings:create','meetings:manage','resolutions:view','documents:view','documents:upload','compliance:view','compliance:create','compliance:manage','vendors:view','vendors:create','visitors:view','visitors:create','visitors:approve','assets:view','assets:create','assets:manage','polls:view','polls:create','polls:vote','parking:view','parking:assign','handover:view','handover:create','analytics:view','maintenance:view','maintenance:manage_rates','maintenance:collect','security:view','security:manage'], color: 'var(--color-violet)' },
         { name: 'viewer', label: 'Viewer (Resident)', permissions: ['dashboard:view','owners:edit_own','tickets:comment','events:view','board:view','board:create','committee:view','meetings:view','resolutions:view','documents:view','compliance:view','vendors:view','visitors:view','visitors:create','assets:view','polls:view','polls:vote','parking:view','maintenance:view','security:view'], color: 'var(--text-secondary)' }
     ];
-}
+};
 
-function hasPermission(perm) {
-    return currentRolePermissions.includes(perm);
-}
+window.hasPermission = function(perm) {
+    return (window.currentRolePermissions || []).includes(perm);
+};
 
-function getRoleData(roleName) {
-    return rolesData.find(r => r.name === roleName) || null;
-}
+window.getRoleData = function(roleName) {
+    return (window.rolesData || []).find(r => r.name === roleName) || null;
+};
 
-function getRoleColor(roleName) {
-    const r = getRoleData(roleName);
+window.getRoleColor = function(roleName) {
+    const r = window.getRoleData(roleName);
     return r ? (r.color || 'var(--text-secondary)') : 'var(--text-secondary)';
-}
+};
 
-function getRoleLabel(roleName) {
-    const r = getRoleData(roleName);
+window.getRoleLabel = function(roleName) {
+    const r = window.getRoleData(roleName);
     return r ? (r.label || roleName) : roleName;
-}
+};
 
-function applyRbacRestrictions(role) {
-    const roleData = getRoleData(role);
+window.applyRbacRestrictions = function(role) {
+    const roleData = window.getRoleData(role);
     window.currentRolePermissions = roleData ? [...roleData.permissions] : [];
     
     const setBlock = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? "block" : "none"; };
     const setNav = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? "flex" : "none"; };
     
-    // Sidebar nav items
-    setNav("side-collect-fee", hasPermission('income:create'));
-    setNav("side-record-expense", hasPermission('expense:create'));
-    setNav("side-import", hasPermission('ledger:import'));
-    setNav("side-owners-upload", hasPermission('owners:upload'));
-    setNav("side-export", hasPermission('ledger:export'));
-    setNav("side-manage-users", hasPermission('users:manage'));
-    setNav("side-manage-roles", hasPermission('users:role_change'));
+    setNav("side-import", window.hasPermission('ledger:import'));
+    setNav("side-owners-upload", window.hasPermission('owners:upload'));
+    setNav("side-export", window.hasPermission('ledger:export'));
+    setNav("side-manage-users", window.hasPermission('users:manage'));
+    setNav("side-manage-roles", window.hasPermission('users:role_change'));
     setNav("side-building-config", role === 'admin');
     
-    const canViewDashboard = hasPermission('dashboard:view');
+    const canViewDashboard = window.hasPermission('dashboard:view');
     setNav("side-dashboard", true);
     setNav("side-finance", canViewDashboard && role !== 'viewer');
-    setNav("side-history", canViewDashboard && hasPermission('history:view'));
-    setNav("side-reports", canViewDashboard && hasPermission('reports:view'));
+    setNav("side-history", canViewDashboard && window.hasPermission('history:view'));
+    setNav("side-reports", canViewDashboard && window.hasPermission('reports:view'));
     setNav("side-directory", true);
     setNav("side-helpdesk", true);
-    setNav("side-events", hasPermission('events:view'));
-    setNav("side-board", hasPermission('board:view'));
-    setNav("side-committee", hasPermission('committee:view'));
-    setNav("side-meetings", hasPermission('meetings:view'));
-    setNav("side-resolutions", hasPermission('resolutions:view'));
-    setNav("side-documents", hasPermission('documents:view'));
-    setNav("side-compliance", hasPermission('compliance:view'));
-    setNav("side-vendors", hasPermission('vendors:view'));
-    setNav("side-visitors", hasPermission('visitors:view'));
-    setNav("side-assets", hasPermission('assets:view'));
-    setNav("side-polls", hasPermission('polls:view'));
-    setNav("side-parking", hasPermission('parking:view'));
-    setNav("side-handover", hasPermission('handover:view'));
-    setNav("side-analytics", hasPermission('analytics:view'));
+    setNav("side-events", window.hasPermission('events:view'));
+    setNav("side-board", window.hasPermission('board:view'));
+    setNav("side-committee", window.hasPermission('committee:view'));
+    setNav("side-meetings", window.hasPermission('meetings:view'));
+    setNav("side-resolutions", window.hasPermission('resolutions:view'));
+    setNav("side-documents", window.hasPermission('documents:view'));
+    setNav("side-compliance", window.hasPermission('compliance:view'));
+    setNav("side-vendors", window.hasPermission('vendors:view'));
+    setNav("side-visitors", window.hasPermission('visitors:view'));
+    setNav("side-assets", window.hasPermission('assets:view'));
+    setNav("side-polls", window.hasPermission('polls:view'));
+    setNav("side-parking", window.hasPermission('parking:view'));
+    setNav("side-handover", window.hasPermission('handover:view'));
+    setNav("side-analytics", window.hasPermission('analytics:view'));
     
-    // Dashboard + Finance modal quick-action buttons (hide for viewers)
     const hideDash = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? "" : "none"; };
-    hideDash("dash-collect-fee", hasPermission('income:create'));
-    hideDash("dash-record-expense", hasPermission('expense:create'));
-    hideDash("fin-collect-fee", hasPermission('income:create'));
-    hideDash("fin-record-expense", hasPermission('expense:create'));
-    hideDash("dash-board", hasPermission('board:view'));
+    hideDash("dash-collect-fee", window.hasPermission('income:create'));
+    hideDash("dash-record-expense", window.hasPermission('expense:create'));
+    hideDash("fin-collect-fee", window.hasPermission('income:create'));
+    hideDash("fin-record-expense", window.hasPermission('expense:create'));
+    hideDash("dash-board", window.hasPermission('board:view'));
     const setBtn = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? "" : "none"; };
-    setBtn("btn-create-post", hasPermission('board:create'));
+    setBtn("btn-create-post", window.hasPermission('board:create'));
     
-    // Admin section visibility
-    const hasAdminAccess = hasPermission('users:manage') || hasPermission('users:role_change');
+    const hasAdminAccess = window.hasPermission('users:manage') || window.hasPermission('users:role_change');
     setBlock("side-admin-label", hasAdminAccess);
     setBlock("side-admin-nav", hasAdminAccess);
-    setNav("side-manage-committee", hasPermission('committee:manage'));
+    setNav("side-manage-committee", window.hasPermission('committee:manage'));
     
-    // Workspace visibility
     setBlock("workspace", canViewDashboard);
     
-    // Refresh ledger lists so that edit buttons disappear or appear
     if (loadedEntries.length > 0) {
-        renderTable(loadedEntries);
+        window.renderTable(loadedEntries);
     }
-}
+
+    // Collapse all groups by default
+    document.querySelectorAll('.collapse-wrap').forEach(function(wrap) {
+        wrap.classList.add('collapsed');
+        var header = wrap.previousElementSibling;
+        if (header && header.classList.contains('collapse-header')) {
+            header.classList.add('collapsed');
+        }
+    });
+};
 
 // ==========================================
 // FLOOR-MANAGER: ASSIGNED FLOORS SYSTEM
 // ==========================================
 
-function getFlatFloor(flatNo) {
+window.getFlatFloor = function(flatNo) {
     if (!flatNo) return null;
     const match = flatNo.match(/^(\d+)/);
     return match ? parseInt(match[1], 10) : null;
-}
+};
 
-function isFlatAccessible(flatNo) {
+window.isFlatAccessible = function(flatNo) {
     if (currentUserAssignedFloors.length === 0) return true;
-    const floor = getFlatFloor(flatNo);
+    const floor = window.getFlatFloor(flatNo);
     return floor !== null && currentUserAssignedFloors.includes(floor);
-}
+};
 
-function filterFlatsByAssignment(data) {
+window.filterFlatsByAssignment = function(data) {
     if (currentUserAssignedFloors.length === 0) return data;
-    return data.filter(item => isFlatAccessible(item.flat_no));
-}
+    return data.filter(item => window.isFlatAccessible(item.flat_no));
+};
 
 // Toggle between Login & Register forms
 window.toggleAuthForms = function(showRegister) {
@@ -724,7 +689,7 @@ window.handleLogout = async function() {
 };
 
 // Seed default flat list if owners registry is empty
-async function ensureOwnersPopulated() {
+window.ensureOwnersPopulated = async function() {
     if (!sbClient) return;
     try {
         const { data, error } = await sbClient.from('owners').select('flat_no').limit(1);
@@ -732,7 +697,7 @@ async function ensureOwnersPopulated() {
         
         if (!data || data.length === 0) {
             const defaultOwners = [];
-            const allFlats = getAllFlats();
+            const allFlats = window.getAllFlats();
             allFlats.forEach(flat_no => {
                 defaultOwners.push({
                     flat_no: flat_no,
@@ -749,16 +714,16 @@ async function ensureOwnersPopulated() {
     } catch (e) {
         console.error("ensureOwnersPopulated error:", e);
     }
-}
+};
 
 // Load dropdown flats from Supabase owners registry
-async function loadFlats() {
+window.loadFlats = async function() {
     if (!sbClient) return;
     try {
         let { data, error } = await sbClient.from('owners').select('flat_no, owner_name').order('flat_no');
         if (error) throw error;
         
-        data = filterFlatsByAssignment(data);
+        data = window.filterFlatsByAssignment(data);
         
         const flatSelect = document.getElementById("inc-flat");
         const histFlat = document.getElementById("hist-flat");
@@ -770,12 +735,13 @@ async function loadFlats() {
             flatSelect.innerHTML = '<option value="" disabled selected>Select Room & Tenant</option>';
             data.forEach(item => {
                 const opt = document.createElement("option");
-                const label = `${item.flat_no} - ${item.owner_name}`;
+                const ownerDisp = window.displayStructured(item.owner_name, 'name');
+                const label = `${item.flat_no} - ${ownerDisp || 'Unknown'}`;
                 opt.value = label;
                 opt.textContent = label;
                 flatSelect.appendChild(opt);
             });
-            if (currentVal && data.some(item => `${item.flat_no} - ${item.owner_name}` === currentVal)) {
+            if (currentVal && data.some(item => `${item.flat_no} - ${window.displayStructured(item.owner_name, 'name') || 'Unknown'}` === currentVal)) {
                 flatSelect.value = currentVal;
             }
         }
@@ -785,7 +751,7 @@ async function loadFlats() {
             data.forEach(item => {
                 const opt = document.createElement("option");
                 opt.value = item.flat_no;
-                opt.textContent = `${item.flat_no} - ${item.owner_name}`;
+                opt.textContent = `${item.flat_no} - ${window.displayStructured(item.owner_name, 'name') || 'Unknown'}`;
                 histFlat.appendChild(opt);
             });
             histFlat.value = currentHistVal;
@@ -803,7 +769,7 @@ async function loadFlats() {
                 }
                 const opt = document.createElement("option");
                 opt.value = item.flat_no;
-                opt.textContent = `${item.flat_no} - ${item.owner_name}`;
+                opt.textContent = `${item.flat_no} - ${window.displayStructured(item.owner_name, 'name') || 'Unknown'}`;
                 if (isSoftLogin && item.flat_no === softLoginFlatNo) {
                     opt.selected = true;
                 }
@@ -821,8 +787,78 @@ async function loadFlats() {
     }
 }
 
+window.renderTable = function(entries) {
+    const tbody = document.getElementById("ledger-body");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    if (entries.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center" style="color: var(--text-muted); padding: 30px;">
+                    <i class="fa-solid fa-folder-open" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                    No ledger entries logged for this period.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    entries.forEach(entry => {
+        const tr = document.createElement("tr");
+        
+        const typeBadge = entry.type === "INCOME" 
+            ? `<span class="badge badge-income">Income</span>`
+            : `<span class="badge badge-expense">Expense</span>`;
+
+        const actions = entry.type === "INCOME"
+            ? `<button class="btn-receipt" title="Generate PDF Receipt" onclick="generateReceipt(${entry.id})">
+                   <i class="fa-solid fa-file-pdf"></i>
+               </button>`
+            : '';
+
+        const canDelete = (entry.type === "INCOME" && window.hasPermission('income:delete')) || (entry.type === "EXPENSE" && window.hasPermission('expense:delete'));
+        const deleteButton = canDelete
+            ? `<button class="btn-delete" title="Delete entry" onclick="deleteEntry('${entry.type}', ${entry.id}, '${entry.description.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
+                    <i class="fa-solid fa-trash-can"></i>
+               </button>`
+            : '';
+
+        tr.innerHTML = `
+            <td>#${entry.id}</td>
+            <td>${typeBadge}</td>
+            <td><strong>${entry.description}</strong></td>
+            <td>${entry.month} ${entry.year}</td>
+            <td class="text-right ${entry.type === "INCOME" ? "icon-emerald" : "icon-rose"}" style="font-weight: 600;">
+                ${entry.type === "INCOME" ? "+" : "-"} ${Number(entry.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
+            <td class="text-center">${window.formatDateDisplay(entry.date)}</td>
+            <td class="text-center">
+                ${actions}
+                ${deleteButton}
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
+window.filterTable = function() {
+    const query = document.getElementById("table-search").value.toLowerCase().trim();
+    if (!query) {
+        window.renderTable(loadedEntries);
+        return;
+    }
+
+    const filtered = loadedEntries.filter(entry => {
+        return entry.description.toLowerCase().includes(query) || 
+               entry.type.toLowerCase().includes(query) ||
+               String(entry.id).includes(query);
+    });
+    window.renderTable(filtered);
+};
+
 // Refresh dashboard stats and statements list
-async function refreshDashboard() {
+window.refreshDashboard = async function() {
     if (!sbClient) return;
     
     const year = document.getElementById("filter-year").value;
@@ -845,7 +881,6 @@ async function refreshDashboard() {
         const totalExpense = expenseData.reduce((sum, item) => sum + parseFloat(item.amount), 0.0);
         const cashInHand = totalIncome - totalExpense;
         
-        // Update KPIs
         document.getElementById("stat-income").textContent = formatCurrency(totalIncome);
         document.getElementById("stat-expense").textContent = formatCurrency(totalExpense);
         document.getElementById("stat-cash").textContent = formatCurrency(cashInHand);
@@ -887,7 +922,7 @@ async function refreshDashboard() {
         entries.sort((a, b) => b.date.localeCompare(a.date));
         loadedEntries = entries;
         
-        renderTable(loadedEntries);
+        window.renderTable(loadedEntries);
         
         const exportBtn = document.getElementById("side-export");
         if (exportBtn) {
@@ -901,7 +936,7 @@ async function refreshDashboard() {
         console.error("Dashboard refresh error:", err);
         showToast("Error loading financial dashboard.", "error");
     }
-}
+};
 
 // Format number to currency (e.g. 1500 -> Rs. 1,500.00)
 window.formatCurrency = function(val) {
@@ -942,6 +977,17 @@ window.escapeHtml = function(str) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+};
+
+window.displayStructured = function(value, key) {
+    if (!value) return '';
+    if (typeof value === 'string') {
+        try { value = JSON.parse(value); } catch (e) { return value; }
+    }
+    if (Array.isArray(value)) {
+        return value.map(o => o[key] || '').filter(Boolean).join(', ');
+    }
+    return String(value);
 };
 
 let _modalZIndex = 100;
@@ -1114,13 +1160,12 @@ window.toggleEventNameField = function(val) {
 };
 
 // --- DYNAMIC EXPENSE HEADS ---
-async function loadExpenseHeads() {
+window.loadExpenseHeads = async function() {
     if (!sbClient) return;
     try {
         const { data, error } = await sbClient.from('expense_heads').select('id, name').order('name');
         if (error) throw error;
         
-        // Populate select in Expense modal
         const expHeadSelect = document.getElementById("exp-head");
         if (expHeadSelect) {
             const currentVal = expHeadSelect.value;
@@ -1136,7 +1181,6 @@ async function loadExpenseHeads() {
             }
         }
         
-        // Populate category manager list inside the modal
         const managerList = document.getElementById("category-manager-list");
         if (managerList) {
             managerList.innerHTML = "";
@@ -1147,7 +1191,7 @@ async function loadExpenseHeads() {
                     const div = document.createElement("div");
                     div.className = "category-item";
                     
-                    const deleteBtn = hasPermission('expense_heads:delete')
+                    const deleteBtn = window.hasPermission('expense_heads:delete')
                         ? `<button class="btn-delete" title="Delete category" onclick="handleDeleteExpenseHead(${item.id}, '${item.name.replace(/'/g, "\\'")}')">
                                <i class="fa-solid fa-trash-can"></i>
                            </button>`
@@ -1165,7 +1209,7 @@ async function loadExpenseHeads() {
         console.error("loadExpenseHeads error:", err);
         showToast("Could not load expense categories.", "error");
     }
-}
+};
 
 window.openExpenseHeadsModal = function() {
     const addForm = document.getElementById("add-head-form");
@@ -1247,7 +1291,7 @@ window.switchAuthMode = function(mode) {
     if (registerWrapper) registerWrapper.style.display = "none";
 };
 
-async function loadFlatsForSoftLogin() {
+window.loadFlatsForSoftLogin = async function() {
     if (!sbClient) return;
     try {
         const { data, error } = await sbClient.from('owners').select('flat_no, owner_name').order('flat_no');
@@ -1261,14 +1305,14 @@ async function loadFlatsForSoftLogin() {
             data.forEach(item => {
                 const opt = document.createElement("option");
                 opt.value = item.flat_no;
-                opt.label = item.owner_name ? `${item.flat_no} - ${item.owner_name}` : item.flat_no;
+                opt.label = item.owner_name ? `${item.flat_no} - ${window.displayStructured(item.owner_name, 'name')}` : item.flat_no;
                 softOptions.appendChild(opt);
             });
         }
     } catch (err) {
         console.error("loadFlatsForSoftLogin error:", err);
     }
-}
+};
 
 window.handleSoftLoginSubmit = async function(e) {
     e.preventDefault();
@@ -1327,7 +1371,8 @@ window.handleSoftLoginSubmit = async function(e) {
         }
         
         // Clean and compare contact number and passcode
-        const dbContact = String(data.contact_no || '').trim().replace(/\D/g, '');
+        const contactVal = window.displayStructured(data.contact_no, 'phone');
+        const dbContact = String(contactVal || '').trim().replace(/\D/g, '');
         const inputClean = verifyCode.replace(/\D/g, '');
         
         const dbPasscode = data.passcode ? String(data.passcode).trim() : '';
@@ -1361,13 +1406,12 @@ window.handleSoftLoginSubmit = async function(e) {
     }
 };
 
-async function handleSoftUserSession(user, flatNo) {
+window.handleSoftUserSession = async function(user, flatNo) {
     if (!sbClient) return;
     
     try {
-        await loadRoles();
+        await window.loadRoles();
         
-        // Update user profile in sidebar
         const sideProfile = document.getElementById("side-user-profile");
         const sideEmail = document.getElementById("side-user-email");
         const sideRole = document.getElementById("side-user-role");
@@ -1382,21 +1426,25 @@ async function handleSoftUserSession(user, flatNo) {
         }
         
         window.currentUserRole = 'viewer';
-        applyRbacRestrictions('viewer');
+        window.applyRbacRestrictions('viewer');
         
-        await ensureOwnersPopulated();
-        loadFlats();
-        loadExpenseHeads();
-        refreshDashboard();
+        await window.ensureOwnersPopulated();
+        window.loadFlats();
+        window.loadExpenseHeads();
+        window.refreshDashboard();
+
+        // Auto-open own flat in Owners Directory for soft login
+        if (flatNo) {
+            setTimeout(() => window.openOwnersDirectoryModal(flatNo), 800);
+        }
     } catch (e) {
         console.error("handleSoftUserSession error:", e);
         showToast("Error retrieving flat details.", "error");
     }
-}
+};
 
-async function autoLoginSharedAccount(flatNo) {
+window.autoLoginSharedAccount = async function(flatNo) {
     if (!sbClient) return;
-    // Use a fresh email to bypass the old unverified 'resident@deepsikha.in' account
     const email = "resident_v2@deepsikha.in";
     const password = "resident123";
     
@@ -1407,14 +1455,12 @@ async function autoLoginSharedAccount(flatNo) {
         });
         
         if (error) {
-            // Account might not exist, sign up
             const { error: signUpError } = await sbClient.auth.signUp({
                 email: email,
                 password: password
             });
             if (signUpError) throw signUpError;
             
-            // Retry sign in
             const { error: retryError } = await sbClient.auth.signInWithPassword({
                 email: email,
                 password: password
@@ -1427,16 +1473,36 @@ async function autoLoginSharedAccount(flatNo) {
         localStorage.removeItem("currentFlatNo");
         document.getElementById("auth-container").style.display = "block";
         
-        // Show specific error for email confirmation
         if (err.message && err.message.toLowerCase().includes("invalid login credentials")) {
             showToast("Soft Login blocked by Supabase. Please disable 'Confirm Email' in Supabase Auth Settings, or manually confirm 'resident@deepsikha.in' via SQL.", "error");
         } else {
             showToast("Authentication failed: " + err.message, "error");
         }
     }
-}
+};
 
 // Users & Roles Management loaded from static/js/users.js
+
+window.toggleCollapse = function(id) {
+    const wrap = document.getElementById(id);
+    const header = wrap && wrap.previousElementSibling;
+    if (!wrap) return;
+    wrap.classList.toggle("collapsed");
+    if (header && header.classList.contains("collapse-header")) {
+        header.classList.toggle("collapsed");
+    }
+};
+
+window.toggleSidebar = function() {
+    const sidebar = document.getElementById("main-sidebar");
+    const btn = document.getElementById("sidebar-toggle");
+    if (!sidebar) return;
+    sidebar.classList.toggle("hidden");
+    document.body.classList.toggle("sidebar-hidden");
+    if (btn) {
+        btn.title = sidebar.classList.contains("hidden") ? "Show sidebar" : "Hide sidebar";
+    }
+};
 
 window.updateDbStatus = function(isConnected, message) {
     const updateOne = (badgeEl, textEl) => {

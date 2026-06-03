@@ -258,82 +258,202 @@ window.updateUserPassword = async function() {
 // DYNAMIC ROLE MANAGEMENT (CRUD)
 // ==========================================
 
-const ALL_PERMISSIONS = [
-    { id: 'dashboard:view', label: 'View Dashboard' },
-    { id: 'income:create', label: 'Record Income' },
-    { id: 'income:delete', label: 'Delete Income' },
-    { id: 'expense:create', label: 'Record Expense' },
-    { id: 'expense:delete', label: 'Delete Expense' },
-    { id: 'history:view', label: 'View Ledger History' },
-    { id: 'reports:view', label: 'View Reports' },
-    { id: 'ledger:import', label: 'Import Ledger' },
-    { id: 'ledger:export', label: 'Export Ledger' },
-    { id: 'owners:upload', label: 'Upload Owners' },
-    { id: 'owners:edit_any', label: 'Edit Any Owner Profile' },
-    { id: 'owners:edit_own', label: 'Edit Own Profile' },
-    { id: 'expense_heads:manage', label: 'Access Expense Heads' },
-    { id: 'expense_heads:create', label: 'Add Expense Heads' },
-    { id: 'expense_heads:delete', label: 'Delete Expense Heads' },
-    { id: 'users:manage', label: 'View Users List' },
-    { id: 'users:role_change', label: 'Change User Roles' },
-    { id: 'tickets:assign', label: 'Assign Tickets' },
-    { id: 'tickets:recommend', label: 'Recommend Tickets' },
-    { id: 'tickets:approve', label: 'Approve Tickets' },
-    { id: 'tickets:resolve', label: 'Resolve Tickets' },
-    { id: 'tickets:close', label: 'Close Tickets' },
-    { id: 'tickets:reopen', label: 'Reopen Tickets' },
-    { id: 'tickets:archive', label: 'Archive/View Archived' },
-    { id: 'tickets:delete', label: 'Delete Tickets' },
-    { id: 'tickets:comment', label: 'Comment on Tickets' },
-    { id: 'events:view', label: 'View Cultural Events' },
-    { id: 'events:create', label: 'Create/Edit Events' },
-    { id: 'events:delete', label: 'Delete Events' },
-    { id: 'events:contribute', label: 'Contribute to Events' },
-    { id: 'events:perform', label: 'Register Performances' },
-    { id: 'events:manage_vendors', label: 'Manage Vendors/Stalls' },
-    { id: 'events:manage_competitions', label: 'Manage Competitions' },
-    { id: 'events:vote', label: 'Vote in Competitions' },
-    { id: 'events:score', label: 'Score as Judge' },
-    { id: 'events:upload_gallery', label: 'Upload Gallery Photos' },
-    { id: 'events:generate_passes', label: 'Generate Visitor Passes' },
-    { id: 'board:view', label: 'View Community Board' },
-    { id: 'board:create', label: 'Create Board Posts' },
-    { id: 'board:moderate', label: 'Moderate Board (Delete/Close any post)' },
-    { id: 'committee:view', label: 'View Committee Members' },
-    { id: 'committee:manage', label: 'Manage Committee (Assign/Remove Members)' },
-    { id: 'meetings:view', label: 'View Meetings & Resolutions' },
-    { id: 'meetings:create', label: 'Create/Edit Meetings' },
-    { id: 'meetings:manage', label: 'Manage Meetings (Attendance, Upload MoM)' },
-    { id: 'resolutions:view', label: 'View Resolution Ledger' },
-    { id: 'documents:view', label: 'View Document Vault' },
-    { id: 'documents:upload', label: 'Upload Documents' },
-    { id: 'documents:delete', label: 'Delete Documents' },
-    { id: 'compliance:view', label: 'View Compliance Calendar' },
-    { id: 'compliance:create', label: 'Create/Edit Compliance Events' },
-    { id: 'compliance:manage', label: 'Manage Compliance Events (Mark Complete/Override)' },
-    { id: 'vendors:view', label: 'View Vendors & Contracts' },
-    { id: 'vendors:create', label: 'Create/Edit Vendors' },
-    { id: 'vendors:manage', label: 'Manage Vendors (Terminate/Activate)' },
-    { id: 'visitors:view', label: 'View Visitor Passes' },
-    { id: 'visitors:create', label: 'Create Visitor Passes' },
-    { id: 'visitors:approve', label: 'Approve/Check-in Passes' },
-    { id: 'assets:view', label: 'View Asset Inventory' },
-    { id: 'assets:create', label: 'Create/Edit Assets' },
-    { id: 'assets:manage', label: 'Manage Assets (Maintenance/Status)' },
-    { id: 'polls:view', label: 'View Polls & Surveys' },
-    { id: 'polls:create', label: 'Create Polls & Surveys' },
-    { id: 'polls:vote', label: 'Vote in Polls' },
-    { id: 'parking:view', label: 'View Parking Slots' },
-    { id: 'parking:assign', label: 'Assign/Manage Parking Slots' },
-    { id: 'parking:manage', label: 'Manage Parking (Status/Setup)' },
-    { id: 'handover:view', label: 'View Committee Handover' },
-    { id: 'handover:create', label: 'Create/Manage Handover' },
-    { id: 'analytics:view', label: 'View Dashboard Analytics' },
-    { id: 'maintenance:view', label: 'View Maintenance Fees' },
-    { id: 'maintenance:manage_rates', label: 'Manage Maintenance Rates' },
-    { id: 'maintenance:collect', label: 'Collect Maintenance Fees' },
-    { id: 'security:view', label: 'View Security Roster' },
-    { id: 'security:manage', label: 'Manage Security Personnel' }
+const PERMISSION_GROUPS = [
+    {
+        label: 'Dashboard', actions: [
+            { perm: 'dashboard:view', col: 'view', label: 'View' }
+        ]
+    },
+    {
+        label: 'Income', actions: [
+            { perm: 'income:create', col: 'add', label: 'Add' },
+            { perm: 'income:delete', col: 'delete', label: 'Delete' }
+        ]
+    },
+    {
+        label: 'Expense', actions: [
+            { perm: 'expense:create', col: 'add', label: 'Add' },
+            { perm: 'expense:delete', col: 'delete', label: 'Delete' }
+        ]
+    },
+    {
+        label: 'History', actions: [
+            { perm: 'history:view', col: 'view', label: 'View' }
+        ]
+    },
+    {
+        label: 'Reports', actions: [
+            { perm: 'reports:view', col: 'view', label: 'View' }
+        ]
+    },
+    {
+        label: 'Ledger', actions: [
+            { perm: 'ledger:import', col: 'other', label: 'Import' },
+            { perm: 'ledger:export', col: 'other', label: 'Export' }
+        ]
+    },
+    {
+        label: 'Owners', actions: [
+            { perm: 'owners:upload', col: 'other', label: 'Upload' },
+            { perm: 'owners:edit_any', col: 'edit', label: 'Edit Any' },
+            { perm: 'owners:edit_own', col: 'other', label: 'Edit Own' }
+        ]
+    },
+    {
+        label: 'Expense Heads', actions: [
+            { perm: 'expense_heads:manage', col: 'other', label: 'Access' },
+            { perm: 'expense_heads:create', col: 'add', label: 'Add' },
+            { perm: 'expense_heads:delete', col: 'delete', label: 'Delete' }
+        ]
+    },
+    {
+        label: 'Users', actions: [
+            { perm: 'users:manage', col: 'other', label: 'View List' },
+            { perm: 'users:role_change', col: 'other', label: 'Change Role' }
+        ]
+    },
+    {
+        label: 'Tickets', actions: [
+            { perm: 'tickets:assign', col: 'other', label: 'Assign' },
+            { perm: 'tickets:recommend', col: 'other', label: 'Recommend' },
+            { perm: 'tickets:approve', col: 'approve', label: 'Approve' },
+            { perm: 'tickets:resolve', col: 'other', label: 'Resolve' },
+            { perm: 'tickets:close', col: 'other', label: 'Close' },
+            { perm: 'tickets:reopen', col: 'other', label: 'Reopen' },
+            { perm: 'tickets:archive', col: 'other', label: 'Archive' },
+            { perm: 'tickets:delete', col: 'delete', label: 'Delete' },
+            { perm: 'tickets:comment', col: 'other', label: 'Comment' }
+        ]
+    },
+    {
+        label: 'Events', actions: [
+            { perm: 'events:view', col: 'view', label: 'View' },
+            { perm: 'events:create', col: 'add', label: 'Create' },
+            { perm: 'events:delete', col: 'delete', label: 'Delete' },
+            { perm: 'events:contribute', col: 'other', label: 'Contribute' },
+            { perm: 'events:perform', col: 'other', label: 'Perform' },
+            { perm: 'events:manage_vendors', col: 'other', label: 'Vendors' },
+            { perm: 'events:manage_competitions', col: 'other', label: 'Competitions' },
+            { perm: 'events:vote', col: 'other', label: 'Vote' },
+            { perm: 'events:score', col: 'other', label: 'Score' },
+            { perm: 'events:upload_gallery', col: 'other', label: 'Gallery' },
+            { perm: 'events:generate_passes', col: 'other', label: 'Passes' }
+        ]
+    },
+    {
+        label: 'Community Board', actions: [
+            { perm: 'board:view', col: 'view', label: 'View' },
+            { perm: 'board:create', col: 'add', label: 'Post' },
+            { perm: 'board:moderate', col: 'other', label: 'Moderate' }
+        ]
+    },
+    {
+        label: 'Committee', actions: [
+            { perm: 'committee:view', col: 'view', label: 'View' },
+            { perm: 'committee:manage', col: 'edit', label: 'Manage' }
+        ]
+    },
+    {
+        label: 'Meetings', actions: [
+            { perm: 'meetings:view', col: 'view', label: 'View' },
+            { perm: 'meetings:create', col: 'add', label: 'Create' },
+            { perm: 'meetings:manage', col: 'edit', label: 'Manage' }
+        ]
+    },
+    {
+        label: 'Resolutions', actions: [
+            { perm: 'resolutions:view', col: 'view', label: 'View' }
+        ]
+    },
+    {
+        label: 'Documents', actions: [
+            { perm: 'documents:view', col: 'view', label: 'View' },
+            { perm: 'documents:upload', col: 'add', label: 'Upload' },
+            { perm: 'documents:delete', col: 'delete', label: 'Delete' }
+        ]
+    },
+    {
+        label: 'Compliance', actions: [
+            { perm: 'compliance:view', col: 'view', label: 'View' },
+            { perm: 'compliance:create', col: 'add', label: 'Create' },
+            { perm: 'compliance:manage', col: 'edit', label: 'Manage' }
+        ]
+    },
+    {
+        label: 'Vendors', actions: [
+            { perm: 'vendors:view', col: 'view', label: 'View' },
+            { perm: 'vendors:create', col: 'add', label: 'Create' },
+            { perm: 'vendors:manage', col: 'edit', label: 'Manage' }
+        ]
+    },
+    {
+        label: 'Visitors', actions: [
+            { perm: 'visitors:view', col: 'view', label: 'View' },
+            { perm: 'visitors:create', col: 'add', label: 'Create' },
+            { perm: 'visitors:approve', col: 'approve', label: 'Approve' }
+        ]
+    },
+    {
+        label: 'Assets', actions: [
+            { perm: 'assets:view', col: 'view', label: 'View' },
+            { perm: 'assets:create', col: 'add', label: 'Create' },
+            { perm: 'assets:manage', col: 'edit', label: 'Manage' }
+        ]
+    },
+    {
+        label: 'Polls', actions: [
+            { perm: 'polls:view', col: 'view', label: 'View' },
+            { perm: 'polls:create', col: 'add', label: 'Create' },
+            { perm: 'polls:vote', col: 'other', label: 'Vote' }
+        ]
+    },
+    {
+        label: 'Parking', actions: [
+            { perm: 'parking:view', col: 'view', label: 'View' },
+            { perm: 'parking:assign', col: 'edit', label: 'Assign' },
+            { perm: 'parking:manage', col: 'edit', label: 'Manage' }
+        ]
+    },
+    {
+        label: 'Handover', actions: [
+            { perm: 'handover:view', col: 'view', label: 'View' },
+            { perm: 'handover:create', col: 'add', label: 'Create' }
+        ]
+    },
+    {
+        label: 'Analytics', actions: [
+            { perm: 'analytics:view', col: 'view', label: 'View' }
+        ]
+    },
+    {
+        label: 'Maintenance', actions: [
+            { perm: 'maintenance:view', col: 'view', label: 'View' },
+            { perm: 'maintenance:manage_rates', col: 'edit', label: 'Rates' },
+            { perm: 'maintenance:collect', col: 'add', label: 'Collect' }
+        ]
+    },
+    {
+        label: 'Security', actions: [
+            { perm: 'security:view', col: 'view', label: 'View' },
+            { perm: 'security:manage', col: 'edit', label: 'Manage' }
+        ]
+    }
+];
+
+const ALL_PERMISSIONS = [];
+PERMISSION_GROUPS.forEach(g => {
+    g.actions.forEach(a => {
+        ALL_PERMISSIONS.push({ id: a.perm, label: g.label + ' — ' + a.label, group: g.label, col: a.col });
+    });
+});
+
+const MATRIX_COLUMNS = [
+    { key: 'view', label: 'View' },
+    { key: 'add', label: 'Add' },
+    { key: 'edit', label: 'Edit' },
+    { key: 'delete', label: 'Delete' },
+    { key: 'approve', label: 'Approve' },
+    { key: 'other', label: 'Other' }
 ];
 
 window.openRolesModal = async function() {
@@ -364,18 +484,19 @@ function renderRolesManager() {
         card.style.padding = "12px";
         card.style.marginBottom = "8px";
         
-        const permCount = (role.permissions || []).length;
-        const permLabels = role.permissions.map(p => {
-            const found = ALL_PERMISSIONS.find(ap => ap.id === p);
-            return found ? found.label : p;
-        }).join(', ');
+        const permSet = new Set(role.permissions || []);
+        const permCount = permSet.size;
+        const groupSummary = PERMISSION_GROUPS.map(g => {
+            const active = g.actions.filter(a => permSet.has(a.perm));
+            return active.length > 0 ? `${g.label}(${active.map(a => a.label).join(',')})` : null;
+        }).filter(Boolean).join(' · ');
         
         card.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                 <div>
                     <strong style="color: var(--text-primary); font-size: 0.95rem;">${role.label || role.name}</strong>
                     <code style="margin-left: 8px; font-size: 0.7rem; color: var(--text-muted);">${role.name}</code>
-                    <span class="badge badge-income" style="margin-left: 8px; font-size: 0.6rem; padding: 1px 6px;">${permCount} permissions</span>
+                    <span class="badge badge-income" style="margin-left: 8px; font-size: 0.6rem; padding: 1px 6px;">${permCount}</span>
                 </div>
                 <div style="display: flex; gap: 6px;">
                     <button class="btn btn-indigo" style="padding: 4px 10px; font-size: 0.7rem;" onclick="openEditRoleModal('${role.name}')">
@@ -386,8 +507,8 @@ function renderRolesManager() {
                     </button>` : ''}
                 </div>
             </div>
-            <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5;">
-                ${permLabels || '<em>No permissions</em>'}
+            <div style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5;">
+                ${groupSummary || '<em>No permissions</em>'}
             </div>
         `;
         container.appendChild(card);
@@ -435,15 +556,57 @@ function renderPermissionCheckboxes(selectedPerms) {
     if (!container) return;
     
     container.innerHTML = '';
-    ALL_PERMISSIONS.forEach(perm => {
-        const checked = selectedPerms.includes(perm.id) ? 'checked' : '';
-        const div = document.createElement("div");
-        div.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 4px 0;';
-        div.innerHTML = `
-            <input type="checkbox" id="perm-${perm.id}" value="${perm.id}" ${checked} style="accent-color: var(--color-indigo);">
-            <label for="perm-${perm.id}" style="font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">${perm.label}</label>
-        `;
-        container.appendChild(div);
+    
+    // Build matrix header
+    let headerHtml = '<div style="display:flex; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-color); font-size:0.7rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">';
+    headerHtml += '<div style="width:130px; flex-shrink:0;">Module</div>';
+    MATRIX_COLUMNS.forEach(col => {
+        headerHtml += `<div style="flex:1; text-align:center;">${col.label}</div>`;
+    });
+    headerHtml += '</div>';
+    container.innerHTML = headerHtml;
+    
+    // Build matrix rows
+    PERMISSION_GROUPS.forEach(group => {
+        const row = document.createElement("div");
+        row.style.cssText = 'display:flex; align-items:stretch; border-bottom:1px solid rgba(255,255,255,0.04);';
+        
+        const labelCell = document.createElement("div");
+        labelCell.style.cssText = 'width:130px; flex-shrink:0; padding:10px 4px; font-size:0.82rem; font-weight:600; color:var(--text-primary); display:flex; align-items:center;';
+        labelCell.textContent = group.label;
+        row.appendChild(labelCell);
+        
+        const colMap = {};
+        MATRIX_COLUMNS.forEach(c => { colMap[c.key] = []; });
+        group.actions.forEach(a => {
+            if (colMap[a.col]) colMap[a.col].push(a);
+        });
+        
+        MATRIX_COLUMNS.forEach(col => {
+            const cell = document.createElement("div");
+            cell.style.cssText = 'flex:1; text-align:center; padding:8px 2px; display:flex; flex-direction:column; align-items:center; gap:4px; justify-content:center;';
+            
+            const items = colMap[col.key] || [];
+            if (items.length === 0) {
+                cell.innerHTML = '<span style="color:var(--text-muted); font-size:0.6rem;">—</span>';
+            } else {
+                items.forEach(a => {
+                    const checked = selectedPerms.includes(a.perm) ? 'checked' : '';
+                    const labelId = `perm-${a.perm}`;
+                    const wrapper = document.createElement("label");
+                    wrapper.style.cssText = 'display:inline-flex; align-items:center; gap:3px; cursor:pointer; font-size:0.65rem; color:var(--text-secondary); white-space:nowrap;';
+                    wrapper.htmlFor = labelId;
+                    wrapper.innerHTML = `
+                        <input type="checkbox" id="${labelId}" value="${a.perm}" ${checked} style="accent-color:var(--color-indigo); margin:0; width:12px; height:12px;">
+                        ${a.label}
+                    `;
+                    cell.appendChild(wrapper);
+                });
+            }
+            row.appendChild(cell);
+        });
+        
+        container.appendChild(row);
     });
 }
 

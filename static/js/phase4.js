@@ -473,7 +473,7 @@ function renderPolls() {
                 ${options.map((o, i) => {
                     const pct = totalVotes > 0 ? Math.round((o.votes || 0) / totalVotes * 100) : 0;
                     const isSelected = hasVoted && userVote.selected_options.includes(i);
-                    return `<div class="poll-option ${hasVoted || pollStatus === 'closed' ? 'poll-result' : ''}" onclick="${!hasVoted && pollStatus === 'active' && canVote ? `castVote('${p.id}',${i},'${p.type}')` : ''}" style="${isSelected ? 'border-color:var(--color-indigo);' : ''}">
+                    return `<div class="poll-option ${pollStatus === 'closed' ? 'poll-result' : ''}" onclick="${pollStatus === 'active' && canVote ? `castVote('${p.id}',${i},'${p.type}')` : ''}" style="${isSelected ? 'border-color:var(--color-indigo);' : ''}">
                         <div style="display:flex;justify-content:space-between;width:100%;position:relative;z-index:1;">
                             <span>${escapeHtml(o.text)}</span>
                             ${hasVoted || pollStatus === 'closed' ? `<span>${o.votes || 0} (${pct}%)</span>` : ''}

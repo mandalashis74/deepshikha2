@@ -7,7 +7,7 @@ const BOARD_CATEGORIES = [
     { slug: 'carpooling', name: 'Carpooling', icon: 'fa-car', tags: ['Offering ride', 'Looking for ride'] },
     { slug: 'hobbies', name: 'Hobbies & Clubs', icon: 'fa-baseball', tags: [] }
 ];
-let currentBoardCategory = 'classifieds';
+let currentBoardCategory = 'all';
 let currentBoardTag = '';
 let boardAllPosts = [];
 let boardMyUpvotes = new Set();
@@ -17,6 +17,7 @@ window.openBoardModal = async function() {
         showToast("Access Denied.", "error");
         return;
     }
+    unsubscribeReplies();
     openModal('boardModal');
     await loadBoardCategories();
 };
@@ -24,11 +25,15 @@ window.openBoardModal = async function() {
 window.loadBoardCategories = function() {
     const container = document.getElementById('board-category-tabs');
     if (!container) return;
-    container.innerHTML = BOARD_CATEGORIES.map(c =>
+    let html = `<button class="board-tab ${currentBoardCategory === 'all' ? 'active' : ''}" onclick="switchBoardCategory('all')">
+        <i class="fa-solid fa-layer-group"></i> All Posts
+    </button>`;
+    html += BOARD_CATEGORIES.map(c =>
         `<button class="board-tab ${currentBoardCategory === c.slug ? 'active' : ''}" onclick="switchBoardCategory('${c.slug}')">
             <i class="fa-solid ${c.icon}"></i> ${c.name}
         </button>`
     ).join('');
+    container.innerHTML = html;
     updateFilterPills(currentBoardCategory);
     loadBoardPosts();
 };
@@ -40,9 +45,13 @@ window.switchBoardCategory = function(slug) {
 };
 
 window.updateFilterPills = function(slug) {
-    const cat = BOARD_CATEGORIES.find(c => c.slug === slug);
     const container = document.getElementById('board-filter-pills');
     if (!container) return;
+    if (slug === 'all') {
+        container.innerHTML = '';
+        return;
+    }
+    const cat = BOARD_CATEGORIES.find(c => c.slug === slug);
     const tags = cat?.tags || [];
     container.innerHTML = `<button class="board-pill ${currentBoardTag === '' ? 'active' : ''}" onclick="currentBoardTag=''; loadBoardPosts(); updateFilterPills('${slug}');">All</button>`
         + tags.map(t =>
@@ -58,9 +67,11 @@ window.loadBoardPosts = async function() {
     try {
         let q = sbClient.from('community_posts')
             .select('*')
-            .in('status', ['active', 'closed'])
-            .eq('category_slug', currentBoardCategory)
-            .order('created_at', { ascending: false });
+            .in('status', ['active', 'closed']);
+        if (currentBoardCategory !== 'all') {
+            q = q.eq('category_slug', currentBoardCategory);
+        }
+        q = q.order('created_at', { ascending: false });
         if (currentBoardTag) {
             q = q.eq('tag', currentBoardTag);
         }
@@ -92,10 +103,11 @@ function renderPostCard(post) {
     const canCreate = hasPermission('board:create');
     const hasUpvoted = boardMyUpvotes.has(post.id);
     const timeAgo = formatRelativeTime(post.created_at);
-    const authorDisplay = post.is_anonymous ? 'Verified Resident (Anonymous)' : (post.owner_name || 'Resident');
+    const authorDisplay = post.is_anonymous ? 'Verified Resident (Anonymous)' : (window.displayStructured(post.owner_name, 'name') || 'Resident');
     const isClosed = post.status === 'closed';
     const priceHtml = post.price ? `<div class="board-meta-row"><span class="board-price"><i class="fa-solid fa-indian-rupee-sign"></i> ${Number(post.price).toLocaleString()}${post.tag === 'Selling' || post.tag === 'Rent out' ? '' : ''}</span></div>` : '';
     const tagBadge = post.tag ? `<span class="board-tag">${post.tag}</span>` : '';
+    const replyCount = post.reply_count || 0;
     return `<div class="board-card${isClosed ? ' closed' : ''}">
         <div class="board-card-header">
             <div><span class="board-cat-badge"><i class="fa-solid ${BOARD_CATEGORIES.find(c => c.slug === post.category_slug)?.icon || 'fa-message'}"></i> ${BOARD_CATEGORIES.find(c => c.slug === post.category_slug)?.name || post.category_slug}${tagBadge ? ' ' + tagBadge : ''}</span></div>
@@ -121,10 +133,11 @@ function renderPostCard(post) {
             <button class="board-upvote-btn ${hasUpvoted ? 'upvoted' : ''}" onclick="upvotePost('${post.id}', this)">
                 <i class="fa-solid ${hasUpvoted ? 'fa-caret-up' : 'fa-caret-up'}"></i> <span>${post.upvote_count || 0}</span> Support Idea
             </button>
-            <button class="board-chat-btn" onclick="showToast('Chat coming soon!', 'info')">
-                <i class="fa-solid fa-comment"></i> Chat / Reply
+            <button class="board-chat-btn" onclick="toggleReplies('${post.id}', this)">
+                <i class="fa-solid fa-comment"></i> <span class="reply-count">${replyCount}</span> Chat / Reply
             </button>
         </div>
+        <div id="board-replies-${post.id}" class="board-replies-container" style="display:none;"></div>
     </div>`;
 }
 
@@ -154,6 +167,156 @@ window.upvotePost = async function(postId, btnEl) {
     } catch (err) {
         console.error('upvotePost error:', err);
         showToast('Failed to update support.', 'error');
+    }
+};
+
+window.toggleReplies = function(postId, btnEl) {
+    const container = document.getElementById('board-replies-' + postId);
+    if (!container) return;
+    if (container.style.display === 'block') {
+        container.style.display = 'none';
+        unsubscribeReplies();
+        return;
+    }
+    container.style.display = 'block';
+    subscribeToReplies(postId);
+    if (!container.dataset.loaded) {
+        loadReplies(postId);
+    }
+};
+
+let boardRepliesCache = {};
+let replySubscription = null;
+
+function subscribeToReplies(postId) {
+    if (replySubscription) replySubscription.unsubscribe();
+    replySubscription = sbClient.channel('replies-' + postId)
+        .on('postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'community_replies', filter: 'post_id=eq.' + postId },
+            async (payload) => {
+                if (!boardRepliesCache[postId]) boardRepliesCache[postId] = [];
+                if (!boardRepliesCache[postId].find(r => r.id === payload.new.id)) {
+                    boardRepliesCache[postId].push(payload.new);
+                    renderReplies(postId);
+                    const container = document.getElementById('board-replies-' + postId);
+                    if (container) {
+                        const postEl = container.closest('.board-card');
+                        if (postEl) {
+                            const countSpan = postEl.querySelector('.reply-count');
+                            if (countSpan) countSpan.textContent = parseInt(countSpan.textContent) + 1;
+                        }
+                    }
+                }
+            }
+        )
+        .subscribe();
+}
+
+function unsubscribeReplies() {
+    if (replySubscription) {
+        replySubscription.unsubscribe();
+        replySubscription = null;
+    }
+}
+
+window.loadReplies = async function(postId) {
+    const container = document.getElementById('board-replies-' + postId);
+    if (!container) return;
+    container.innerHTML = '<div style="text-align:center; padding:16px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading replies...</div>';
+    try {
+        let { data, error } = await sbClient.from('community_replies')
+            .select('*')
+            .eq('post_id', postId)
+            .order('created_at', { ascending: true });
+        if (error) throw error;
+        boardRepliesCache[postId] = data || [];
+        container.dataset.loaded = '1';
+        renderReplies(postId);
+    } catch (err) {
+        console.error('loadReplies error:', err);
+        container.innerHTML = '<div style="text-align:center; padding:16px; color:var(--color-rose);">Failed to load replies.</div>';
+    }
+};
+
+function renderReplies(postId) {
+    const container = document.getElementById('board-replies-' + postId);
+    if (!container) return;
+    const replies = boardRepliesCache[postId] || [];
+    const isSoftLogin = localStorage.getItem("isSoftLogin") === "true";
+    const myFlat = localStorage.getItem("currentFlatNo") || '';
+    let listHtml = '';
+    if (replies.length === 0) {
+        listHtml = '<div style="text-align:center; padding:12px; color:var(--text-muted); font-size:0.8rem;">No replies yet. Be the first to reply!</div>';
+    } else {
+        replies.forEach(r => {
+            const author = r.is_anonymous ? 'Anonymous' : (window.displayStructured(r.owner_name, 'name') || 'Resident');
+            const flatInfo = r.is_anonymous ? '' : ` (${r.owner_flat_no || '-'})`;
+            const isMine = isSoftLogin && r.owner_flat_no === myFlat;
+            const timeAgo = formatRelativeTime(r.created_at);
+            listHtml += `<div class="board-reply-item${isMine ? ' mine' : ''}">
+                <div class="board-reply-header">
+                    <span class="board-reply-author"><i class="fa-solid fa-user"></i> ${author}${flatInfo}</span>
+                    <span class="board-reply-time">${timeAgo}</span>
+                </div>
+                <div class="board-reply-text">${escapeHtml(r.reply_text)}</div>
+            </div>`;
+        });
+    }
+    container.innerHTML = `
+        <div class="board-replies-inner">
+            <div class="board-replies-scroll">${listHtml}</div>
+            <div class="board-reply-form">
+                <textarea class="board-reply-input" id="reply-input-${postId}" placeholder="Write a reply..." rows="2"></textarea>
+                <button class="btn btn-indigo" onclick="submitReply('${postId}')" style="font-size:0.75rem; padding:6px 14px; align-self:flex-end;">
+                    <i class="fa-solid fa-paper-plane"></i> Reply
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+window.submitReply = async function(postId) {
+    if (!currentUserId) { showToast('Please log in to reply.', 'error'); return; }
+    const input = document.getElementById('reply-input-' + postId);
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) { showToast('Please write a reply.', 'error'); return; }
+    input.disabled = true;
+    try {
+        const isSoftLogin = localStorage.getItem("isSoftLogin") === "true";
+        const myFlat = localStorage.getItem("currentFlatNo") || '';
+        let ownerName = null;
+        if (isSoftLogin) {
+            const { data: ownerData } = await sbClient.from('owners')
+                .select('owner_name').eq('flat_no', myFlat).maybeSingle();
+            if (ownerData) ownerName = ownerData.owner_name;
+        }
+        const { data: insertedReply, error } = await sbClient.from('community_replies').insert({
+            post_id: postId,
+            user_id: currentUserId,
+            reply_text: text,
+            owner_flat_no: isSoftLogin ? myFlat : null,
+            owner_name: ownerName,
+            is_anonymous: false
+        }).select().single();
+        if (error) throw error;
+        const { data: postData } = await sbClient.from('community_posts').select('reply_count').eq('id', postId).single();
+        const newCount = (postData?.reply_count || 0) + 1;
+        await sbClient.from('community_posts').update({ reply_count: newCount }).eq('id', postId);
+        const container = document.getElementById('board-replies-' + postId);
+        if (!boardRepliesCache[postId]) boardRepliesCache[postId] = [];
+        boardRepliesCache[postId].push(insertedReply);
+        renderReplies(postId);
+        const postEl = container ? container.closest('.board-card') : null;
+        if (postEl) {
+            const countSpan = postEl.querySelector('.reply-count');
+            if (countSpan) countSpan.textContent = newCount;
+        }
+        showToast('Reply posted!', 'success');
+    } catch (err) {
+        console.error('submitReply error:', err);
+        showToast('Failed to post reply.', 'error');
+        input.disabled = false;
     }
 };
 
@@ -199,7 +362,7 @@ window.saveBoardPost = async function(e) {
     let ownerName = `Flat ${flatNo}`;
     if (flatNo) {
         const { data } = await sbClient.from('owners').select('owner_name').eq('flat_no', flatNo).maybeSingle();
-        if (data?.owner_name) ownerName = data.owner_name;
+        if (data?.owner_name) ownerName = window.displayStructured(data.owner_name, 'name');
     }
     const categorySlug = document.getElementById('post-category').value;
     const tagSelect = document.getElementById('post-tag');

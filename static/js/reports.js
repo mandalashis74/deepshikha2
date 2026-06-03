@@ -21,7 +21,7 @@ window.openReportsModal = function() {
 };
 
 window.switchReportTab = function(tabId) {
-    activeReportTab = tabId;
+    window.activeReportTab = tabId;
     
     document.querySelectorAll('.report-tab-btn').forEach(btn => {
         btn.classList.remove('active');
@@ -58,7 +58,7 @@ window.loadActiveReport = async function() {
     `;
     
     try {
-        if (activeReportTab === 'date-wise-cashbook') {
+        if (window.activeReportTab === 'date-wise-cashbook') {
             const startDate = document.getElementById("rep-start-date").value;
             const endDate = document.getElementById("rep-end-date").value;
             if (!startDate || !endDate) {
@@ -67,15 +67,15 @@ window.loadActiveReport = async function() {
             }
             const data = await getCashbookDatewise(startDate, endDate);
             renderDateWiseCashbook(data);
-        } else if (activeReportTab === 'month-wise-cashbook') {
+        } else if (window.activeReportTab === 'month-wise-cashbook') {
             const year = document.getElementById("rep-year").value;
             const data = await getCashbookMonthwise(year);
             renderMonthWiseCashbook(data);
-        } else if (activeReportTab === 'income-expenditure') {
+        } else if (window.activeReportTab === 'income-expenditure') {
             const year = document.getElementById("rep-year").value;
             const data = await getIncomeExpenditure(year);
             renderIncomeExpenditure(data);
-        } else if (activeReportTab === 'helpdesk-stats') {
+        } else if (window.activeReportTab === 'helpdesk-stats') {
             await renderHelpdeskReport();
         }
     } catch (err) {
@@ -88,7 +88,7 @@ window.printActiveReport = function() {
     window.print();
 };
 
-function formatDateDisplay(dateStr) {
+window.formatDateDisplay = function(dateStr) {
     if (!dateStr) return "";
     const parts = dateStr.split('-');
     if (parts.length === 3) {
@@ -348,7 +348,7 @@ function renderDateWiseCashbook(data) {
     
     rowsHTML += `
         <tr class="row-opening">
-            <td>${formatDateDisplay(data.start_date)}</td>
+            <td>${window.formatDateDisplay(data.start_date)}</td>
             <td>-</td>
             <td>Opening Balance B/F</td>
             <td class="text-right">-</td>
@@ -374,7 +374,7 @@ function renderDateWiseCashbook(data) {
             
             rowsHTML += `
                 <tr>
-                    <td>${formatDateDisplay(t.date)}</td>
+                    <td>${window.formatDateDisplay(t.date)}</td>
                     <td><code>${t.ref_no}</code></td>
                     <td>${t.particulars}</td>
                     <td class="text-right ${t.debit > 0 ? 'amt-dr' : ''}">${drText}</td>
@@ -387,7 +387,7 @@ function renderDateWiseCashbook(data) {
     
     rowsHTML += `
         <tr class="row-closing">
-            <td>${formatDateDisplay(data.end_date)}</td>
+            <td>${window.formatDateDisplay(data.end_date)}</td>
             <td>-</td>
             <td>Closing Balance C/F</td>
             <td class="text-right">-</td>
@@ -400,7 +400,7 @@ function renderDateWiseCashbook(data) {
         <div class="report-header">
             <h2>${getBuildingName().toUpperCase()}${getBlockName() ? ` (${getBlockName().toUpperCase()})` : ''}</h2>
             <p><strong>DATE-WISE CASH BOOK</strong></p>
-            <p>Period: ${formatDateDisplay(data.start_date)} to ${formatDateDisplay(data.end_date)}</p>
+            <p>Period: ${window.formatDateDisplay(data.start_date)} to ${window.formatDateDisplay(data.end_date)}</p>
         </div>
         
         <div class="report-summary-cards">

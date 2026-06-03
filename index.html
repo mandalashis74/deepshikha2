@@ -21,10 +21,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- SheetJS for Excel Reading and Writing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Chart.js for Financial Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 
 <body>
     <div class="app-container">
+        <!-- Sidebar Toggle -->
+        <button class="sidebar-toggle-btn" id="sidebar-toggle" onclick="toggleSidebar()" title="Hide sidebar">
+            <i class="fa-solid fa-bars"></i>
+        </button>
         <!-- Sidebar Navigation -->
         <aside class="sidebar" id="main-sidebar">
             <div class="sidebar-header">
@@ -39,134 +47,189 @@
                 </span>
             </div>
 
-            <!-- Quick Actions -->
-            <div class="sidebar-section-label">Quick Actions</div>
-            <nav class="sidebar-nav">
-                <button class="sidebar-btn" id="side-collect-fee" onclick="openModal('incomeModal')">
-                    <i class="fa-solid fa-hand-holding-dollar"></i>
-                    <span>Collect Fee</span>
-                </button>
-                <button class="sidebar-btn" id="side-record-expense" onclick="openModal('expenseModal')">
-                    <i class="fa-solid fa-money-bill-transfer"></i>
-                    <span>Record Expense</span>
-                </button>
-            </nav>
-
             <div class="sidebar-section-label">Navigation</div>
             <nav class="sidebar-nav">
                 <button class="sidebar-btn active" id="side-dashboard" onclick="scrollToTop()">
                     <i class="fa-solid fa-house-chimney"></i>
                     <span>Dashboard</span>
                 </button>
-                <button class="sidebar-btn" id="side-finance" onclick="openFinancePage()">
-                    <i class="fa-solid fa-chart-pie"></i>
-                    <span>Finance</span>
-                </button>
-                <button class="sidebar-btn" id="side-history" onclick="openHistoryModal()">
-                    <i class="fa-solid fa-clock-rotate-left"></i>
-                    <span>Ledger History</span>
-                </button>
-                <button class="sidebar-btn" id="side-reports" onclick="openReportsModal()">
-                    <i class="fa-solid fa-file-invoice-dollar"></i>
-                    <span>Financial Reports</span>
-                </button>
-                <button class="sidebar-btn" id="side-directory" onclick="openOwnersDirectoryModal()">
-                    <i class="fa-solid fa-users"></i>
-                    <span>Owners Directory</span>
-                </button>
-                <button class="sidebar-btn" id="side-helpdesk" onclick="openTicketsModal()">
-                    <i class="fa-solid fa-ticket"></i>
-                    <span>Support Helpdesk</span>
-                </button>
-                        <button class="sidebar-btn" id="side-events" onclick="openEventsModal()">
-                            <i class="fa-solid fa-calendar-days"></i> <span>Cultural Events</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-board" onclick="openBoardModal()">
-                            <i class="fa-solid fa-message"></i> <span>Community Board</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-committee" onclick="openCommitteeModal()">
-                            <i class="fa-solid fa-users-gear"></i> <span>Committee</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-meetings" onclick="openMeetingsModal()">
-                            <i class="fa-solid fa-handshake"></i> <span>Meetings</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-resolutions" onclick="openResolutionsModal()">
-                            <i class="fa-solid fa-scale-balanced"></i> <span>Resolutions</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-documents" onclick="openDocumentsModal()">
-                            <i class="fa-solid fa-folder-open"></i> <span>Document Vault</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-compliance" onclick="openComplianceModal()">
-                            <i class="fa-solid fa-calendar-check"></i> <span>Compliance Calendar</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-vendors" onclick="openVendorsModal()">
-                            <i class="fa-solid fa-handshake"></i> <span>Vendors</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-visitors" onclick="openVisitorsModal()">
-                            <i class="fa-solid fa-address-card"></i> <span>Visitor Passes</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-assets" onclick="openAssetsModal()">
-                            <i class="fa-solid fa-cubes"></i> <span>Assets</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-polls" onclick="openPollsModal()">
-                            <i class="fa-solid fa-square-poll-vertical"></i> <span>Polls</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-parking" onclick="openParkingModal()">
-                            <i class="fa-solid fa-square-parking"></i> <span>Parking</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-handover" onclick="openHandoverModal()">
-                            <i class="fa-solid fa-handshake"></i> <span>Handover Tool</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-analytics" onclick="openAnalyticsModal()">
-                            <i class="fa-solid fa-chart-line"></i> <span>Analytics</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-maintenance" onclick="openMaintenanceModal()">
-                            <i class="fa-solid fa-coins"></i> <span>Maintenance Fees</span>
-                        </button>
-                        <button class="sidebar-btn" id="side-security" onclick="openSecurityModal()">
-                            <i class="fa-solid fa-shield-halved"></i> <span>Security</span>
-                        </button>
-                    </nav>
-
-            <div class="sidebar-section-label">Data</div>
-            <nav class="sidebar-nav">
-                <button class="sidebar-btn" id="side-import" onclick="openModal('importModal')">
-                    <i class="fa-solid fa-file-import"></i>
-                    <span>Import Ledger</span>
-                </button>
-                <button class="sidebar-btn" id="side-owners-upload" onclick="openModal('ownersModal')">
-                    <i class="fa-solid fa-users-gear"></i>
-                    <span>Upload Owners</span>
-                </button>
-                <button class="sidebar-btn" id="side-export" onclick="exportLedgerToExcel()">
-                    <i class="fa-solid fa-file-export"></i>
-                    <span>Export Ledger</span>
-                </button>
             </nav>
 
-            <div class="sidebar-section-label" id="side-admin-label" style="display:none;">Administration</div>
-            <nav class="sidebar-nav" id="side-admin-nav" style="display:none;">
-                <button class="sidebar-btn" id="side-manage-users" onclick="openUsersModal()">
-                    <i class="fa-solid fa-user-shield"></i>
-                    <span>Manage Users</span>
-                </button>
-                <button class="sidebar-btn" id="side-manage-roles" onclick="openRolesModal()">
-                    <i class="fa-solid fa-diagram-project"></i>
-                    <span>Manage Roles</span>
-                </button>
-                <button class="sidebar-btn" id="side-building-config" onclick="openBuildingConfigModal()">
-                    <i class="fa-solid fa-building"></i>
-                    <span>Building Setup</span>
-                </button>
-                <button class="sidebar-btn" id="side-manage-committee" onclick="openCommitteeManageModal()">
-                    <i class="fa-solid fa-users-gear"></i>
-                    <span>Manage Committee</span>
-                </button>
-                <button class="sidebar-btn" id="side-notif-toggle" onclick="togglePushSubscription()" style="display:none;">
-                    <i class="fa-solid fa-bell-slash"></i>
-                    <span>Notifications: OFF</span>
-                </button>
-            </nav>
+            <!-- Financial -->
+            <div class="sidebar-section-label collapse-header" id="sh-finance" onclick="toggleCollapse('group-finance')">
+                <span><i class="fa-solid fa-coins"></i> Financial</span>
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapse-wrap" id="group-finance">
+                <nav class="sidebar-nav">
+                    <button class="sidebar-btn" id="side-finance" onclick="openFinancePage()">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Finance</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-history" onclick="openHistoryModal()">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span>Ledger History</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-reports" onclick="openReportsModal()">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Financial Reports</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-import" onclick="openModal('importModal')">
+                        <i class="fa-solid fa-file-import"></i>
+                        <span>Import Ledger</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-export" onclick="exportLedgerToExcel()">
+                        <i class="fa-solid fa-file-export"></i>
+                        <span>Export Ledger</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Community -->
+            <div class="sidebar-section-label collapse-header" id="sh-community" onclick="toggleCollapse('group-community')">
+                <span><i class="fa-solid fa-people-group"></i> Community</span>
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapse-wrap" id="group-community">
+                <nav class="sidebar-nav">
+                    <button class="sidebar-btn" id="side-directory" onclick="openOwnersDirectoryModal()">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Owners Directory</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-board" onclick="openBoardModal()">
+                        <i class="fa-solid fa-comments"></i>
+                        <span>Community Board</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-committee" onclick="openCommitteeModal()">
+                        <i class="fa-solid fa-user-tie"></i>
+                        <span>Committee</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-meetings" onclick="openMeetingsModal()">
+                        <i class="fa-solid fa-people-group"></i>
+                        <span>Meetings</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-resolutions" onclick="openResolutionsModal()">
+                        <i class="fa-solid fa-scale-balanced"></i>
+                        <span>Resolutions</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-documents" onclick="openDocumentsModal()">
+                        <i class="fa-solid fa-folder-open"></i>
+                        <span>Document Vault</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-polls" onclick="openPollsModal()">
+                        <i class="fa-solid fa-square-poll-vertical"></i>
+                        <span>Polls</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Services -->
+            <div class="sidebar-section-label collapse-header" id="sh-services" onclick="toggleCollapse('group-services')">
+                <span><i class="fa-solid fa-bell-concierge"></i> Services</span>
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapse-wrap" id="group-services">
+                <nav class="sidebar-nav">
+                    <button class="sidebar-btn" id="side-helpdesk" onclick="openTicketsModal()">
+                        <i class="fa-solid fa-ticket"></i>
+                        <span>Support Helpdesk</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-events" onclick="openEventsModal()">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        <span>Cultural Events</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-compliance" onclick="openComplianceModal()">
+                        <i class="fa-solid fa-calendar-check"></i>
+                        <span>Compliance Calendar</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-vendors" onclick="openVendorsModal()">
+                        <i class="fa-solid fa-truck"></i>
+                        <span>Vendors</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-visitors" onclick="openVisitorsModal()">
+                        <i class="fa-solid fa-id-card"></i>
+                        <span>Visitor Passes</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Property -->
+            <div class="sidebar-section-label collapse-header" id="sh-property" onclick="toggleCollapse('group-property')">
+                <span><i class="fa-solid fa-building"></i> Property</span>
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapse-wrap" id="group-property">
+                <nav class="sidebar-nav">
+                    <button class="sidebar-btn" id="side-assets" onclick="openAssetsModal()">
+                        <i class="fa-solid fa-cubes"></i>
+                        <span>Assets</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-parking" onclick="openParkingModal()">
+                        <i class="fa-solid fa-square-parking"></i>
+                        <span>Parking</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-maintenance" onclick="openMaintenanceModal()">
+                        <i class="fa-solid fa-wrench"></i>
+                        <span>Maintenance Fees</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-security" onclick="openSecurityModal()">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Security</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Tools -->
+            <div class="sidebar-section-label collapse-header" id="sh-tools" onclick="toggleCollapse('group-tools')">
+                <span><i class="fa-solid fa-toolbox"></i> Tools</span>
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapse-wrap" id="group-tools">
+                <nav class="sidebar-nav">
+                    <button class="sidebar-btn" id="side-handover" onclick="openHandoverModal()">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Handover Tool</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-analytics" onclick="openAnalyticsModal()">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Analytics</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Administration -->
+            <div class="sidebar-section-label collapse-header" id="side-admin-label" style="display:none;" onclick="toggleCollapse('group-admin')">
+                <span><i class="fa-solid fa-user-shield"></i> Administration</span>
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapse-wrap" id="group-admin">
+                <nav class="sidebar-nav" id="side-admin-nav" style="display:none;">
+                    <button class="sidebar-btn" id="side-owners-upload" onclick="openModal('ownersModal')">
+                        <i class="fa-solid fa-upload"></i>
+                        <span>Upload Owners</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-manage-users" onclick="openUsersModal()">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span>Manage Users</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-manage-roles" onclick="openRolesModal()">
+                        <i class="fa-solid fa-diagram-project"></i>
+                        <span>Manage Roles</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-building-config" onclick="openBuildingConfigModal()">
+                        <i class="fa-solid fa-building"></i>
+                        <span>Building Setup</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-manage-committee" onclick="openCommitteeManageModal()">
+                        <i class="fa-solid fa-gavel"></i>
+                        <span>Manage Committee</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-notif-toggle" onclick="togglePushSubscription()" style="display:none;">
+                        <i class="fa-solid fa-bell-slash"></i>
+                        <span>Notifications: OFF</span>
+                    </button>
+                </nav>
+            </div>
 
             <!-- Spacer -->
             <div class="sidebar-spacer"></div>
@@ -1072,7 +1135,7 @@
 
         <!-- MODAL: ADD/EDIT ROLE -->
         <div id="editRoleModal" class="modal">
-            <div class="modal-content animate-zoom" style="max-width: 600px;">
+            <div class="modal-content animate-zoom" style="max-width: 900px;">
                 <div class="modal-header">
                     <h2 id="edit-role-modal-title"><i class="fa-solid fa-pen"></i> Edit Role</h2>
                     <span class="close" onclick="closeModal('editRoleModal')">&times;</span>
@@ -1082,30 +1145,28 @@
                         <input type="hidden" id="edit-role-mode" value="add">
                         <input type="hidden" id="edit-role-original-name" value="">
 
-                        <div class="grid-two-cols">
-                            <div class="input-field">
-                                <label for="edit-role-name">Role Key (unique, lowercase, no spaces)</label>
+                        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                            <div class="input-field" style="flex:1; min-width:180px;">
+                                <label for="edit-role-name">Role Key</label>
                                 <input type="text" id="edit-role-name" placeholder="e.g. security_guard" required
                                     pattern="[a-z_][a-z0-9_]*" title="Lowercase letters, numbers, and underscores only">
                             </div>
-                            <div class="input-field">
-                                <label for="edit-role-label">Display Label</label>
+                            <div class="input-field" style="flex:1; min-width:180px;">
+                                <label for="edit-role-label">Label</label>
                                 <input type="text" id="edit-role-label" placeholder="e.g. Security Guard" required>
                             </div>
-                        </div>
-                        <div class="input-field">
-                            <label for="edit-role-color">Badge Color (CSS variable or hex)</label>
-                            <input type="text" id="edit-role-color" placeholder="var(--color-emerald) or #10b981"
-                                value="var(--text-secondary)">
+                            <div class="input-field" style="flex:1; min-width:140px;">
+                                <label for="edit-role-color">Badge Color</label>
+                                <input type="text" id="edit-role-color" placeholder="var(--color-emerald)" value="var(--text-secondary)">
+                            </div>
                         </div>
 
                         <div style="margin-top: 16px;">
                             <label
-                                style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Permissions</label>
+                                style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Permission Matrix</label>
                             <div
-                                style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 12px; background: rgba(0,0,0,0.1);">
-                                <div id="edit-role-permissions">
-                                    <!-- Populated dynamically -->
+                                style="overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 8px; background: rgba(0,0,0,0.1);">
+                                <div id="edit-role-permissions" style="min-width:660px;">
                                 </div>
                             </div>
                         </div>
@@ -1488,6 +1549,7 @@
         <div class="modal-header">
             <h2><i class="fa-solid fa-handshake"></i> Meetings</h2>
             <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn btn-indigo" id="btn-view-resolutions" onclick="openResolutionsModal()" style="font-size:0.75rem; padding:4px 12px;"><i class="fa-solid fa-scale-balanced"></i> Resolutions</button>
                 <button class="btn btn-indigo" id="btn-create-meeting" onclick="openCreateMeetingModal()" style="font-size:0.75rem; padding:4px 12px; display:none;"><i class="fa-solid fa-plus"></i> New Meeting</button>
                 <span class="close" onclick="closeModal('meetingsModal')" style="position:static;">&times;</span>
             </div>
@@ -1496,6 +1558,25 @@
             <div id="meetings-list-container">
                 <div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: MEETING ATTENDANCE MANAGER -->
+<div id="attendanceManagerModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 700px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-clipboard-list"></i> <span id="attendance-manager-title">Manage Attendance</span></h2>
+            <span class="close" onclick="closeModal('attendanceManagerModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
+            <div style="display:flex; gap:12px; margin-bottom:16px; align-items:center; flex-wrap:wrap;">
+                <input type="text" id="attendance-search" placeholder="Search by flat or name..." style="flex:1; min-width:180px; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); border-radius:var(--border-radius-sm); color:var(--text-primary); padding:8px 10px; font-size:0.85rem; outline:none;" oninput="filterAttendanceTable()">
+                <button type="button" class="btn btn-emerald" onclick="checkInAllAttendance()" style="font-size:0.75rem; padding:6px 12px; white-space:nowrap; height:34px; line-height:1;"><i class="fa-solid fa-check-double"></i> Check In All</button>
+                <button type="button" class="btn btn-rose" onclick="checkOutAllAttendance()" style="font-size:0.75rem; padding:6px 12px; white-space:nowrap; height:34px; line-height:1;"><i class="fa-solid fa-trash-can"></i> Check Out All</button>
+                <span id="attendance-summary" style="font-size:0.82rem; color:var(--text-secondary); white-space:nowrap;"></span>
+            </div>
+            <div id="attendance-list-container" style="display:flex; flex-direction:column; gap:4px;"></div>
         </div>
     </div>
 </div>
@@ -1943,7 +2024,7 @@
 
 <!-- MODAL: CREATE PARKING SLOT -->
 <div id="createParkingModal" class="modal">
-    <div class="modal-content animate-zoom" style="max-width: 500px;">
+    <div class="modal-content animate-zoom" style="max-width: 560px;">
         <div class="modal-header">
             <h2><i class="fa-solid fa-square-parking"></i> <span id="create-parking-title">Parking Slot</span></h2>
             <span class="close" onclick="closeModal('createParkingModal')">&times;</span>
@@ -1951,15 +2032,15 @@
         <form id="create-parking-form" onsubmit="saveParking(event)">
             <div class="modal-body">
                 <input type="hidden" id="edit-parking-id">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; min-width:0;">
                     <div class="input-field"><label>Slot Number</label><input type="text" id="parking-slot" required placeholder="e.g. P1-A"></div>
                     <div class="input-field"><label>Floor</label><input type="text" id="parking-floor" placeholder="e.g. B1, Ground"></div>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; min-width:0;">
                     <div class="input-field"><label>Type</label><select id="parking-type"><option value="car">Car</option><option value="bike">Bike</option><option value="visitor">Visitor</option><option value="disabled">Disabled</option></select></div>
                     <div class="input-field"><label>Status</label><select id="parking-status"><option value="available">Available</option><option value="allotted">Allotted</option><option value="reserved">Reserved</option><option value="maintenance">Maintenance</option></select></div>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; min-width:0;">
                     <div class="input-field"><label>Allotted To (Flat)</label><input type="text" id="parking-flat" placeholder="e.g. A-101"></div>
                     <div class="input-field"><label>Vehicle No.</label><input type="text" id="parking-vehicle" placeholder="MH-01-AB-1234"></div>
                 </div>
@@ -2054,6 +2135,7 @@
         <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
             <div class="filter-pills" id="maintenance-tabs">
                 <button class="pill active" data-mt="rates" onclick="switchMaintenanceTab('rates')">Rate Cards</button>
+                <button class="pill" data-mt="rate-archive" onclick="switchMaintenanceTab('rate-archive')">Rate Archive</button>
                 <button class="pill" data-mt="collections" onclick="switchMaintenanceTab('collections')">Collections</button>
                 <button class="pill" data-mt="arrears" onclick="switchMaintenanceTab('arrears')">Arrears / Pending</button>
             </div>
@@ -2065,7 +2147,7 @@
 
 <!-- MODAL: CREATE/EDIT MAINTENANCE RATE -->
 <div id="createRateModal" class="modal">
-    <div class="modal-content animate-zoom" style="max-width: 480px;">
+    <div class="modal-content animate-zoom" style="max-width: 520px;">
         <div class="modal-header">
             <h2><i class="fa-solid fa-tag"></i> <span id="create-rate-title">New Rate Card</span></h2>
             <span class="close" onclick="closeModal('createRateModal')">&times;</span>
@@ -2074,26 +2156,11 @@
             <div class="modal-body">
                 <input type="hidden" id="edit-rate-id">
                 <div class="input-field">
-                    <label>Flat Type</label>
-                    <select id="rate-flat-type" required>
-                        <option value="">— Select —</option>
-                        <option value="1BHK">1BHK</option>
-                        <option value="2BHK">2BHK</option>
-                        <option value="3BHK">3BHK</option>
-                        <option value="2+3BHK">2+3BHK</option>
-                        <option value="Studio">Studio</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-                <div class="input-field">
-                    <label>Amount (₹)</label>
-                    <input type="number" id="rate-amount" step="0.01" min="0" required placeholder="e.g. 2500">
-                </div>
-                <div class="input-field">
                     <label>Effective From</label>
                     <input type="date" id="rate-effective-from" required>
                 </div>
-                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-save"></i> Save Rate</button>
+                <div id="rate-flat-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;"></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-save"></i> Save Rates</button>
             </div>
         </form>
     </div>
@@ -2243,7 +2310,7 @@
                                 <button type="button" class="btn btn-slate" style="font-size:0.7rem; padding:4px 10px;" onclick="testBannerUrl()"><i class="fa-solid fa-eye"></i> Test</button>
                             </div>
                             <div id="banner-preview" style="display:none; margin-top:8px; border-radius:8px; overflow:hidden; border:1px solid var(--border-color);">
-                                <img id="banner-preview-img" src="" style="width:100%; max-height:120px; object-fit:cover; display:block;" onerror="bannerPreviewError(this)">
+                                <img id="banner-preview-img" style="width:100%; max-height:120px; object-fit:cover; display:block;" onerror="window.bannerPreviewError(this)">
                             </div>
                             <p style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">
                                 Recommended size: <strong>1200×400px</strong> (or minimum 600×200px). 
@@ -3156,6 +3223,14 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- MODAL: LIGHTBOX -->
+        <div id="lightboxModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 90vw; max-height: 90vh; background: transparent; box-shadow: none; padding: 0; text-align: center;">
+                <button class="close" onclick="closeModal('lightboxModal')" style="position: fixed; top: 20px; right: 30px; color: #fff; font-size: 2rem; z-index: 9999;">&times;</button>
+                <img id="lightbox-img" src="" alt="Gallery Image" style="max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.5);">
             </div>
         </div>
 

@@ -1,0 +1,1 @@
+ALTER TABLE owners ADD COLUMN IF NOT EXISTS tenant_name TEXT DEFAULT '';
