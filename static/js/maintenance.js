@@ -70,12 +70,8 @@ async function renderMaintenanceTab(tab) {
 
     if (tab === 'rates') {
         await renderRatesTab(container, toolbar);
-    } else if (tab === 'rate-archive') {
-        await renderRateArchiveTab(container, toolbar);
     } else if (tab === 'collections') {
         await renderCollectionsTab(container, toolbar);
-    } else if (tab === 'arrears') {
-        await renderArrearsTab(container, toolbar);
     }
 }
 
@@ -88,6 +84,11 @@ async function renderRatesTab(container, toolbar) {
         btn.onclick = () => openCreateRateModal();
         toolbar.appendChild(btn);
     }
+    const archiveBtn = document.createElement('button');
+    archiveBtn.className = 'btn btn-slate';
+    archiveBtn.innerHTML = '<i class="fa-solid fa-archive"></i> View Archive';
+    archiveBtn.onclick = () => renderRateArchiveTab(container, toolbar);
+    toolbar.appendChild(archiveBtn);
     if (rates.length === 0) {
         container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-tag"></i><br>No rate cards defined yet.</div>';
         return;
@@ -113,6 +114,12 @@ async function renderRatesTab(container, toolbar) {
 }
 
 async function renderRateArchiveTab(container, toolbar) {
+    toolbar.innerHTML = '';
+    const backBtn = document.createElement('button');
+    backBtn.className = 'btn btn-slate';
+    backBtn.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Back to Rates';
+    backBtn.onclick = () => renderRatesTab(container, toolbar);
+    toolbar.appendChild(backBtn);
     const rates = await loadRates();
     if (rates.length === 0) {
         container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-tag"></i><br>No rate cards defined yet.</div>';
@@ -285,31 +292,56 @@ async function renderCollectionsData(container, month, year) {
     }
 
     const now = new Date().toISOString().split('T')[0];
+    let totalPending = 0;
+    for (const flat of allFlats) {
+        const occFrom = flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : null;
+        const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
+        const firstOfMonth = new Date(year, month - 1, 1);
+        if (occFrom && firstOfMonth < occFrom) continue;
+        if (occTo && firstOfMonth > occTo) continue;
+        if (!collectedMap[flat.flat_no]) {
+            const activeRate = getActiveRate(flat.flat_type, rates);
+            if (activeRate) totalPending += parseFloat(activeRate.amount);
+        }
+    }
+    const totalCollected = collections.reduce((s,c) => s + parseFloat(c.amount), 0);
     let html = `<div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-secondary);">
-        ${allFlats.length} flats · ${Object.keys(collectedMap).length} collected · ₹${formatCurrency(collections.reduce((s,c)=>s+parseFloat(c.amount),0))} total
+        ${allFlats.length} flats · ${Object.keys(collectedMap).length} collected · ₹${formatCurrency(totalCollected)} collected · <span style="color:var(--color-rose);font-weight:600;">₹${formatCurrency(totalPending)} pending</span>
     </div>`;
-    html += '<table class="data-table"><thead><tr><th>Flat</th><th>Type</th><th>Owner</th><th>Rate</th><th>Paid</th><th>Status</th><th>Paid On</th><th></th></tr></thead><tbody>';
+    let sumRate = 0, sumPaid = 0, sumPending = 0;
+    html += '<table class="data-table"><thead><tr><th>Flat</th><th>Type</th><th>Owner</th><th>Rate</th><th>Paid</th><th>Pending</th><th>Status</th><th>Paid On</th><th></th></tr></thead><tbody>';
     for (const flat of allFlats) {
         const existing = collectedMap[flat.flat_no];
         const activeRate = getActiveRate(flat.flat_type, rates);
         const rateAmount = activeRate ? activeRate.amount : 0;
         const collected = !!existing;
         const paidAmount = collected ? parseFloat(existing.amount) : 0;
+        const occFrom = flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : null;
+        const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
+        const firstOfMonth = new Date(year, month - 1, 1);
+        const inOccupancy = (!occFrom || firstOfMonth >= occFrom) && (!occTo || firstOfMonth <= occTo);
+        const pendingAmount = (!collected && inOccupancy) ? (rateAmount || 0) : 0;
+        sumRate += parseFloat(rateAmount);
+        sumPaid += paidAmount;
+        sumPending += pendingAmount;
         const today = new Date().toISOString().split('T')[0];
         const isVacant = flat.occupancy_status === 'vacant' || (flat.occupancy_to && flat.occupancy_to <= today);
         const nameDisplay = displayName(flat);
-        html += `<tr style="${isVacant ? 'opacity:0.5;background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,0.015) 8px,rgba(255,255,255,0.015) 16px);' : ''}">
+        html += `<tr style="${isVacant || !inOccupancy ? 'opacity:0.5;background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,0.015) 8px,rgba(255,255,255,0.015) 16px);' : ''}">
             <td><strong>${escapeHtml(flat.flat_no)}</strong>${isVacant ? ' <span style="font-size:0.65rem;color:var(--text-muted);font-weight:400;">(vacant)</span>' : ''}</td>
             <td>${escapeHtml(flat.flat_type || '—')}</td>
             <td>${isVacant ? '<span style="color:var(--text-muted);font-style:italic;">Vacant</span>' : nameDisplay}</td>
             <td>${rateAmount ? '₹'+formatCurrency(rateAmount) : '—'}</td>
             <td style="font-weight:700;${collected ? 'color:var(--color-emerald);' : 'color:var(--text-muted);'}">${collected ? '₹'+formatCurrency(paidAmount) : '—'}</td>
+            <td style="font-weight:700;color:var(--color-rose);">${pendingAmount > 0 ? '₹'+formatCurrency(pendingAmount) : '—'}</td>
             <td>${collected
                 ? '<span style="color:var(--color-emerald);font-weight:700;">Paid</span>'
-                : '<span style="color:var(--color-rose);font-weight:700;">Due</span>'
+                : !inOccupancy
+                    ? '<span style="color:var(--text-muted);font-weight:400;">Exempt</span>'
+                    : '<span style="color:var(--color-rose);font-weight:700;">Due</span>'
             }</td>
             <td style="font-size:0.8rem;color:var(--text-secondary);">${collected ? existing.date_received + (existing.remarks ? ' (' + existing.remarks + ')' : '') : '—'}</td>
-            <td>${!collected && hasMaintenancePermission('maintenance:collect') && rateAmount > 0
+            <td>${!collected && inOccupancy && hasMaintenancePermission('maintenance:collect') && rateAmount > 0
                 ? `<button class="btn btn-sm" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}",${month},${year},${rateAmount})'><i class="fa-solid fa-hand-holding-dollar"></i> Collect</button>`
                 : collected
                     ? `<button class="btn btn-sm" style="font-size:0.7rem;" onclick='generateReceipt("${existing.id}")' title="View Receipt"><i class="fa-solid fa-file-pdf"></i></button>`
@@ -317,6 +349,13 @@ async function renderCollectionsData(container, month, year) {
             }</td>
         </tr>`;
     }
+    html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
+        <td colspan="3" style="text-align:right;">Total</td>
+        <td>₹${formatCurrency(sumRate)}</td>
+        <td style="color:var(--color-emerald);">₹${formatCurrency(sumPaid)}</td>
+        <td style="color:var(--color-rose);">₹${formatCurrency(sumPending)}</td>
+        <td colspan="3"></td>
+    </tr>`;
     html += '</tbody></table>';
     container.innerHTML = html;
 }
@@ -399,7 +438,7 @@ async function renderArrearsTab(container, toolbar) {
     const rates = await loadRates();
     let allFlats = [];
     try {
-        const { data } = await sbClient.from('owners').select('flat_no, flat_type, owner_name, occupancy_status').order('flat_no');
+        const { data } = await sbClient.from('owners').select('flat_no, flat_type, owner_name, occupancy_status, occupancy_from, occupancy_to').order('flat_no');
         if (data) allFlats = data;
     } catch { allFlats = []; }
 
@@ -443,7 +482,12 @@ async function renderArrearsTab(container, toolbar) {
         let pendingAmount = 0;
         let pendingCount = 0;
         let lastPaid = null;
+        const occFrom = flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : null;
+        const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
         for (const pm of pendingMonths) {
+            const pmDate = new Date(pm.year, pm.month - 1, 1);
+            if (occFrom && pmDate < occFrom) continue;
+            if (occTo && pmDate > occTo) continue;
             const key = flat.flat_no + '|' + pm.month + '|' + pm.year;
             if (!collectionSet.has(key)) {
                 const rate = getRateOnDate(flat.flat_type, rates, `${pm.year}-${String(pm.month).padStart(2,'0')}-01`);

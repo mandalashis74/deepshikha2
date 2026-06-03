@@ -853,20 +853,12 @@ window.generateReceipt = async function(entryId) {
             doc.text(splitRemarks, 12, 117);
         }
         
-        // Signature Line
-        doc.setDrawColor(203, 213, 225);
-        doc.setLineWidth(0.3);
-        doc.line(140, 94, 185, 94);
-        
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.setTextColor(15, 23, 42);
-        doc.text("Authorized Signatory", 162.5, 98, { align: "center" });
-        
+        // Online Receipt
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(7.5);
-        doc.setTextColor(71, 85, 105);
-        doc.text(getBuildingName(), 162.5, 102, { align: "center" });
+        doc.setFontSize(7);
+        doc.setTextColor(148, 163, 184);
+        doc.text("ONLINE RECEIPT", 162.5, 130, { align: "center" });
+        doc.text("(No signature required)", 162.5, 134, { align: "center" });
         
         const pdfDataUri = doc.output('datauristring');
         const newTab = window.open();
