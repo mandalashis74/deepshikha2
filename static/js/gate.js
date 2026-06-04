@@ -784,11 +784,13 @@ window.gatePrintPass = function(p) {
     const dt = now.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const passNo = p.id ? '#' + p.id.toString().slice(-6) : '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
     const statusLabel = p.status === 'pending' ? 'PENDING' : p.status === 'approved' ? 'APPROVED' : p.status === 'checked_in' ? 'CHECKED IN' : p.status.toUpperCase();
-    const w = window.open('', '_blank', 'width=380,height=600');
+    const qrData = p.qr_token || p.id || passNo;
+    const w = window.open('', '_blank', 'width=380,height=650');
     w.document.write(`
         <!DOCTYPE html>
         <html>
         <head><title>Gate Pass</title>
+        <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"><\/script>
         <style>
             @page { margin: 0; size: 80mm auto; }
             body { font-family: 'Courier New', monospace; margin: 0; padding: 12px; width: 80mm; color: #000; font-size: 12px; line-height: 1.4; }
@@ -797,6 +799,8 @@ window.gatePrintPass = function(p) {
             .header .building { font-size: 14px; font-weight: bold; margin: 4px 0; }
             .header .pass-no { font-size: 11px; color: #555; }
             .status { text-align: center; font-size: 16px; font-weight: bold; letter-spacing: 3px; padding: 6px 0; margin: 6px 0; border: 2px solid #000; }
+            .qr-section { text-align: center; margin: 8px 0; padding: 8px 0; border-bottom: 1px dotted #ccc; }
+            .qr-section canvas { display: block; margin: 0 auto; }
             .details { margin: 8px 0; }
             .details .row { display: flex; padding: 3px 0; border-bottom: 1px dotted #ccc; }
             .details .label { width: 40%; font-weight: bold; }
@@ -815,6 +819,7 @@ window.gatePrintPass = function(p) {
                 <div style="font-size:10px;color:#555;">${escapeHtml(dt)}</div>
             </div>
             <div class="status">${statusLabel}</div>
+            <div class="qr-section"><canvas id="qr-pass"></canvas></div>
             <div class="details">
                 <div class="row"><span class="label">Visitor</span><span class="value">${escapeHtml(p.visitor_name)}</span></div>
                 ${p.company_name ? '<div class="row"><span class="label">Company</span><span class="value">' + escapeHtml(p.company_name) + '</span></div>' : ''}
@@ -831,6 +836,13 @@ window.gatePrintPass = function(p) {
                 <button onclick="window.print();setTimeout(()=>window.close(),500)" style="padding:8px 24px;font-size:14px;cursor:pointer;">🖨 Print Pass</button>
                 <br><button onclick="window.close()" style="margin-top:6px;padding:4px 16px;font-size:12px;cursor:pointer;">Close</button>
             </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    try {
+                        new QRious({ element: document.getElementById('qr-pass'), value: '${escapeHtml(qrData)}', size: 120, level: 'M' });
+                    } catch(e) {}
+                });
+            <\/script>
         </body>
         </html>
     `);
