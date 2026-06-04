@@ -91,9 +91,36 @@ window.openGateModal = async function() {
     if (datalist && _owners.length > 0) {
         datalist.innerHTML = _owners.map(o => '<option value="' + escapeHtml(o.flat_no) + '">').join('');
     }
+    // Show on-duty security personnel
+    await _updateDutyInfo();
     _subscribeRealtime();
     _render();
 };
+
+async function _updateDutyInfo() {
+    const dutyEl = document.getElementById('gate-duty-info');
+    if (!dutyEl) return;
+    try {
+        const hour = new Date().getHours();
+        let shift;
+        if (hour >= 6 && hour < 14) shift = 'morning';
+        else if (hour >= 14 && hour < 22) shift = 'evening';
+        else shift = 'night';
+        const { data } = await sbClient.from('security_personnel')
+            .select('name, designation, shift')
+            .eq('is_active', true)
+            .eq('shift', shift)
+            .order('display_order');
+        if (data && data.length > 0) {
+            const names = data.map(p => p.name + (p.designation ? ' (' + p.designation + ')' : '')).join(', ');
+            dutyEl.innerHTML = '<i class="fa-solid fa-user-shield" style="color:var(--color-violet);"></i> On Duty (' + shift + '): <strong>' + names + '</strong>';
+        } else {
+            dutyEl.innerHTML = '<i class="fa-solid fa-user-shield" style="color:var(--color-rose);"></i> No security personnel assigned to ' + shift + ' shift';
+        }
+    } catch (e) {
+        dutyEl.innerHTML = '';
+    }
+}
 
 // ============================================================
 // DATA LOADING
