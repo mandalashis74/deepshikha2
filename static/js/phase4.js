@@ -244,7 +244,9 @@ window.saveVisitor = async function(e) {
             if (error) throw error;
         } else {
             data.created_by = currentUserId;
-            data.qr_token = Math.random().toString(36).substring(2, 10);
+            data.pass_type = 'pre_auth_guest';
+            data.status = 'approved';
+            data.qr_token = Math.random().toString(36).substring(2, 10).toUpperCase();
             const { error } = await sbClient.from('visitor_passes').insert(data);
             if (error) throw error;
         }

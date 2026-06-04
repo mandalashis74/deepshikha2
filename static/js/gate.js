@@ -143,7 +143,7 @@ async function _loadData() {
     }
     // Fetch all recent gate passes
     try {
-        let q = sbClient.from('visitor_passes').select('*').order('created_at', { ascending: false }).limit(50);
+        let q = sbClient.from('visitor_passes').select('*').order('created_at', { ascending: false }).limit(200);
         if (!_isGuard() && flatNo) q = q.eq('flat_no', flatNo);
         const { data } = await q;
         if (data) _gatePasses = data;
