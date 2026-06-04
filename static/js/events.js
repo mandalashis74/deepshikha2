@@ -122,6 +122,7 @@ async function fetchContributionStats(eventId) {
     try {
         const q = sbClient.from('income')
             .select('amount')
+            .or('status.eq.approved,status.is.null')
             .eq('category', 'Cultural Event');
         const { data, error } = await q.eq('event_id', eventId);
         if (error) throw error;
@@ -1182,7 +1183,7 @@ window.loadEventContributionsFinance = async function() {
         const [evtRes, finRes, incRes, expRes] = await Promise.all([
             sbClient.from('cultural_events').select('id, name, contribution_amount, target_amount').eq('id', eventId).maybeSingle(),
             sbClient.rpc('get_event_financials', { p_event_id: eventId }),
-            sbClient.from('income').select('flat_no, amount, date_received').eq('category', 'Cultural Event').eq('event_id', eventId).order('date_received', { ascending: false }),
+            sbClient.from('income').select('flat_no, amount, date_received').or('status.eq.approved,status.is.null').eq('category', 'Cultural Event').eq('event_id', eventId).order('date_received', { ascending: false }),
             sbClient.from('event_expenses').select('*').eq('event_id', eventId).order('created_at', { ascending: false })
         ]);
         const event = evtRes.data;
@@ -2099,7 +2100,7 @@ function renderCouponsTab(coupons, registrations, myFlat, isAdmin) {
         html += `<div class="food-coupon-card">
             <div class="food-coupon-header">
                 <span class="food-coupon-type">${escapeHtml(c.label || c.coupon_type.replace('_',' '))}</span>
-                <span class="food-coupon-price">${c.price > 0 ? '₹'+formatCurrency(c.price) : '<span style="color:var(--color-emerald);">Free</span>'}</span>
+                <span class="food-coupon-price">${c.price > 0 ? formatCurrency(c.price) : '<span style="color:var(--color-emerald);">Free</span>'}</span>
             </div>
             <div style="margin-top:8px;font-size:0.8rem;color:var(--text-secondary);">
                 ${c.quantity > 0 ? `<span>${remaining} / ${c.quantity} remaining</span>` : '<span>Unlimited</span>'}
@@ -2141,7 +2142,7 @@ function renderCouponRegistrations(registrations, coupons) {
             <td>${escapeHtml(r.resident_name)}</td>
             <td>${cp ? escapeHtml(cp.label || cp.coupon_type) : '—'}</td>
             <td>${r.count}</td>
-            <td>₹${formatCurrency(r.amount)}</td>
+            <td>${formatCurrency(r.amount)}</td>
             <td>${r.status}</td>
             <td style="font-size:0.75rem;">${new Date(r.created_at).toLocaleDateString('en-IN')}</td>
         </tr>`;
@@ -2217,7 +2218,7 @@ window.deleteCoupon = async function(couponId) {
 window.openCouponRegistration = function(couponId, couponLabel, price) {
     document.getElementById('reg-coupon-id').value = couponId;
     document.getElementById('reg-coupon-label').textContent = couponLabel;
-    document.getElementById('reg-price').textContent = price > 0 ? '₹' + formatCurrency(price) + ' each' : 'Free';
+    document.getElementById('reg-price').textContent = price > 0 ? formatCurrency(price) + ' each' : 'Free';
     document.getElementById('reg-flat').value = localStorage.getItem('currentFlatNo') || '';
     document.getElementById('reg-name').value = localStorage.getItem('currentFlatOwnerName') || '';
     document.getElementById('reg-count').value = 1;
@@ -2282,6 +2283,7 @@ window.generateEventDossier = async function(eventId) {
 
         const { data: contributions } = await sbClient.from('income')
             .select('flat_no, amount, date_received, remarks')
+            .or('status.eq.approved,status.is.null')
             .eq('event_id', eventId)
             .order('date_received');
         const totalCollected = (contributions || []).reduce((s, c) => s + Number(c.amount || 0), 0);

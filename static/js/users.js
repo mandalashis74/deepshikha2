@@ -19,6 +19,12 @@ window.openBuildingConfigModal = function() {
     document.getElementById("cfg-wings").value = getWingsList().join(',');
     document.getElementById("cfg-flat-types").value = getFlatTypesList().join(',');
     document.getElementById("cfg-dash-bg").value = buildingConfig?.dashboard_bg_url || '';
+    document.getElementById("cfg-flat-include-block").checked = buildingConfig?.flat_include_block ?? DEFAULT_BUILDING_CONFIG.flat_include_block;
+    document.getElementById("cfg-flat-include-wing").checked = buildingConfig?.flat_include_wing ?? DEFAULT_BUILDING_CONFIG.flat_include_wing;
+    document.getElementById("cfg-flat-include-floor").checked = buildingConfig?.flat_include_floor ?? DEFAULT_BUILDING_CONFIG.flat_include_floor;
+    document.getElementById("cfg-flat-include-wing-letter").checked = buildingConfig?.flat_include_wing_letter ?? DEFAULT_BUILDING_CONFIG.flat_include_wing_letter;
+    document.getElementById("cfg-flat-delimiter").value = buildingConfig?.flat_delimiter ?? DEFAULT_BUILDING_CONFIG.flat_delimiter;
+    document.getElementById("cfg-flat-exceptions").value = buildingConfig?.flat_exceptions ?? DEFAULT_BUILDING_CONFIG.flat_exceptions;
     openModal('buildingConfigModal');
 };
 
@@ -35,7 +41,13 @@ window.handleSaveBuildingConfig = async function(e) {
         floors: parseInt(document.getElementById("cfg-floors").value, 10) || 8,
         wings: document.getElementById("cfg-wings").value.trim().toUpperCase(),
         flat_types: document.getElementById("cfg-flat-types").value.trim().toUpperCase(),
-        dashboard_bg_url: document.getElementById("cfg-dash-bg").value.trim()
+        dashboard_bg_url: document.getElementById("cfg-dash-bg").value.trim(),
+        flat_include_block: document.getElementById("cfg-flat-include-block").checked,
+        flat_include_wing: document.getElementById("cfg-flat-include-wing").checked,
+        flat_include_floor: document.getElementById("cfg-flat-include-floor").checked,
+        flat_include_wing_letter: document.getElementById("cfg-flat-include-wing-letter").checked,
+        flat_delimiter: document.getElementById("cfg-flat-delimiter").value,
+        flat_exceptions: document.getElementById("cfg-flat-exceptions").value.trim()
     };
     const saved = await saveBuildingConfig(config);
     if (saved) {

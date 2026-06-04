@@ -689,8 +689,17 @@ window.generateReceipt = async function(entryId) {
         showToast("Fetching receipt details...", "success");
         
         // Fetch income record
-        const { data, error } = await sbClient.from('income').select('id, flat_no, year, month, amount, date_received, category, event_name, remarks').eq('id', entryId).single();
+        const { data, error } = await sbClient.from('income').select('id, flat_no, year, month, amount, date_received, category, event_name, remarks, collected_by, payment_mode, ref_number, status, approved_by, approved_at').eq('id', entryId).single();
         if (error || !data) throw new Error("Receipt data not found.");
+        
+        if (data.status === 'pending') {
+            showToast("Payment is pending approval. Receipt not yet available.", "warning");
+            return;
+        }
+        if (data.status === 'rejected') {
+            showToast("Payment was rejected. Please contact the society office.", "error");
+            return;
+        }
         
         // Fetch owner name
         const { data: ownerData } = await sbClient.from('owners').select('owner_name').eq('flat_no', data.flat_no).single();
@@ -815,50 +824,83 @@ window.generateReceipt = async function(entryId) {
         }
         doc.text(purposeText, 138, 66);
         
+        // Payment mode on right side
+        if (data.payment_mode) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8);
+            doc.setTextColor(51, 65, 85);
+            doc.text("Payment Mode:", 120, 76);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(15, 23, 42);
+            doc.text(data.payment_mode + (data.ref_number ? ' (' + data.ref_number + ')' : ''), 138, 76);
+        }
+        
+        // Approval info on right side
+        if (data.approved_by) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7);
+            doc.setTextColor(100, 116, 139);
+            doc.text("Approved:", 120, 84);
+            doc.setFont("helvetica", "normal");
+            const apprText = data.approved_by + (data.approved_at ? ' on ' + window.formatDateDisplay(data.approved_at) : '');
+            doc.text(apprText, 138, 84);
+            doc.setFontSize(8);
+        }
+        
         // Totals & Words
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
         doc.setTextColor(15, 23, 42);
-        doc.text("Total Paid:", 12, 84);
+        doc.text("Total Paid:", 12, 100);
         
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
         doc.setTextColor(5, 150, 105); // emerald 600
-        doc.text(`Rs. ${data.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 34, 84);
+        doc.text(`Rs. ${data.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 34, 100);
         
         // Words text
         const amtWords = window.numberToWords(data.amount);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8.5);
         doc.setTextColor(51, 65, 85);
-        doc.text("Amount in Words:", 12, 94);
+        doc.text("Amount in Words:", 12, 110);
         
         doc.setFont("helvetica", "oblique");
         doc.setFontSize(8);
         doc.setTextColor(71, 85, 105);
         const splitWords = doc.splitTextToSize(amtWords, 115);
-        doc.text(splitWords, 12, 99);
+        doc.text(splitWords, 12, 115);
         
         // Remarks
         if (data.remarks && data.category !== "Other") {
             doc.setFont("helvetica", "bold");
             doc.setFontSize(8.5);
             doc.setTextColor(51, 65, 85);
-            doc.text("Remarks:", 12, 112);
+            doc.text("Remarks:", 12, 128);
             
             doc.setFont("helvetica", "normal");
             doc.setFontSize(8);
             doc.setTextColor(71, 85, 105);
             const splitRemarks = doc.splitTextToSize(data.remarks, 115);
-            doc.text(splitRemarks, 12, 117);
+            doc.text(splitRemarks, 12, 133);
+        }
+        
+        // Collected By
+        if (data.collected_by) {
+            const collectedByY = (data.remarks && data.category !== "Other") ? 142 : 128;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text("Collected by:", 12, collectedByY);
+            doc.setFont("helvetica", "normal");
+            doc.text(data.collected_by, 38, collectedByY);
         }
         
         // Online Receipt
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7);
         doc.setTextColor(148, 163, 184);
-        doc.text("ONLINE RECEIPT", 162.5, 130, { align: "center" });
-        doc.text("(No signature required)", 162.5, 134, { align: "center" });
+        doc.text("ONLINE RECEIPT", 170, 140);
         
         const pdfDataUri = doc.output('datauristring');
         const newTab = window.open();
@@ -970,7 +1012,7 @@ window.fetchHistory = async function() {
         }
         
         if (type === 'ALL' || type === 'INCOME') {
-            let q = sbClient.from('income').select('id, flat_no, year, month, amount, date_received, category, event_name, remarks');
+            let q = sbClient.from('income').select('id, flat_no, year, month, amount, date_received, category, event_name, remarks').or('status.eq.approved,status.is.null');
             
             if (flat) {
                 q = q.eq('flat_no', flat);

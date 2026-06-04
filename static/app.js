@@ -5,6 +5,8 @@ let loadedEntries = [];
 let activeReportTab = 'date-wise-cashbook';
 window.currentUserRole = 'viewer';
 window.currentUserId = null;
+window.currentUserEmail = null;
+window.currentUserName = '';
 let loadedTickets = [];
 let selectedTicketId = null;
 let ticketScope = 'ALL';
@@ -27,8 +29,15 @@ const DEFAULT_BUILDING_CONFIG = {
     floors: 8,
     wings: 'A,B,C,D,E,F,G,H',
     flat_types: '1BHK,2BHK,3BHK',
-    dashboard_bg_url: ''
+    dashboard_bg_url: '',
+    flat_include_block: false,
+    flat_include_wing: false,
+    flat_include_floor: true,
+    flat_include_wing_letter: true,
+    flat_delimiter: '',
+    flat_exceptions: ''
 };
+window.DEFAULT_BUILDING_CONFIG = DEFAULT_BUILDING_CONFIG;
 
 window.getWingsList = function() {
     return (buildingConfig?.wings || DEFAULT_BUILDING_CONFIG.wings).split(',').map(s => s.trim()).filter(Boolean);
@@ -53,10 +62,30 @@ window.getBlockName = function() {
 window.getAllFlats = function() {
     const floors = window.getFloorCount();
     const wings = window.getWingsList();
+    const cfg = window.buildingConfig || DEFAULT_BUILDING_CONFIG;
+    const delim = cfg.flat_delimiter || '';
+    const blockName = cfg.flat_include_block && cfg.block_name ? cfg.block_name.trim() : '';
+    const exceptions = cfg.flat_exceptions ? cfg.flat_exceptions.split(',').map(s => s.trim()).filter(Boolean) : [];
     const flats = [];
     for (let f = 1; f <= floors; f++) {
-        wings.forEach(w => {
-            flats.push(`${f}${w}`);
+        wings.forEach((w, wi) => {
+            let parts = [];
+            if (blockName) parts.push(blockName);
+            if (cfg.flat_include_wing) parts.push(String(wi + 1));
+            if (cfg.flat_include_floor) parts.push(String(f));
+            if (cfg.flat_include_wing_letter) parts.push(w);
+            let flatNo = parts.join(delim);
+            // If no components selected, fallback to floor+wing
+            if (!flatNo) flatNo = `${f}${w}`;
+            flats.push(flatNo);
+        });
+    }
+    // Apply exceptions: replace generated flats with custom ones if provided
+    if (exceptions.length > 0) {
+        // Exceptions replace flats at corresponding indices (or append)
+        exceptions.forEach((ex, i) => {
+            if (i < flats.length) flats[i] = ex;
+            else flats.push(ex);
         });
     }
     return flats;
@@ -290,6 +319,26 @@ window.saveBuildingConfig = async function(config) {
     window.buildingConfig = config;
     try {
         if (buildingConfig.floors) buildingConfig.floors = parseInt(buildingConfig.floors, 10);
+        await sbClient.from('building_config').upsert({
+            id: 1,
+            building_name: config.building_name,
+            block_name: config.block_name,
+            address: config.address,
+            google_api_key: config.google_api_key,
+            google_client_id: config.google_client_id,
+            vapid_public_key: config.vapid_public_key,
+            vapid_private_key: config.vapid_private_key,
+            floors: parseInt(config.floors, 10) || 8,
+            wings: config.wings,
+            flat_types: config.flat_types,
+            dashboard_bg_url: config.dashboard_bg_url,
+            flat_include_block: config.flat_include_block || false,
+            flat_include_wing: config.flat_include_wing || false,
+            flat_include_floor: config.flat_include_floor !== false,
+            flat_include_wing_letter: config.flat_include_wing_letter !== false,
+            flat_delimiter: config.flat_delimiter || '',
+            flat_exceptions: config.flat_exceptions || ''
+        }, { onConflict: 'id' });
         initGoogleDrivePicker();
         window.updateBuildingUI();
         return true;
@@ -324,6 +373,8 @@ window.setupAuthListener = function() {
     sbClient.auth.onAuthStateChange((event, session) => {
         if (session) {
             window.currentUserId = session.user.id;
+            window.currentUserEmail = session.user.email;
+            window.currentUserName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email || '';
             
             setTimeout(async () => {
                 try {
@@ -940,7 +991,7 @@ window.refreshDashboard = async function() {
 
 // Format number to currency (e.g. 1500 -> Rs. 1,500.00)
 window.formatCurrency = function(val) {
-    return "Rs. " + Number(val).toLocaleString('en-IN', {
+    return "₹" + Number(val).toLocaleString('en-IN', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
@@ -997,15 +1048,56 @@ window.openModal = function(modalId) {
     el.style.display = 'block';
     _modalZIndex += 10;
     el.style.zIndex = _modalZIndex;
+    el.onclick = function(e) {
+        if (e.target === el) closeModal(modalId);
+    };
 };
 
 window.closeModal = function(modalId) {
     const modal = document.getElementById(modalId);
     if (!modal) return;
     modal.style.display = "none";
+    modal.onclick = null;
     const form = modal.querySelector("form");
     if (form) form.reset();
 };
+
+// Helper: insert into income with fallback for missing columns
+const INCOME_NEW_COLS = ['payment_mode', 'ref_number', 'payment_date', 'status', 'approved_by', 'approved_at', 'deposit_status', 'deposited_by', 'deposited_at'];
+async function insertIncomeRow(data) {
+    const tryInsert = async (d) => {
+        const { data: result, error } = await sbClient.from('income').insert(d).select('id').single();
+        if (error) throw error;
+        return result;
+    };
+    try {
+        return await tryInsert(data);
+    } catch (err) {
+        // Check if any new column is missing - strip them and retry
+        const missingCol = INCOME_NEW_COLS.find(c => err.message && err.message.includes(`"${c}"`));
+        if (missingCol) {
+            const stripped = { ...data };
+            for (const col of INCOME_NEW_COLS) delete stripped[col];
+            // Also remove collected_by if that fails too (legacy)
+            try {
+                return await tryInsert(stripped);
+            } catch (err2) {
+                if (err2.message && err2.message.includes('collected_by')) {
+                    delete stripped.collected_by;
+                    return await tryInsert(stripped);
+                }
+                throw err2;
+            }
+        }
+        if (err.message && err.message.includes('collected_by')) {
+            const stripped = { ...data };
+            delete stripped.collected_by;
+            for (const col of INCOME_NEW_COLS) delete stripped[col];
+            return await tryInsert(stripped);
+        }
+        throw err;
+    }
+}
 
 // Handle income form submission
 window.handleIncomeSubmit = async function(e) {
@@ -1016,9 +1108,19 @@ window.handleIncomeSubmit = async function(e) {
     }
     
     if (!hasPermission('income:create')) {
-        showToast("Access Denied: You don't have permission to record income entries.", "error");
-        return;
+        // Soft-login users may submit payment requests for their own flat
+        const isSoftLogin = localStorage.getItem('isSoftLogin') === 'true';
+        const softLoginFlat = localStorage.getItem('currentFlatNo') || '';
+        const flatVal = document.getElementById("inc-flat").value;
+        const ownFlatNo = flatVal.split(" - ")[0].trim();
+        if (!isSoftLogin || ownFlatNo !== softLoginFlat) {
+            showToast("Access Denied: You don't have permission to record income entries.", "error");
+            return;
+        }
     }
+    
+    const form = e.target;
+    const isMulti = form.dataset.multiMonth === 'true';
     
     const flat = document.getElementById("inc-flat").value;
     
@@ -1034,10 +1136,12 @@ window.handleIncomeSubmit = async function(e) {
     const category = document.getElementById("inc-category").value;
     const eventName = document.getElementById("inc-event") ? document.getElementById("inc-event").value.trim() : "";
     const remarks = document.getElementById("inc-remarks") ? document.getElementById("inc-remarks").value.trim() : "";
-    const year = document.getElementById("inc-year").value;
-    const month = document.getElementById("inc-month").value;
-    const amount = document.getElementById("inc-amount").value;
     const date = document.getElementById("inc-date").value;
+    const amount = document.getElementById("inc-amount").value;
+    const paymentMode = document.getElementById("inc-payment-mode") ? document.getElementById("inc-payment-mode").value : '';
+    const refNumber = document.getElementById("inc-ref-number") ? document.getElementById("inc-ref-number").value.trim() : '';
+    const isSelfService = localStorage.getItem('isSoftLogin') === 'true' && (flat.split(" - ")[0].trim() === (localStorage.getItem('currentFlatNo') || ''));
+    const paymentStatus = isSelfService ? 'pending' : 'approved';
 
     const btn = e.target.querySelector("button[type=submit]");
     btn.disabled = true;
@@ -1048,37 +1152,152 @@ window.handleIncomeSubmit = async function(e) {
         return;
     }
 
-    try {
-        const flatNo = flat.split(" - ")[0].trim();
-        const amtVal = parseFloat(amount);
-        if (isNaN(amtVal)) throw new Error("Amount must be a valid number.");
+    const flatNo = flat.split(" - ")[0].trim();
+    const amtVal = parseFloat(amount);
+    if (isNaN(amtVal)) throw new Error("Amount must be a valid number.");
 
-        const { data, error } = await sbClient.from('income').insert({
-            flat_no: flatNo,
-            year: year,
-            month: month,
-            amount: amtVal,
-            date_received: date,
-            category: category,
-            event_name: category === "Special Event" ? eventName : null,
-            remarks: remarks || null
-        }).select('id').single();
-        
-        if (error) throw error;
-        
-        showToast(`Payment logged for Flat ${flatNo}`, "success", {
-            text: '<i class="fa-solid fa-file-pdf"></i> Receipt',
-            callback: () => generateReceipt(data.id)
-        });
+    try {
+        let data;
+        if (isMulti && category === 'Monthly Maintenance') {
+            // Multi-month: insert one row per checked checkbox
+            const cbs = document.querySelectorAll('.inc-mm-cb:checked');
+            if (cbs.length === 0) {
+                showToast('Select at least one month.', 'warning');
+                btn.disabled = false;
+                return;
+            }
+            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            let insertedCount = 0;
+            let lastId = null;
+            const totalRate = Array.from(cbs).reduce((s, cb) => s + parseFloat(cb.dataset.rate || 0), 0);
+            if (totalRate === 0) { showToast('No applicable rate for selected months.', 'error'); btn.disabled = false; return; }
+            
+            if (amtVal < totalRate) {
+                // Partial payment: apply full amount to the current month only
+                const now = new Date();
+                const curMonth = now.getMonth() + 1;
+                const curYear = now.getFullYear();
+                const insertData = {
+                    flat_no: flatNo,
+                    year: String(curYear),
+                    month: monthNames[curMonth - 1],
+                    amount: Math.round(amtVal * 100) / 100,
+                    date_received: date,
+                    category: 'Monthly Maintenance',
+                    remarks: (remarks || '') + ' (partial payment)',
+                    collected_by: window.currentUserName || window.currentUserEmail || null,
+                    payment_mode: paymentMode || null,
+                    ref_number: refNumber || null,
+                    payment_date: date,
+                    status: paymentStatus,
+                    approved_by: null,
+                    approved_at: null
+                };
+                data = await insertIncomeRow(insertData);
+                insertedCount = 1;
+                lastId = data.id;
+                if (isSelfService) {
+                    showToast(`Payment request of ₹${formatCurrency(amtVal)} submitted for ${flatNo}. Awaiting approval.`, "success");
+                } else {
+                    showToast(`₹${formatCurrency(amtVal)} partial payment for ${monthNames[curMonth - 1]} ${curYear} (${flatNo}).`, "success", {
+                        text: '<i class="fa-solid fa-file-pdf"></i> Receipt',
+                        callback: () => generateReceipt(lastId)
+                    });
+                }
+            } else {
+                // Full payment: prorate across all selected months
+                for (const cb of cbs) {
+                    const cbMonth = parseInt(cb.dataset.month);
+                    const cbYear = parseInt(cb.dataset.year);
+                    const rateAmt = parseFloat(cb.dataset.rate || 0);
+                    const prorated = (rateAmt / totalRate) * amtVal;
+                    const monthName = monthNames[cbMonth - 1];
+                    const insertData = {
+                        flat_no: flatNo,
+                        year: String(cbYear),
+                        month: monthName,
+                        amount: Math.round(prorated * 100) / 100,
+                        date_received: date,
+                        category: 'Monthly Maintenance',
+                        collected_by: window.currentUserName || window.currentUserEmail || null,
+                        payment_mode: paymentMode || null,
+                        ref_number: refNumber || null,
+                        payment_date: date,
+                        status: paymentStatus,
+                        approved_by: null,
+                        approved_at: null
+                    };
+                    if (remarks) insertData.remarks = remarks;
+                    data = await insertIncomeRow(insertData);
+                    insertedCount++;
+                    lastId = data.id;
+                }
+                if (isSelfService) {
+                    showToast(`Payment request of ₹${formatCurrency(amtVal)} submitted for ${flatNo}. Awaiting approval.`, "success");
+                } else {
+                    showToast(`₹${formatCurrency(amtVal)} collected from ${flatNo} (${insertedCount} month${insertedCount > 1 ? 's' : ''}).`, "success", {
+                        text: '<i class="fa-solid fa-file-pdf"></i> Receipt (last entry)',
+                        callback: () => generateReceipt(lastId)
+                    });
+                }
+            }
+            
+            // Reset multi-month UI
+            form.dataset.multiMonth = '';
+            const multiSection = document.getElementById('inc-multi-month');
+            const singleSection = document.getElementById('inc-single-month');
+            if (multiSection) multiSection.classList.add('hidden');
+            if (singleSection) singleSection.classList.remove('hidden');
+            const incAmount = document.getElementById('inc-amount');
+            if (incAmount) incAmount.required = true;
+        } else {
+            // Single month (original behavior)
+            const year = document.getElementById("inc-year").value;
+            const month = document.getElementById("inc-month").value;
+            const insertData = {
+                flat_no: flatNo,
+                year: year,
+                month: month,
+                amount: amtVal,
+                date_received: date,
+                category: category,
+                event_name: category === "Special Event" ? eventName : null,
+                remarks: remarks || null,
+                collected_by: window.currentUserName || window.currentUserEmail || null,
+                payment_mode: paymentMode || null,
+                ref_number: refNumber || null,
+                payment_date: date,
+                status: paymentStatus,
+                approved_by: null,
+                approved_at: null
+            };
+            data = await insertIncomeRow(insertData);
+            
+            if (isSelfService) {
+                showToast(`Payment request of ₹${formatCurrency(amtVal)} submitted for ${flatNo}. Awaiting approval.`, "success");
+            } else {
+                showToast(`Payment logged for Flat ${flatNo}`, "success", {
+                    text: '<i class="fa-solid fa-file-pdf"></i> Receipt',
+                    callback: () => generateReceipt(data.id)
+                });
+            }
+        }
         
         document.getElementById("inc-amount").value = "";
+        document.getElementById("inc-mm-override").value = "";
         if (document.getElementById("inc-event")) document.getElementById("inc-event").value = "";
         if (document.getElementById("inc-remarks")) document.getElementById("inc-remarks").value = "";
+        if (document.getElementById("inc-payment-mode")) document.getElementById("inc-payment-mode").value = "";
+        if (document.getElementById("inc-ref-number")) document.getElementById("inc-ref-number").value = "";
         document.getElementById("inc-category").value = "Monthly Maintenance";
         toggleEventNameField("Monthly Maintenance");
         
         closeModal('incomeModal');
         refreshDashboard();
+        
+        if (category === 'Monthly Maintenance' && typeof window.refreshMaintenanceCollectionsTab === 'function') {
+            window.refreshMaintenanceCollectionsTab();
+        }
     } catch (err) {
         showToast(err.message || "Failed to log income", "error");
     } finally {

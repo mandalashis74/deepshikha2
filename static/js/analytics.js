@@ -19,7 +19,7 @@ async function loadAnalytics() {
             ownersRes, vendorsRes, meetingsRes, pollsRes,
             parkingRes, assetsRes, visitorsRes
         ] = await Promise.all([
-            sbClient.from('income').select('amount, date_received, category'),
+            sbClient.from('income').select('amount, date_received, category').or('status.eq.approved,status.is.null'),
             sbClient.from('expenses').select('amount, date_spent, expense_head'),
             sbClient.from('tickets').select('status'),
             sbClient.from('compliance_calendar').select('status, due_date'),

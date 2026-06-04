@@ -316,8 +316,8 @@
                     <div>
                         <div class="dash-section-title"><i class="fa-solid fa-bolt"></i> Quick Actions</div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                            <button class="dash-action-card" id="dash-collect-fee" onclick="openModal('incomeModal')">
-                                <i class="fa-solid fa-hand-holding-dollar" style="color: var(--color-emerald);"></i>
+                            <button class="dash-action-card" id="dash-collect-fee" onclick="openMultiMonthIncomeModal()">
+                                <i class="fa-solid fa-hand-holding-dollar"></i>
                                 <span>Collect Fee</span>
                             </button>
                             <button class="dash-action-card" id="dash-record-expense" onclick="openModal('expenseModal')">
@@ -713,7 +713,7 @@
                             <label for="inc-event">Event / Puja Name</label>
                             <input type="text" id="inc-event" placeholder="e.g. Durga Puja 2026, Building Painting">
                         </div>
-                        <div class="grid-two-cols">
+                        <div id="inc-single-month" class="grid-two-cols">
                             <div class="input-field">
                                 <label for="inc-year">Year</label>
                                 <select id="inc-year">
@@ -743,13 +743,48 @@
                                 </select>
                             </div>
                         </div>
+                        <div id="inc-multi-month" class="hidden">
+                            <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:12px;margin-bottom:12px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:4px;">
+                                    <span id="inc-mm-flat" style="font-weight:700;font-size:1rem;"></span>
+                                    <span id="inc-mm-type" style="font-size:0.8rem;color:var(--text-secondary);background:var(--bg-body);padding:2px 8px;border-radius:4px;"></span>
+                                </div>
+                                <div id="inc-mm-months" style="max-height:280px;overflow-y:auto;"></div>
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-color);flex-wrap:wrap;gap:6px;">
+                                    <span style="font-size:0.85rem;"><strong>Selected:</strong> <span id="inc-mm-count">0</span> month(s)</span>
+                                    <span style="font-size:1.1rem;font-weight:700;color:var(--color-emerald);">Total: ₹<span id="inc-mm-total">0</span></span>
+                                </div>
+                                <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;">
+                                    <button type="button" class="btn btn-sm" onclick="selectAllMonths(true)" style="font-size:0.65rem;padding:2px 8px;"><i class="fa-solid fa-check-double"></i> All Due</button>
+                                    <button type="button" class="btn btn-sm" onclick="selectAllMonths(false)" style="font-size:0.65rem;padding:2px 8px;"><i class="fa-solid fa-xmark"></i> Clear</button>
+                                    <span style="font-size:0.7rem;color:var(--text-muted);margin-left:auto;">Override amount: ₹<input type="number" id="inc-mm-override" style="width:90px;padding:2px 6px;font-size:0.75rem;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-body);color:var(--text-primary);" placeholder="auto"></span>
+                                </div>
+                            </div>
+                        </div>
                         <div class="input-field">
                             <label for="inc-amount">Amount Paid (Rs.)</label>
                             <input type="number" step="0.01" id="inc-amount" placeholder="e.g. 1000" required>
                         </div>
                         <div class="input-field">
-                            <label for="inc-date">Receipt Date</label>
+                            <label for="inc-date">Payment Date</label>
                             <input type="date" id="inc-date" required>
+                        </div>
+                        <div id="inc-payment-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div class="input-field">
+                                <label for="inc-payment-mode">Payment Mode</label>
+                                <select id="inc-payment-mode">
+                                    <option value="">— Select —</option>
+                                    <option value="Cash">Cash</option>
+                                    <option value="Bank Transfer">Bank Transfer</option>
+                                    <option value="Cheque">Cheque</option>
+                                    <option value="UPI">UPI</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="input-field">
+                                <label for="inc-ref-number">Reference No.</label>
+                                <input type="text" id="inc-ref-number" placeholder="e.g. cheque no, TXN ID">
+                            </div>
                         </div>
                         <div class="input-field">
                             <label for="inc-remarks">Remarks (Optional)</label>
@@ -759,7 +794,7 @@
                             <button type="button" class="btn btn-slate"
                                 onclick="closeModal('incomeModal')">Cancel</button>
                             <button type="submit" class="btn btn-emerald">
-                                <i class="fa-solid fa-floppy-disk"></i> Save Collection
+                                <i class="fa-solid fa-floppy-disk"></i> Save Payment
                             </button>
                         </div>
                     </form>
@@ -914,6 +949,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-indigo" onclick="closeModal('ownersDirectoryModal'); openMaintenanceModal()"><i class="fa-solid fa-hand-holding-dollar"></i> Maintenance Charges</button>
                     <button type="button" class="btn btn-slate" onclick="closeModal('ownersDirectoryModal')">Close
                         Directory</button>
                 </div>
@@ -1332,6 +1368,41 @@
                             <label for="cfg-flat-types">Flat Types (comma separated)</label>
                             <input type="text" id="cfg-flat-types" placeholder="e.g. 1BHK,2BHK,3BHK">
                         </div>
+                        <details style="margin-top:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:6px; padding:8px 12px;">
+                            <summary style="cursor:pointer; font-size:0.85rem; font-weight:600; color:var(--text-secondary);"><i class="fa-solid fa-hashtag"></i> Flat Naming Scheme</summary>
+                            <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
+                                <p style="font-size:0.75rem; color:var(--text-muted); line-height:1.5;">Choose which components form the flat number and how they are separated. Configure once — affects flat generation across the app.</p>
+                                <div class="grid-two-cols">
+                                    <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer;">
+                                        <input type="checkbox" id="cfg-flat-include-block"> Include Block Name
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer;">
+                                        <input type="checkbox" id="cfg-flat-include-wing"> Include Wing No.
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer;">
+                                        <input type="checkbox" id="cfg-flat-include-floor" checked> Include Floor No.
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer;">
+                                        <input type="checkbox" id="cfg-flat-include-wing-letter" checked> Include Wing Letter
+                                    </label>
+                                </div>
+                                <div class="input-field">
+                                    <label for="cfg-flat-delimiter">Delimiter / Separator</label>
+                                    <select id="cfg-flat-delimiter" style="padding:6px 10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);">
+                                        <option value="">None (e.g. 1A)</option>
+                                        <option value="-">Hyphen (e.g. Block-1-A)</option>
+                                        <option value=".">Dot (e.g. Block.1.A)</option>
+                                        <option value="_">Underscore (e.g. Block_1_A)</option>
+                                        <option value="/">Slash (e.g. Block/1/A)</option>
+                                    </select>
+                                </div>
+                                <div class="input-field">
+                                    <label for="cfg-flat-exceptions">Exceptions (comma separated, one per flat)</label>
+                                    <input type="text" id="cfg-flat-exceptions" placeholder="e.g. PH-01,SHOP-1,STORE-A">
+                                    <span style="font-size:0.7rem;color:var(--text-muted);">Custom flat numbers replace generated ones in order. Leave empty to use generated numbers.</span>
+                                </div>
+                            </div>
+                        </details>
                         <details style="margin-top:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:6px; padding:8px 12px;">
                             <summary style="cursor:pointer; font-size:0.85rem; font-weight:600; color:var(--text-secondary);"><i class="fa-brands fa-google-drive"></i> Integrations (Google Drive &amp; Push Notifications)</summary>
                             <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
@@ -2136,6 +2207,7 @@
             <div class="filter-pills" id="maintenance-tabs">
                 <button class="pill active" data-mt="collections" onclick="switchMaintenanceTab('collections')">Collections</button>
                 <button class="pill" data-mt="rates" onclick="switchMaintenanceTab('rates')">Rate Cards</button>
+                <button class="pill" data-mt="pending" onclick="switchMaintenanceTab('pending')">Pending Approvals</button>
             </div>
             <div id="maintenance-toolbar" style="margin:12px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center;"></div>
             <div id="maintenance-container"><div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
@@ -2165,49 +2237,6 @@
 </div>
 
 <!-- MODAL: RECORD MAINTENANCE COLLECTION -->
-<div id="recordCollectionModal" class="modal">
-    <div class="modal-content animate-zoom" style="max-width: 480px;">
-        <div class="modal-header">
-            <h2><i class="fa-solid fa-hand-holding-dollar"></i> Record Collection</h2>
-            <span class="close" onclick="closeModal('recordCollectionModal')">&times;</span>
-        </div>
-        <form id="record-collection-form" onsubmit="saveCollection(event)">
-            <div class="modal-body">
-                <input type="hidden" id="collection-flat-no">
-                <input type="hidden" id="collection-flat-type">
-                <input type="hidden" id="collection-month">
-                <input type="hidden" id="collection-year">
-                <p style="margin-bottom:12px;"><strong>Flat:</strong> <span id="collection-display-flat"></span></p>
-                <p style="margin-bottom:12px;"><strong>Period:</strong> <span id="collection-display-period"></span></p>
-                <p style="margin-bottom:12px;"><strong>Amount:</strong> ₹<span id="collection-display-amount"></span></p>
-                <div class="input-field">
-                    <label>Paid Date</label>
-                    <input type="date" id="collection-paid-date" required>
-                </div>
-                <div class="input-field">
-                    <label>Payment Method</label>
-                    <select id="collection-method" required>
-                        <option value="cash">Cash</option>
-                        <option value="bank_transfer">Bank Transfer</option>
-                        <option value="cheque">Cheque</option>
-                        <option value="upi">UPI</option>
-                        <option value="other">Other</option>
-                    </select>
-                </div>
-                <div class="input-field">
-                    <label>Transaction Ref (optional)</label>
-                    <input type="text" id="collection-ref" placeholder="Cheque no / UPI ref / Receipt no">
-                </div>
-                <div class="input-field">
-                    <label>Remarks (optional)</label>
-                    <input type="text" id="collection-remarks" placeholder="Any notes">
-                </div>
-                <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fa-solid fa-check"></i> Confirm Collection</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <!-- MODAL: SECURITY PERSONNEL ROSTER -->
 <div id="securityModal" class="modal">
     <div class="modal-content animate-zoom" style="max-width: 900px;">
@@ -2586,7 +2615,7 @@
                         </div>
 
                         <div class="action-group" style="margin-top: 16px;">
-                            <button class="btn btn-emerald btn-action" id="fin-collect-fee" onclick="openModal('incomeModal')">
+                            <button class="btn btn-emerald btn-action" id="fin-collect-fee" onclick="openMultiMonthIncomeModal()">
                                 <i class="fa-solid fa-hand-holding-dollar"></i> Collect Fee
                             </button>
                             <button class="btn btn-rose btn-action" id="fin-record-expense" onclick="openModal('expenseModal')">
@@ -3163,7 +3192,7 @@
                         <div>
                             <div class="dash-section-title"><i class="fa-solid fa-bolt"></i> Quick Actions</div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                                <button class="dash-action-card" onclick="openModal('incomeModal'); closeModal('lavishDashboardModal')">
+                                <button class="dash-action-card" onclick="openMultiMonthIncomeModal(); closeModal('lavishDashboardModal')">
                                     <i class="fa-solid fa-hand-holding-dollar" style="color: var(--color-emerald);"></i>
                                     <span>Collect Fee</span>
                                 </button>
