@@ -1490,6 +1490,14 @@ select.directory-search {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.profile-circle {
+    flex-shrink: 0;
 }
 
 .flat-card p {

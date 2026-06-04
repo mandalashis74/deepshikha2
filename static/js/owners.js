@@ -51,6 +51,44 @@ window.loadOwnersDirectory = async function(filterText = "") {
     }
 };
 
+function calcProfileCompletion(item) {
+    function _hasStructured(val) {
+        if (!val) return false;
+        try { const a = JSON.parse(val); return Array.isArray(a) && a.length > 0; } catch(e) { return false; }
+    }
+    function _has(val) { return val && val.toString().trim() !== '' && val !== 'None'; }
+    const fields = [
+        _hasStructured(item.owner_name),
+        _hasStructured(item.contact_no),
+        _has(item.parking_no),
+        _has(item.occupancy_status),
+        _has(item.flat_type),
+        _hasStructured(item.family_members),
+        _hasStructured(item.service_person),
+        _hasStructured(item.vehicle_details),
+        _has(item.passcode),
+    ];
+    return Math.round(fields.filter(Boolean).length / fields.length * 100);
+}
+
+function completionColor(pct) {
+    if (pct < 34) return '#ef4444';
+    if (pct < 67) return '#f59e0b';
+    return '#22c55e';
+}
+
+function profileSvg(pct) {
+    const r = 14, circ = 2 * Math.PI * r;
+    const offset = circ - (circ * pct / 100);
+    const color = completionColor(pct);
+    return `<svg width="34" height="34" viewBox="0 0 34 34" class="profile-circle" title="${pct}% complete">
+        <circle cx="17" cy="17" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="3"/>
+        <circle cx="17" cy="17" r="${r}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"
+            stroke-dasharray="${circ}" stroke-dashoffset="${offset}" transform="rotate(-90 17 17)"/>
+        <text x="17" y="20" text-anchor="middle" font-size="9" fill="${color}" font-weight="700">${pct}%</text>
+    </svg>`;
+}
+
 function renderOwnersGrid(data, filterText = "", floorText = "") {
     const grid = document.getElementById("flats-grid");
     if (!grid) return;
@@ -111,8 +149,9 @@ function renderOwnersGrid(data, filterText = "", floorText = "") {
             card.classList.add("dimmed");
         }
         
+        const pct = calcProfileCompletion(item);
         card.innerHTML = `
-            <h4>${item.flat_no}${isMyFlat ? ' <i class="fa-solid fa-house" style="color:var(--color-indigo);font-size:0.7rem;"></i>' : ''}</h4>
+            <h4>${item.flat_no}${isMyFlat ? ' <i class="fa-solid fa-house" style="color:var(--color-indigo);font-size:0.7rem;"></i>' : ''} ${profileSvg(pct)}</h4>
             <p style="font-weight: 600;">${window.displayStructured(item.owner_name, 'name') || 'Unknown'}${item.occupancy_status === 'tenant-occupied' && item.tenant_name ? `<br><span style="font-weight:400;font-size:0.75rem;color:var(--text-muted);">Tenant: ${item.tenant_name}</span>` : ''}</p>
             <div style="display:flex; gap:4px; flex-wrap:wrap;">
                 <span class="badge ${badgeClass}" style="font-size: 0.6rem; padding: 1px 6px;">${statusText}</span>
