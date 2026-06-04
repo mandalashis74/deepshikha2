@@ -35,8 +35,13 @@ async function loadCollections(month, year) {
     return maintenanceCollections;
 }
 
+function _todayLocal() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 function getActiveRate(flatType, rates) {
-    const now = new Date().toISOString().split('T')[0];
+    const now = _todayLocal();
     const matching = rates.filter(r => r.flat_type === flatType && r.effective_from <= now && (r.effective_to === null || r.effective_to >= now));
     return matching.length > 0 ? matching.reduce((a, b) => a.effective_from > b.effective_from ? a : b) : null;
 }
@@ -101,7 +106,7 @@ async function renderRatesTab(container, toolbar) {
         return;
     }
     const flatTypes = [...new Set(rates.map(r => r.flat_type))].sort();
-    const now = new Date().toISOString().split('T')[0];
+    const now = _todayLocal();
     let html = '<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px;">';
     for (const ft of flatTypes) {
         const active = rates.filter(r => r.flat_type === ft && r.effective_from <= now && (r.effective_to === null || r.effective_to >= now));
@@ -132,7 +137,7 @@ async function renderRateArchiveTab(container, toolbar) {
         container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-tag"></i><br>No rate cards defined yet.</div>';
         return;
     }
-    const now = new Date().toISOString().split('T')[0];
+    const now = _todayLocal();
     const canManage = hasMaintenancePermission('maintenance:manage_rates');
     const flatTypes = [...new Set(rates.map(r => r.flat_type))].sort();
     let html = `<div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-secondary);">${rates.length} rates · ${flatTypes.length} flat types</div>`;
