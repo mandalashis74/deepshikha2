@@ -402,7 +402,6 @@ async function renderCollectionsTab(container, toolbar) {
         monthPicker.style.display = '';
         yearPicker.style.display = '';
         flatPicker.style.display = 'none';
-        loadFlatBtn.style.display = 'none';
         controls.innerHTML = '';
         controls.appendChild(monthPicker);
         controls.appendChild(yearPicker);
