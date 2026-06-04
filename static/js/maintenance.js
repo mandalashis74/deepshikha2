@@ -320,15 +320,24 @@ async function renderCollectionsTab(container, toolbar) {
     yearPicker.value = selYear;
     yearPicker.style.cssText = 'padding:6px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);color:var(--text-primary);width:90px;font-size:0.85rem;';
 
-    const loadBtn = document.createElement('button');
-    loadBtn.className = 'btn btn-sm';
-    loadBtn.style.cssText = 'border-radius:8px;';
-    loadBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> Load';
-    loadBtn.onclick = async () => {
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Search flat or owner...';
+    searchInput.style.cssText = 'padding:6px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;width:200px;margin-left:8px;';
+    searchInput.oninput = function() {
+        const t = this.value.trim().toLowerCase();
+        document.querySelectorAll('#maintenance-container table.data-table tbody tr').forEach(tr => {
+            tr.style.display = !t || tr.getAttribute('data-search')?.includes(t) ? '' : 'none';
+        });
+    };
+
+    const doLoad = async () => {
         selMonth = parseInt(monthPicker.value);
         selYear = parseInt(yearPicker.value);
         await renderCollectionsData(container, selMonth, selYear);
     };
+    monthPicker.onchange = doLoad;
+    yearPicker.onchange = doLoad;
 
     const statusFilter = document.createElement('select');
     statusFilter.className = 'modern-select';
@@ -359,11 +368,7 @@ async function renderCollectionsTab(container, toolbar) {
     // Flat-wise controls
     const flatPicker = document.createElement('select');
     flatPicker.style.cssText = 'padding:6px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;cursor:pointer;min-width:180px;display:none;';
-    const loadFlatBtn = document.createElement('button');
-    loadFlatBtn.className = 'btn btn-sm';
-    loadFlatBtn.style.cssText = 'border-radius:8px;display:none;';
-    loadFlatBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> Load';
-    loadFlatBtn.onclick = async () => {
+    flatPicker.onchange = async () => {
         const flatNo = flatPicker.value;
         if (flatNo) await renderFlatwiseData(container, flatNo);
     };
@@ -396,13 +401,12 @@ async function renderCollectionsTab(container, toolbar) {
         highlightMode('month');
         monthPicker.style.display = '';
         yearPicker.style.display = '';
-        loadBtn.style.display = '';
         flatPicker.style.display = 'none';
         loadFlatBtn.style.display = 'none';
         controls.innerHTML = '';
         controls.appendChild(monthPicker);
         controls.appendChild(yearPicker);
-        controls.appendChild(loadBtn);
+        controls.appendChild(searchInput);
         controls.appendChild(statusFilter);
         renderCollectionsData(container, selMonth, selYear);
     }
@@ -412,12 +416,9 @@ async function renderCollectionsTab(container, toolbar) {
         highlightMode('flat');
         monthPicker.style.display = 'none';
         yearPicker.style.display = 'none';
-        loadBtn.style.display = 'none';
         flatPicker.style.display = '';
-        loadFlatBtn.style.display = '';
         controls.innerHTML = '';
         controls.appendChild(flatPicker);
-        controls.appendChild(loadFlatBtn);
         if (flatPicker.value) {
             renderFlatwiseData(container, flatPicker.value);
         } else {
@@ -619,7 +620,8 @@ async function renderCollectionsData(container, month, year) {
         else if (isApproved) rowStatus = 'paid';
         else if (isVacant || !effectiveInOccupancy) rowStatus = 'exempt';
 
-        html += `<tr data-status="${rowStatus}" style="${isVacant || !effectiveInOccupancy ? 'opacity:0.5;background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,0.015) 8px,rgba(255,255,255,0.015) 16px);' : ''}">
+        const searchStr = (flat.flat_no + ' ' + (flat.owner_name ? (window.displayStructured(flat.owner_name, 'name') || flat.owner_name) : '')).toLowerCase();
+        html += `<tr data-status="${rowStatus}" data-search="${escapeHtml(searchStr)}" style="${isVacant || !effectiveInOccupancy ? 'opacity:0.5;background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,0.015) 8px,rgba(255,255,255,0.015) 16px);' : ''}">
             <td><strong>${escapeHtml(flat.flat_no)}</strong>${isVacant ? ' <span style="font-size:0.65rem;color:var(--text-muted);font-weight:400;">(vacant)</span>' : ''}</td>
             <td>${escapeHtml(flat.flat_type || '—')}</td>
             <td>${isVacant ? '<span style="color:var(--text-muted);font-style:italic;">Vacant</span>' : nameDisplay}</td>
@@ -1125,11 +1127,8 @@ async function renderFlatwiseData(container, flatNo) {
     const now = new Date();
     const occFrom = flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : new Date(now.getFullYear() - 1, now.getMonth(), 1);
     const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
-    let showAdvance = false;
     function getEndLimit() {
-        return showAdvance
-            ? new Date(now.getFullYear(), now.getMonth() + 6, 1)
-            : new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        return new Date(now.getFullYear(), now.getMonth() + 1, 1);
     }
 
     const nameDisplay = window.displayStructured(flat.owner_name, 'name') || flat.owner_name || '—';
@@ -1236,9 +1235,6 @@ async function renderFlatwiseData(container, flatNo) {
             <span style="font-weight:700;font-size:1.1rem;">${escapeHtml(flat.flat_no)}</span>
             <span style="font-size:0.85rem;color:var(--text-secondary);">${escapeHtml(flat.flat_type || '—')}</span>
             <span style="font-size:0.85rem;">${nameDisplay}</span>
-            <label style="margin-left:auto;font-size:0.8rem;cursor:pointer;display:flex;align-items:center;gap:4px;color:var(--text-secondary);">
-                <input type="checkbox" id="fw-advance-toggle" onchange="window._fwToggleAdvance(this.checked)" ${showAdvance ? 'checked' : ''}> Show Advance
-            </label>
             <input type="text" id="fw-search" placeholder="Search..." oninput="window._fwSearch(this.value)"
                 style="padding:4px 10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;width:200px;">
         </div>`;
@@ -1293,11 +1289,6 @@ async function renderFlatwiseData(container, flatNo) {
         searchTerm = val;
         buildTable();
     };
-    window._fwToggleAdvance = function(checked) {
-        showAdvance = checked;
-        buildTable();
-    };
-
     buildTable();
 }
 
