@@ -388,15 +388,18 @@ async function _renderGuardDashboard(container) {
         html += '<div style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fa-solid fa-circle-check" style="font-size:1.5rem;color:var(--color-emerald);"></i><br>No active entries</div>';
     } else {
         for (const p of active) {
+            const passTypeLabel = p.pass_type === 'pre_auth_guest' ? '<span style="font-size:0.6rem;background:var(--color-violet);color:#fff;padding:1px 6px;border-radius:8px;margin-left:4px;">Pre-Auth</span>' : '';
             const dur = p.expected_duration_min || _getPurposeDuration(p.purpose);
             const isOverstay = p.status === 'checked_in' && p.checked_in_at && ((Date.now() - new Date(p.checked_in_at).getTime()) / 60000) > dur;
             html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color);font-size:0.8rem;">';
-            html += '<div><strong>' + escapeHtml(p.visitor_name) + '</strong><br><span style="font-size:0.7rem;color:var(--text-muted);">' + escapeHtml(p.flat_no) + ' · ' + (p.company_name || p.purpose || '') + '</span></div>';
+            html += '<div><strong>' + escapeHtml(p.visitor_name) + '</strong>' + passTypeLabel + '<br><span style="font-size:0.7rem;color:var(--text-muted);">' + escapeHtml(p.flat_no) + ' · ' + (p.company_name || p.purpose || '') + '</span></div>';
             html += '<div style="text-align:right;display:flex;align-items:center;gap:6px;">';
             html += '<button class="btn btn-sm" style="background:transparent;color:var(--text-muted);font-size:0.65rem;padding:2px 6px;border:1px solid var(--border-color);" onclick="gatePrintPassById(\'' + p.id + '\')" title="Print Pass"><i class="fa-solid fa-print"></i></button>';
             if (p.status === 'pending') html += '<span style="color:var(--color-orange);font-weight:700;"><i class="fa-solid fa-clock"></i> Pending</span>';
-            else if (p.status === 'approved') html += '<span style="color:var(--color-emerald);"><i class="fa-solid fa-check"></i> Approved</span>';
-            else if (p.status === 'checked_in') {
+            else if (p.status === 'approved') {
+                html += '<button class="btn btn-sm" style="background:var(--color-emerald);color:#fff;font-size:0.65rem;padding:2px 8px;" onclick="gateAdmitVisitor(\'' + p.id + '\')"><i class="fa-solid fa-right-to-bracket"></i> Check In</button>';
+                html += '<span style="color:var(--color-emerald);font-weight:600;font-size:0.7rem;">Approved</span>';
+            } else if (p.status === 'checked_in') {
                 const minsAgo = Math.floor((Date.now() - new Date(p.checked_in_at).getTime()) / 60000);
                 html += '<span style="color:' + (isOverstay ? 'var(--color-rose)' : 'var(--color-emerald)') + ';"><i class="fa-solid fa-person-walking"></i> In (' + minsAgo + 'min)</span>';
                 if (isOverstay) html += '<br><span style="color:var(--color-rose);font-size:0.7rem;"><i class="fa-solid fa-triangle-exclamation"></i> Overstay</span>';
@@ -770,6 +773,22 @@ window.gateQuickEntry = async function() {
     } catch (err) {
         showToast('Error: ' + err.message, 'error');
     }
+};
+
+// --- Guard: Admit pre-approved visitor (check in) ---
+window.gateAdmitVisitor = async function(id) {
+    try {
+        const now = new Date().toISOString();
+        const { error } = await sbClient.from('visitor_passes')
+            .update({ status: 'checked_in', checked_in_at: now })
+            .eq('id', id);
+        if (error) throw error;
+        await sbClient.from('gate_log').insert({
+            pass_id: id, action: 'check_in', performed_by: _userId(),
+            flat_no: '', visitor_name: '', remarks: 'Admitted by guard'
+        }).maybeSingle();
+        showToast('Visitor admitted ✓', 'success');
+    } catch (err) { showToast('Error: ' + err.message, 'error'); }
 };
 
 window.gatePrintPassById = function(id) {
