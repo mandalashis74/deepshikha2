@@ -150,6 +150,10 @@
                         <i class="fa-solid fa-id-card"></i>
                         <span>Visitor Passes</span>
                     </button>
+                    <button class="sidebar-btn" id="side-gate" onclick="openGateModal()">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Gate Management</span>
+                    </button>
                 </nav>
             </div>
 
@@ -1979,6 +1983,47 @@
     </div>
 </div>
 
+<!-- MODAL: GATE MANAGEMENT -->
+<div id="gateModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 960px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-shield-halved"></i> Gate & Security Management</h2>
+            <span class="close" onclick="closeModal('gateModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 78vh; overflow-y: auto;">
+            <div id="gate-toolbar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+            <div id="gate-container"></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ADD/EDIT MONTHLY STAFF -->
+<div id="gateStaffModal" class="modal">
+    <div class="modal-content animate-zoom" style="max-width: 480px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-user-plus"></i> <span id="gs-title">Register Staff</span></h2>
+            <span class="close" onclick="closeModal('gateStaffModal')">&times;</span>
+        </div>
+        <form onsubmit="event.preventDefault();gateSaveStaff()">
+            <div class="modal-body">
+                <input type="hidden" id="gs-id">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="input-field"><label>Full Name</label><input type="text" id="gs-name" required placeholder="e.g. Sunita Devi"></div>
+                    <div class="input-field"><label>Phone</label><input type="text" id="gs-phone" placeholder="+91-9999999999"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="input-field"><label>Flat No.</label><input type="text" id="gs-flat" required placeholder="e.g. A-101" list="gs-flat-list"></div>
+                    <div class="input-field"><label>Purpose</label><select id="gs-purpose"><option value="Maid">Maid</option><option value="Cook">Cook</option><option value="Driver">Driver</option><option value="Tutor">Tutor</option><option value="Nanny">Nanny</option><option value="Other">Other</option></select></div>
+                </div>
+                <div class="input-field"><label>ID Card No. (optional)</label><input type="text" id="gs-idcard" placeholder="e.g. SOC-001"></div>
+                <div class="input-field"><label>Photo URL (optional)</label><input type="url" id="gs-photo" placeholder="https://example.com/photo.jpg"></div>
+                <button type="submit" class="btn btn-primary" id="gs-submit" style="width:100%;margin-top:8px;"><i class="fa-solid fa-save"></i> Register</button>
+                <datalist id="gs-flat-list"></datalist>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- MODAL: ASSETS -->
 <div id="assetsModal" class="modal">
     <div class="modal-content animate-zoom" style="max-width: 900px;">
@@ -3280,8 +3325,9 @@
 <script type="module" src="/static/js/handover.js"></script>
 <script type="module" src="/static/js/analytics.js"></script>
 <script type="module" src="/static/js/maintenance.js"></script>
-<script type="module" src="/static/js/security.js"></script>
-<script type="module" src="/static/js/owners.js"></script>
+    <script type="module" src="/static/js/security.js"></script>
+    <script type="module" src="/static/js/gate.js"></script>
+    <script type="module" src="/static/js/owners.js"></script>
     <script type="module" src="/static/js/reports.js"></script>
     <script type="module" src="/static/js/helpdesk.js"></script>
     <script type="module" src="/static/js/users.js"></script>
