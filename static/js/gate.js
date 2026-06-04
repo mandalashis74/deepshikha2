@@ -163,6 +163,36 @@ async function _loadData() {
     } catch { _owners = []; _serviceStaff = []; }
 }
 
+// Lightweight refresh of owners/service-person data only
+async function _loadOwners() {
+    try {
+        const { data } = await sbClient.from('owners').select('flat_no, owner_name, service_person').order('flat_no');
+        if (data) {
+            _owners = data;
+            _serviceStaff = [];
+            for (const o of data) {
+                if (!o.service_person) continue;
+                let arr;
+                try { arr = typeof o.service_person === 'string' ? JSON.parse(o.service_person) : o.service_person; } catch { arr = []; }
+                if (!Array.isArray(arr)) continue;
+                for (const sp of arr) {
+                    if (!sp || !sp.name) continue;
+                    const existing = _monthlyStaff.find(m => m.flat_no === o.flat_no && m.name === sp.name && m.purpose === (sp.role || ''));
+                    _serviceStaff.push({
+                        flat_no: o.flat_no, name: sp.name, purpose: sp.role || '',
+                        age: sp.age || '', gender: sp.gender || '',
+                        monthly_staff_id: existing ? existing.id : null,
+                        phone: existing ? existing.phone : '',
+                        photo_url: existing ? existing.photo_url : '',
+                        id_card_no: existing ? existing.id_card_no : '',
+                        _fromService: true, _staffRecord: existing || null
+                    });
+                }
+            }
+        }
+    } catch { /* ignore */ }
+}
+
 // ============================================================
 // REALTIME SUBSCRIPTIONS
 // ============================================================
@@ -262,6 +292,7 @@ async function _render() {
     } else if (_gateView === 'resident') {
         await _renderResidentPanel(container);
     } else if (_gateView === 'staff') {
+        await _loadOwners();
         await _renderMonthlyStaff(container);
     } else if (_gateView === 'log') {
         await _renderGateLog(container);
