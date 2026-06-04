@@ -212,7 +212,10 @@ window.saveRate = async function(e) {
 
         const prevDate = new Date(effectiveFrom + 'T00:00:00');
         prevDate.setDate(prevDate.getDate() - 1);
-        const effectiveToPrev = prevDate.toISOString().split('T')[0];
+        const y = prevDate.getFullYear();
+        const m = String(prevDate.getMonth() + 1).padStart(2, '0');
+        const d = String(prevDate.getDate()).padStart(2, '0');
+        const effectiveToPrev = y + '-' + m + '-' + d;
 
         for (const entry of entries) {
             await sbClient.from('maintenance_rates')
