@@ -392,7 +392,8 @@ async function _renderGuardDashboard(container) {
             const isOverstay = p.status === 'checked_in' && p.checked_in_at && ((Date.now() - new Date(p.checked_in_at).getTime()) / 60000) > dur;
             html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color);font-size:0.8rem;">';
             html += '<div><strong>' + escapeHtml(p.visitor_name) + '</strong><br><span style="font-size:0.7rem;color:var(--text-muted);">' + escapeHtml(p.flat_no) + ' · ' + (p.company_name || p.purpose || '') + '</span></div>';
-            html += '<div style="text-align:right;">';
+            html += '<div style="text-align:right;display:flex;align-items:center;gap:6px;">';
+            html += '<button class="btn btn-sm" style="background:transparent;color:var(--text-muted);font-size:0.65rem;padding:2px 6px;border:1px solid var(--border-color);" onclick="gatePrintPassById(\'' + p.id + '\')" title="Print Pass"><i class="fa-solid fa-print"></i></button>';
             if (p.status === 'pending') html += '<span style="color:var(--color-orange);font-weight:700;"><i class="fa-solid fa-clock"></i> Pending</span>';
             else if (p.status === 'approved') html += '<span style="color:var(--color-emerald);"><i class="fa-solid fa-check"></i> Approved</span>';
             else if (p.status === 'checked_in') {
@@ -759,13 +760,81 @@ window.gateQuickEntry = async function() {
         };
         const { error } = await sbClient.from('visitor_passes').insert(insData);
         if (error) throw error;
-        showToast('Entry request sent to ' + flat.toUpperCase(), 'success');
+        showToast('Entry request sent to ' + flat.toUpperCase(), 'success', {
+            text: '<i class="fa-solid fa-print"></i> Print Gate Pass',
+            callback: () => gatePrintPass({ visitor_name: name, flat_no: flat.toUpperCase(), company_name: company, vehicle_no: vehicle, purpose: purpose, status: 'pending', created_at: new Date().toISOString() })
+        });
         document.getElementById('gq-name').value = '';
         document.getElementById('gq-vehicle').value = '';
         document.getElementById('gq-company').value = '';
     } catch (err) {
         showToast('Error: ' + err.message, 'error');
     }
+};
+
+window.gatePrintPassById = function(id) {
+    const p = _gatePasses.find(x => x.id === id) || _monthlyStaff.find(x => x.id === id);
+    if (!p) { showToast('Pass not found', 'error'); return; }
+    gatePrintPass(p);
+};
+
+window.gatePrintPass = function(p) {
+    const building = window.getBuildingName ? window.getBuildingName() : 'Residence';
+    const now = new Date(p.created_at || Date.now());
+    const dt = now.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const passNo = p.id ? '#' + p.id.toString().slice(-6) : '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    const statusLabel = p.status === 'pending' ? 'PENDING' : p.status === 'approved' ? 'APPROVED' : p.status === 'checked_in' ? 'CHECKED IN' : p.status.toUpperCase();
+    const w = window.open('', '_blank', 'width=380,height=600');
+    w.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Gate Pass</title>
+        <style>
+            @page { margin: 0; size: 80mm auto; }
+            body { font-family: 'Courier New', monospace; margin: 0; padding: 12px; width: 80mm; color: #000; font-size: 12px; line-height: 1.4; }
+            .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }
+            .header h1 { font-size: 18px; margin: 0; letter-spacing: 2px; text-transform: uppercase; }
+            .header .building { font-size: 14px; font-weight: bold; margin: 4px 0; }
+            .header .pass-no { font-size: 11px; color: #555; }
+            .status { text-align: center; font-size: 16px; font-weight: bold; letter-spacing: 3px; padding: 6px 0; margin: 6px 0; border: 2px solid #000; }
+            .details { margin: 8px 0; }
+            .details .row { display: flex; padding: 3px 0; border-bottom: 1px dotted #ccc; }
+            .details .label { width: 40%; font-weight: bold; }
+            .details .value { width: 60%; }
+            .footer { text-align: center; margin-top: 10px; padding-top: 8px; border-top: 2px dashed #000; font-size: 10px; color: #555; }
+            .footer .guard { margin-top: 4px; }
+            .cut-line { text-align: center; font-size: 10px; color: #aaa; margin-top: 8px; letter-spacing: 2px; }
+            @media print { .no-print { display: none; } }
+        </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="building">${escapeHtml(building)}</div>
+                <h1>GATE PASS</h1>
+                <div class="pass-no">Pass ${escapeHtml(passNo)}</div>
+                <div style="font-size:10px;color:#555;">${escapeHtml(dt)}</div>
+            </div>
+            <div class="status">${statusLabel}</div>
+            <div class="details">
+                <div class="row"><span class="label">Visitor</span><span class="value">${escapeHtml(p.visitor_name)}</span></div>
+                ${p.company_name ? '<div class="row"><span class="label">Company</span><span class="value">' + escapeHtml(p.company_name) + '</span></div>' : ''}
+                <div class="row"><span class="label">Flat No.</span><span class="value">${escapeHtml(p.flat_no)}</span></div>
+                <div class="row"><span class="label">Purpose</span><span class="value">${escapeHtml(p.purpose || '-')}</span></div>
+                ${p.vehicle_no ? '<div class="row"><span class="label">Vehicle</span><span class="value">' + escapeHtml(p.vehicle_no) + '</span></div>' : ''}
+            </div>
+            <div class="footer">
+                <div>Issued by: ${escapeHtml(_userName() || 'Guard')}</div>
+                <div class="guard">${escapeHtml(window.getBuildingName ? window.getBuildingName() : '')}</div>
+            </div>
+            <div class="cut-line">--- cut here ---</div>
+            <div class="no-print" style="text-align:center;margin-top:12px;">
+                <button onclick="window.print();setTimeout(()=>window.close(),500)" style="padding:8px 24px;font-size:14px;cursor:pointer;">🖨 Print Pass</button>
+                <br><button onclick="window.close()" style="margin-top:6px;padding:4px 16px;font-size:12px;cursor:pointer;">Close</button>
+            </div>
+        </body>
+        </html>
+    `);
+    w.document.close();
 };
 
 // --- Resident: Approve Entry ---
