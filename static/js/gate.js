@@ -412,11 +412,7 @@ async function _renderGuardDashboard(container) {
             if (s.photo_url) html += '<img src="' + escapeHtml(s.photo_url) + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">';
             else html += '<div style="width:36px;height:36px;border-radius:50%;background:var(--color-indigo);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.9rem;font-weight:700;">' + (s.name.charAt(0).toUpperCase()) + '</div>';
             html += '<div style="flex:1;min-width:0;"><strong style="font-size:0.8rem;">' + escapeHtml(s.name) + '</strong><br><span style="font-size:0.65rem;color:var(--text-muted);">' + escapeHtml(s.flat_no) + ' · ' + escapeHtml(s.purpose || '') + '</span></div>';
-            if (checkedIn) {
-                html += '<button class="btn btn-sm" style="background:var(--color-rose);color:#fff;font-size:0.65rem;padding:2px 8px;" onclick="gateStaffCheckOut(\'' + escapeHtml(s.flat_no) + '\',\'' + escapeHtml(s.name) + '\',\'' + escapeHtml(s.purpose || '') + '\')"><i class="fa-solid fa-right-from-bracket"></i> Out</button>';
-            } else {
-                html += '<button class="btn btn-sm" style="background:var(--color-emerald);color:#fff;font-size:0.65rem;padding:2px 8px;" onclick="gateStaffCheckIn(\'' + escapeHtml(s.flat_no) + '\',\'' + escapeHtml(s.name) + '\',\'' + escapeHtml(s.purpose || '') + '\')"><i class="fa-solid fa-right-to-bracket"></i> In</button>';
-            }
+            html += '<label class="staff-toggle-switch" onclick="' + (checkedIn ? 'gateStaffCheckOut' : 'gateStaffCheckIn') + '(\'' + escapeHtml(s.flat_no) + '\',\'' + escapeHtml(s.name) + '\',\'' + escapeHtml(s.purpose || '') + '\')"><span class="staff-toggle-slider' + (checkedIn ? ' checked' : '') + '"></span></label>';
             html += '</div>';
         }
         html += '</div>';
@@ -585,11 +581,7 @@ async function _renderMonthlyStaff(container) {
                 html += '</div>';
                 html += '<div style="display:flex;gap:4px;flex-shrink:0;">';
                 if (_isGuard()) {
-                    if (isCheckedIn) {
-                        html += '<button class="btn btn-sm" style="background:var(--color-rose);color:#fff;font-size:0.6rem;padding:2px 6px;" onclick="gateStaffCheckOut(\'' + escapeHtml(s.flat_no) + '\',\'' + escapeHtml(s.name) + '\',\'' + escapeHtml(s.purpose || '') + '\')"><i class="fa-solid fa-right-from-bracket"></i></button>';
-                    } else {
-                        html += '<button class="btn btn-sm" style="background:var(--color-emerald);color:#fff;font-size:0.6rem;padding:2px 6px;" onclick="gateStaffCheckIn(\'' + escapeHtml(s.flat_no) + '\',\'' + escapeHtml(s.name) + '\',\'' + escapeHtml(s.purpose || '') + '\')"><i class="fa-solid fa-right-to-bracket"></i></button>';
-                    }
+                    html += '<label class="staff-toggle-switch" onclick="' + (isCheckedIn ? 'gateStaffCheckOut' : 'gateStaffCheckIn') + '(\'' + escapeHtml(s.flat_no) + '\',\'' + escapeHtml(s.name) + '\',\'' + escapeHtml(s.purpose || '') + '\')"><span class="staff-toggle-slider' + (isCheckedIn ? ' checked' : '') + '"></span></label>';
                 }
                 html += '</div></div>';
             }

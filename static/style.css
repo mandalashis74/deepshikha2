@@ -2128,6 +2128,41 @@ select.directory-search {
     transform: translateX(16px);
 }
 
+/* Staff Check-in Toggle Switch (Gate) */
+.staff-toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.staff-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: var(--border-color);
+    border-radius: 20px;
+    transition: all var(--transition-fast);
+}
+.staff-toggle-slider::before {
+    content: "";
+    position: absolute;
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: #fff;
+    border-radius: 50%;
+    transition: all var(--transition-fast);
+}
+.staff-toggle-slider.checked {
+    background-color: var(--color-rose);
+}
+.staff-toggle-slider.checked::before {
+    transform: translateX(16px);
+}
+
 #hist-start-date-field.hidden,
 #hist-end-date-field.hidden {
     display: none;
