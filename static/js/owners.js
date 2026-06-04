@@ -210,9 +210,6 @@ function renderStructuredRows(prefix, value, canEdit) {
     if (rows.length === 0 && !canEdit) {
         return '<span style="color:var(--text-muted); font-size:0.85rem;">None</span>';
     }
-    if (rows.length === 0) {
-        return '';
-    }
     
     let html = '<div class="structured-table-container">';
     html += '<table class="structured-table">';
