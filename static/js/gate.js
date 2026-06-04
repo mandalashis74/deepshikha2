@@ -449,6 +449,22 @@ async function _renderGuardDashboard(container) {
         html += '</div>';
     }
     html += '</div>';
+
+    // Standing Instructions section
+    const standing = _gatePasses.filter(p => p.pass_type === 'standing_instruction' && p.status === 'approved' && (!p.valid_until || new Date(p.valid_until) > new Date()));
+    if (standing.length > 0) {
+        html += '<div style="margin-top:16px;background:var(--bg-card);border-radius:12px;padding:16px;border:1px solid var(--border-color);">';
+        html += '<h3 style="margin:0 0 12px;font-size:0.95rem;"><i class="fa-solid fa-bookmark" style="color:var(--color-violet);"></i> Standing Instructions</h3>';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;">';
+        for (const s of standing) {
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg-body);border-radius:8px;border:1px solid var(--border-color);">';
+            html += '<div style="flex:1;min-width:0;"><strong style="font-size:0.8rem;">' + escapeHtml(s.visitor_name) + '</strong><br><span style="font-size:0.65rem;color:var(--text-muted);">' + escapeHtml(s.flat_no) + ' · ' + escapeHtml(s.purpose || '') + '</span></div>';
+            html += '<button class="btn btn-sm" style="background:var(--color-emerald);color:#fff;font-size:0.65rem;padding:2px 8px;" onclick="gateStandingCheckIn(\'' + encodeURIComponent(JSON.stringify(s)) + '\')"><i class="fa-solid fa-right-to-bracket"></i> Check In</button>';
+            html += '</div>';
+        }
+        html += '</div></div>';
+    }
+
     container.innerHTML = html;
 }
 
@@ -494,6 +510,31 @@ async function _renderResidentPanel(container) {
     html += '</div>';
     html += '<button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;"><i class="fa-solid fa-qrcode"></i> Generate QR Pass</button>';
     html += '</form></div>';
+
+    // Standing Instructions section
+    const standing = _gatePasses.filter(p => p.flat_no === flatNo && p.pass_type === 'standing_instruction' && p.status === 'approved' && (!p.valid_until || new Date(p.valid_until) > new Date()));
+    html += '<div style="background:var(--bg-card);border-radius:12px;padding:16px;border:1px solid var(--border-color);margin-bottom:16px;">';
+    html += '<h3 style="margin:0 0 12px;font-size:0.95rem;"><i class="fa-solid fa-bookmark"></i> Standing Instructions</h3>';
+    html += '<form id="gate-standing-form" onsubmit="event.preventDefault();gateAddStandingInstruction()">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    html += '<div class="input-field"><label>Description</label><input type="text" id="gs-desc" required placeholder="e.g. Amazon delivery, Brother John"></div>';
+    html += '<div class="input-field"><label>Purpose</label><select id="gs-purpose" style="width:100%;"><option value="Delivery">Delivery</option><option value="Food Delivery">Food Delivery</option><option value="Guest">Guest</option><option value="Technician">Technician</option><option value="Other">Other</option></select></div>';
+    html += '</div>';
+    html += '<div class="input-field"><label>Valid Until (optional)</label><input type="date" id="gs-valid-until"></div>';
+    html += '<button type="submit" class="btn btn-sm" style="background:var(--color-violet);color:#fff;width:100%;margin-top:6px;"><i class="fa-solid fa-plus"></i> Add Instruction</button>';
+    html += '</form>';
+    if (standing.length > 0) {
+        html += '<div style="margin-top:10px;border-top:1px solid var(--border-color);padding-top:10px;">';
+        for (const s of standing) {
+            const expireLabel = s.valid_until ? ' · Valid till ' + new Date(s.valid_until).toLocaleDateString('en-IN') : '';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:0.8rem;border-bottom:1px solid var(--border-color);">';
+            html += '<div><strong>' + escapeHtml(s.visitor_name) + '</strong><br><span style="font-size:0.7rem;color:var(--text-muted);">' + escapeHtml(s.purpose || '') + expireLabel + '</span></div>';
+            html += '<button class="btn btn-sm btn-rose" style="font-size:0.65rem;padding:2px 6px;" onclick="gateRemoveStandingInstruction(\'' + s.id + '\')"><i class="fa-solid fa-trash"></i></button>';
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+    html += '</div>';
 
     // Recent / Active passes for this flat
     html += '<div style="background:var(--bg-card);border-radius:12px;padding:16px;border:1px solid var(--border-color);">';
@@ -946,6 +987,59 @@ window.gateCreatePreAuth = async function() {
         document.getElementById('gp-name').value = '';
         document.getElementById('gp-phone').value = '';
         document.getElementById('gp-vehicle').value = '';
+    } catch (err) { showToast('Error: ' + err.message, 'error'); }
+};
+
+// --- Standing Instructions ---
+window.gateAddStandingInstruction = async function() {
+    const desc = document.getElementById('gs-desc')?.value?.trim();
+    const purpose = document.getElementById('gs-purpose')?.value;
+    const validUntil = document.getElementById('gs-valid-until')?.value;
+    const flatNo = _flatNo();
+    if (!desc || !flatNo) { showToast('Description required', 'error'); return; }
+    try {
+        const { error } = await sbClient.from('visitor_passes').insert({
+            visitor_name: desc,
+            flat_no: flatNo,
+            purpose: purpose || 'Other',
+            pass_type: 'standing_instruction',
+            status: 'approved',
+            valid_until: validUntil ? new Date(validUntil).toISOString() : null,
+            created_by: _userId()
+        });
+        if (error) throw error;
+        showToast('Standing instruction added ✓', 'success');
+        document.getElementById('gs-desc').value = '';
+        document.getElementById('gs-valid-until').value = '';
+    } catch (err) { showToast('Error: ' + err.message, 'error'); }
+};
+
+window.gateRemoveStandingInstruction = async function(id) {
+    try {
+        const { error } = await sbClient.from('visitor_passes').update({ status: 'expired' }).eq('id', id);
+        if (error) throw error;
+        showToast('Instruction removed', 'success');
+    } catch (err) { showToast('Error: ' + err.message, 'error'); }
+};
+
+// Guard: check in from standing instruction
+window.gateStandingCheckIn = async function(encoded) {
+    let instruction;
+    try { instruction = JSON.parse(decodeURIComponent(encoded)); } catch (e) { showToast('Invalid instruction', 'error'); return; }
+    try {
+        const now = new Date().toISOString();
+        const { error } = await sbClient.from('visitor_passes').insert({
+            visitor_name: instruction.visitor_name,
+            flat_no: instruction.flat_no,
+            purpose: instruction.purpose || 'Guest',
+            company_name: 'Standing: ' + (instruction.purpose || ''),
+            pass_type: 'immediate_inward',
+            status: 'checked_in',
+            checked_in_at: now,
+            created_by: _userId()
+        });
+        if (error) throw error;
+        showToast(instruction.visitor_name + ' checked in ✓', 'success');
     } catch (err) { showToast('Error: ' + err.message, 'error'); }
 };
 
