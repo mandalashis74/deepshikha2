@@ -1674,6 +1674,8 @@ window.handleSoftUserSession = async function(user, flatNo) {
 window.autoLoginSharedAccount = async function(flatNo) {
     if (!sbClient) return;
     try {
+        // Clear any existing session first
+        await sbClient.auth.signOut();
         // Use Supabase anonymous sign-in — no credentials exposed
         const { data, error } = await sbClient.auth.signInAnonymously();
         if (error) throw error;
@@ -1684,12 +1686,7 @@ window.autoLoginSharedAccount = async function(flatNo) {
         localStorage.removeItem("isSoftLogin");
         localStorage.removeItem("currentFlatNo");
         document.getElementById("auth-container").style.display = "block";
-        const msg = String(err.message || err).toLowerCase();
-        if (msg.includes('anonymous') || msg.includes('disabled')) {
-            showToast("Enable Anonymous Sign-Ins in Supabase Dashboard → Authentication → Providers (bottom of the page).", "error");
-        } else {
-            showToast(err.message || "Soft Login failed", "error");
-        }
+        showToast(err.message || "Soft Login failed", "error");
     }
 };
 
