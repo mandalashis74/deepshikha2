@@ -3417,6 +3417,24 @@ select.directory-search {
     font-size: 1.15rem;
 }
 
+/* Hero floating orb animation */
+@keyframes dashHeroFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(10px, -15px) scale(1.05); }
+    66% { transform: translate(-5px, 10px) scale(0.95); }
+}
+#dashboard-hero .dash-hero-orb {
+    animation: dashHeroFloat 12s ease-in-out infinite;
+    animation-delay: calc(var(--i, 0) * -3s);
+}
+#dashboard-hero .dash-hero-orb:nth-child(2) { --i: 1; }
+#dashboard-hero .dash-hero-orb:nth-child(3) { --i: 2; }
+
+/* Dashboard chart */
+#dash-chart-container {
+    min-height: 200px;
+}
+
 /* Gallery Grid */
 .gallery-grid {
     display: grid;

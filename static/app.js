@@ -164,6 +164,12 @@ window.loadDashStats = async function() {
     document.getElementById('dash-total-flats').textContent = totalFlats;
     document.getElementById('dash-occupied-flats').textContent = occupied;
     
+    // Status line in hero
+    const statusEl = document.getElementById('dash-status-line');
+    if (statusEl) {
+        statusEl.innerHTML = `<i class="fa-solid fa-building" style="opacity:0.6;"></i> ${occupied} occupied &middot; ${vacant} vacant &middot; <i class="fa-solid fa-users" style="opacity:0.6;"></i> ${ownerOcc} owner &middot; ${tenantOcc} tenant`;
+    }
+    
     const pct = n => totalFlats ? Math.round(n / totalFlats * 100) : 0;
     document.getElementById('dash-owner-pct').textContent = pct(ownerOcc) + '%';
     document.getElementById('dash-owner-bar').style.width = pct(ownerOcc) + '%';
@@ -215,6 +221,10 @@ window.loadDashStats = async function() {
     
     const year = new Date().getFullYear().toString();
     const month = new Date().toLocaleString('en-US', { month: 'long' });
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const curMonthIdx = new Date().getMonth();
+    
+    // This month income
     const incomeResult = await safeQuery('income', async () => {
         const { data } = await sbClient.from('income')
             .select('amount')
@@ -222,7 +232,67 @@ window.loadDashStats = async function() {
             .eq('month', month);
         return (data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
     });
-    document.getElementById('dash-month-income').textContent = incomeResult !== null ? '₹' + incomeResult.toLocaleString('en-IN') : '-';
+    const monthIncome = incomeResult ?? 0;
+    document.getElementById('dash-month-income').textContent = monthIncome !== null ? '₹' + monthIncome.toLocaleString('en-IN') : '-';
+    
+    // Year-to-date KPIs
+    const yearIncome = await safeQuery('year_income', async () => {
+        const { data } = await sbClient.from('income')
+            .select('amount')
+            .eq('year', year);
+        return (data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
+    });
+    const yearExpense = await safeQuery('year_expense', async () => {
+        const { data } = await sbClient.from('expenses')
+            .select('amount')
+            .eq('year', year);
+        return (data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
+    });
+    const yIncome = yearIncome ?? 0;
+    const yExpense = yearExpense ?? 0;
+    const cashFlow = yIncome - yExpense;
+    document.getElementById('dash-year-income').textContent = '₹' + yIncome.toLocaleString('en-IN');
+    document.getElementById('dash-year-expense').textContent = '₹' + yExpense.toLocaleString('en-IN');
+    document.getElementById('dash-cash-flow').textContent = '₹' + cashFlow.toLocaleString('en-IN');
+    
+    // Monthly chart data (all months this year)
+    const monthlyData = await safeQuery('monthly_data', async () => {
+        const { data } = await sbClient.from('income')
+            .select('month, amount')
+            .eq('year', year);
+        const { data: expData } = await sbClient.from('expenses')
+            .select('month, amount')
+            .eq('year', year);
+        const incomeByMonth = {};
+        const expenseByMonth = {};
+        (data || []).forEach(r => { incomeByMonth[r.month] = (incomeByMonth[r.month] || 0) + Number(r.amount || 0); });
+        (expData || []).forEach(r => { expenseByMonth[r.month] = (expenseByMonth[r.month] || 0) + Number(r.amount || 0); });
+        return monthNames.map((m, i) => ({
+            month: m.substring(0, 3),
+            income: incomeByMonth[m] || 0,
+            expense: expenseByMonth[m] || 0
+        }));
+    });
+    window.renderMonthlyChart(monthlyData || []);
+    
+    // Collection progress (current month maintenance)
+    const collectionData = await safeQuery('collection', async () => {
+        const { data: paid } = await sbClient.from('income')
+            .select('flat_no')
+            .eq('year', year)
+            .eq('month', month)
+            .eq('category', 'Monthly Maintenance');
+        const uniquePaid = new Set((paid || []).map(r => r.flat_no)).size;
+        const target = occupied; // flats that should pay
+        return { paid: uniquePaid, target };
+    });
+    if (collectionData) {
+        const { paid, target } = collectionData;
+        const pctCol = target > 0 ? Math.round(paid / target * 100) : 0;
+        document.getElementById('dash-collection-text').textContent = `${paid} / ${target}`;
+        document.getElementById('dash-collection-bar').style.width = pctCol + '%';
+        document.getElementById('dash-collection-pct').textContent = pctCol + '%';
+    }
     
     const recentIncome = await safeQuery('recent_income', async () => {
         const { data } = await sbClient.from('income')
@@ -290,6 +360,80 @@ window.loadDashStats = async function() {
             </div>
         `).join('');
     }
+};
+
+window.renderMonthlyChart = function(monthlyData) {
+    const canvas = document.getElementById('dash-monthly-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    if (window._dashChart) {
+        window._dashChart.destroy();
+        window._dashChart = null;
+    }
+    
+    if (!monthlyData || monthlyData.length === 0) {
+        canvas.parentElement.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:0.85rem;">No financial data for this year</div>';
+        return;
+    }
+    
+    const labels = monthlyData.map(d => d.month);
+    const incomeData = monthlyData.map(d => d.income);
+    const expenseData = monthlyData.map(d => d.expense);
+    
+    // Wait for Chart.js to be available
+    if (typeof Chart === 'undefined') {
+        canvas.parentElement.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:0.85rem;">Chart library loading...</div>';
+        return;
+    }
+    
+    const textColor = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+    const gridColor = 'rgba(255,255,255,0.06)';
+    
+    window._dashChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Income',
+                    data: incomeData,
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    borderColor: '#10b981',
+                    borderWidth: 1,
+                    borderRadius: 3
+                },
+                {
+                    label: 'Expense',
+                    data: expenseData,
+                    backgroundColor: 'rgba(244, 63, 94, 0.7)',
+                    borderColor: '#f43f5e',
+                    borderWidth: 1,
+                    borderRadius: 3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: textColor, boxWidth: 10, padding: 8, font: { size: 10 } }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: textColor, font: { size: 9 } },
+                    grid: { color: gridColor }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: textColor, font: { size: 9 }, callback: v => '₹' + v.toLocaleString('en-IN') },
+                    grid: { color: gridColor }
+                }
+            }
+        }
+    });
 };
 
 window.loadBuildingConfig = async function() {

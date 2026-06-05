@@ -266,47 +266,52 @@
 
             <!-- Main Workspace (Lavish Dashboard Landing Page) -->
             <main class="workspace" id="workspace">
-                <div id="dashboard-hero" style="background: linear-gradient(135deg, var(--color-indigo), #1e1b4b); padding: 28px 24px; border-radius: var(--border-radius-lg); position: relative; overflow: hidden; margin-bottom: 20px;">
-                    <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.04);"></div>
-                    <div style="position: absolute; bottom: -30px; left: -30px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,0.03);"></div>
-                    <div style="position: relative; z-index: 1;">
-                        <p style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 4px;" id="dashboard-greeting"></p>
-                        <h1 style="font-size: 1.6rem; font-weight: 800; color: #fff; margin: 0;" id="dashboard-building-name"></h1>
-                        <p style="font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-top: 6px;" id="dashboard-date-time"></p>
+                <div id="dashboard-hero" style="background: linear-gradient(135deg, #1e1b4b, #312e81, #3730a3); padding: 32px 28px; border-radius: var(--border-radius-lg); position: relative; overflow: hidden; margin-bottom: 20px;">
+                    <div class="dash-hero-orb" style="position:absolute; top:-60px; right:-40px; width:260px; height:260px; border-radius:50%; background:radial-gradient(circle, rgba(99,102,241,0.2), transparent 70%);"></div>
+                    <div class="dash-hero-orb" style="position:absolute; bottom:-50px; left:-40px; width:200px; height:200px; border-radius:50%; background:radial-gradient(circle, rgba(16,185,129,0.15), transparent 70%);"></div>
+                    <div class="dash-hero-orb" style="position:absolute; top:10px; left:40%; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle, rgba(245,158,11,0.1), transparent 70%);"></div>
+                    <div style="position:relative; z-index:1;">
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                            <span style="font-size:0.8rem; color:rgba(255,255,255,0.6);" id="dashboard-greeting"></span>
+                            <span style="width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,0.2);"></span>
+                            <span style="font-size:0.8rem; color:rgba(255,255,255,0.6);" id="dashboard-date-time"></span>
+                        </div>
+                        <h1 style="font-size:1.8rem; font-weight:800; color:#fff; margin:0; letter-spacing:-0.5px;" id="dashboard-building-name"></h1>
+                        <p style="font-size:0.85rem; color:rgba(255,255,255,0.6); margin-top:8px;" id="dash-status-line"></p>
                     </div>
                 </div>
 
                 <!-- Hero Stats Row -->
                 <div class="dash-stat-grid">
-                    <div class="dash-stat-card" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
+                    <div class="dash-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5); cursor:pointer;" onclick="openOwnersDirectoryModal()" title="View Owners Directory">
                         <div class="dash-stat-icon"><i class="fa-solid fa-building"></i></div>
                         <div>
                             <div class="dash-stat-value" id="dash-total-flats">-</div>
                             <div class="dash-stat-label">Total Flats</div>
                         </div>
                     </div>
-                    <div class="dash-stat-card" style="background: linear-gradient(135deg, #10b981, #059669);">
+                    <div class="dash-stat-card" style="background:linear-gradient(135deg,#10b981,#059669); cursor:pointer;" onclick="openOwnersDirectoryModal()" title="View Occupied Flats">
                         <div class="dash-stat-icon"><i class="fa-solid fa-house-circle-check"></i></div>
                         <div>
                             <div class="dash-stat-value" id="dash-occupied-flats">-</div>
                             <div class="dash-stat-label">Occupied</div>
                         </div>
                     </div>
-                    <div class="dash-stat-card" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                    <div class="dash-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706); cursor:pointer;" onclick="openEventsModal()" title="View Cultural Events">
                         <div class="dash-stat-icon"><i class="fa-solid fa-calendar-days"></i></div>
                         <div>
                             <div class="dash-stat-value" id="dash-active-events">-</div>
                             <div class="dash-stat-label">Active Events</div>
                         </div>
                     </div>
-                    <div class="dash-stat-card" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+                    <div class="dash-stat-card" style="background:linear-gradient(135deg,#ef4444,#dc2626); cursor:pointer;" onclick="openTicketsModal()" title="View Open Tickets">
                         <div class="dash-stat-icon"><i class="fa-solid fa-ticket"></i></div>
                         <div>
                             <div class="dash-stat-value" id="dash-open-tickets">-</div>
                             <div class="dash-stat-label">Open Tickets</div>
                         </div>
                     </div>
-                    <div class="dash-stat-card" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+                    <div class="dash-stat-card" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed); cursor:pointer;" onclick="openFinancePage()" title="View Finance Details">
                         <div class="dash-stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
                         <div>
                             <div class="dash-stat-value" id="dash-month-income">-</div>
@@ -315,32 +320,85 @@
                     </div>
                 </div>
 
+                <!-- Financial KPI Row -->
+                <div class="kpi-grid">
+                    <div class="kpi-card kpi-income">
+                        <div class="kpi-info">
+                            <div class="kpi-title">Year to Date Income</div>
+                            <h3 id="dash-year-income">-</h3>
+                        </div>
+                        <div class="kpi-icon-wrapper"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                    </div>
+                    <div class="kpi-card kpi-expense">
+                        <div class="kpi-info">
+                            <div class="kpi-title">Year to Date Expense</div>
+                            <h3 id="dash-year-expense">-</h3>
+                        </div>
+                        <div class="kpi-icon-wrapper"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                    </div>
+                    <div class="kpi-card kpi-cash">
+                        <div class="kpi-info">
+                            <div class="kpi-title">Net Cash Flow</div>
+                            <h3 id="dash-cash-flow">-</h3>
+                        </div>
+                        <div class="kpi-icon-wrapper"><i class="fa-solid fa-scale-balance"></i></div>
+                    </div>
+                </div>
+
                 <!-- Two-column layout -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                     <!-- Left Column -->
                     <div>
                         <div class="dash-section-title"><i class="fa-solid fa-bolt"></i> Quick Actions</div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                            <button class="dash-action-card" id="dash-collect-fee" onclick="openMultiMonthIncomeModal()">
-                                <i class="fa-solid fa-hand-holding-dollar"></i>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+                            <button class="dash-action-card" onclick="openMultiMonthIncomeModal()" title="Record maintenance fee collection">
+                                <i class="fa-solid fa-hand-holding-dollar" style="color:var(--color-emerald);"></i>
                                 <span>Collect Fee</span>
                             </button>
-                            <button class="dash-action-card" id="dash-record-expense" onclick="openModal('expenseModal')">
-                                <i class="fa-solid fa-money-bill-transfer" style="color: var(--color-rose);"></i>
+                            <button class="dash-action-card" onclick="openModal('expenseModal')" title="Record a new expense">
+                                <i class="fa-solid fa-money-bill-transfer" style="color:var(--color-rose);"></i>
                                 <span>Record Expense</span>
                             </button>
-                            <button class="dash-action-card" onclick="openEventsModal()">
-                                <i class="fa-solid fa-calendar-days" style="color: var(--color-indigo);"></i>
+                            <button class="dash-action-card" onclick="openEventsModal()" title="View upcoming cultural events">
+                                <i class="fa-solid fa-calendar-days" style="color:var(--color-indigo);"></i>
                                 <span>Cultural Events</span>
                             </button>
-                            <button class="dash-action-card" onclick="openTicketsModal()">
-                                <i class="fa-solid fa-ticket" style="color: var(--color-yellow);"></i>
+                            <button class="dash-action-card" onclick="openTicketsModal()" title="Raise or view support tickets">
+                                <i class="fa-solid fa-ticket" style="color:var(--color-yellow);"></i>
                                 <span>Helpdesk</span>
                             </button>
-                            <button class="dash-action-card" id="dash-board" onclick="openBoardModal()">
-                                <i class="fa-solid fa-message" style="color: var(--color-violet);"></i>
+                            <button class="dash-action-card" onclick="openBoardModal()" title="Community discussions and announcements">
+                                <i class="fa-solid fa-message" style="color:var(--color-violet);"></i>
                                 <span>Community Board</span>
                             </button>
+                            <button class="dash-action-card" onclick="openGateModal()" title="Gate and security management">
+                                <i class="fa-solid fa-shield-halved" style="color:var(--color-emerald);"></i>
+                                <span>Gate Management</span>
+                            </button>
+                            <button class="dash-action-card" onclick="openVisitorsModal()" title="Create visitor passes">
+                                <i class="fa-solid fa-id-card" style="color:var(--color-indigo);"></i>
+                                <span>Visitor Pass</span>
+                            </button>
+                            <button class="dash-action-card" onclick="openMaintenanceModal()" title="Maintenance fee dashboard">
+                                <i class="fa-solid fa-wrench" style="color:var(--color-yellow);"></i>
+                                <span>Maintenance</span>
+                            </button>
+                        </div>
+
+                        <!-- Collection Progress -->
+                        <div class="dash-section-title"><i class="fa-solid fa-circle-check"></i> This Month Collection</div>
+                        <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--border-radius-md); padding:16px; margin-bottom:16px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <span style="font-size:0.85rem; color:var(--text-secondary);">Progress</span>
+                                <span id="dash-collection-text" style="font-weight:700; font-size:0.9rem; color:var(--color-emerald);">0 / 0</span>
+                            </div>
+                            <div style="height:8px; background:rgba(255,255,255,0.06); border-radius:4px; overflow:hidden;">
+                                <div id="dash-collection-bar" style="height:100%; background:linear-gradient(90deg,var(--color-emerald),#34d399); border-radius:4px; width:0%; transition:width 0.8s ease;"></div>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; margin-top:6px;">
+                                <span style="font-size:0.7rem; color:var(--text-muted);">Paid</span>
+                                <span id="dash-collection-pct" style="font-size:0.7rem; font-weight:600; color:var(--text-secondary);">0%</span>
+                            </div>
                         </div>
 
                         <div class="dash-section-title"><i class="fa-solid fa-calendar-days"></i> Upcoming Events</div>
@@ -351,6 +409,12 @@
 
                     <!-- Right Column -->
                     <div>
+                        <!-- Monthly Trend Chart -->
+                        <div class="dash-section-title"><i class="fa-solid fa-chart-bar"></i> Monthly Income vs Expense</div>
+                        <div id="dash-chart-container" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--border-radius-md); padding:16px; margin-bottom:16px;">
+                            <canvas id="dash-monthly-chart" height="220"></canvas>
+                        </div>
+
                         <div class="dash-section-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</div>
                         <div id="dash-recent-activity" style="margin-bottom: 20px;">
                             <div style="color: var(--text-muted); font-size: 0.85rem; padding: 12px; text-align: center;">Loading...</div>
