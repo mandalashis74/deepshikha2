@@ -1686,9 +1686,9 @@ window.autoLoginSharedAccount = async function(flatNo) {
         document.getElementById("auth-container").style.display = "block";
         const msg = String(err.message || err).toLowerCase();
         if (msg.includes('anonymous') || msg.includes('disabled')) {
-            showToast("Soft Login requires Anonymous Sign-In to be enabled in Supabase Dashboard → Authentication → Settings.", "error");
+            showToast("Enable Anonymous Sign-Ins in Supabase Dashboard → Authentication → Providers (bottom of the page).", "error");
         } else {
-            showToast("Soft Login failed: " + err.message, "error");
+            showToast(err.message || "Soft Login failed", "error");
         }
     }
 };
