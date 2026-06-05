@@ -1665,8 +1665,8 @@ window.handleSoftUserSession = async function(user, flatNo) {
 
 window.autoLoginSharedAccount = async function(flatNo) {
     if (!sbClient) return;
-    const email = "resident_v2@deepsikha.in";
-    const password = "resident123";
+    const email = "shared_owner@deepsikha.in";
+    const password = "Deep@2024";
     
     try {
         // Try sign-in first (works if user exists and is confirmed)
@@ -1693,11 +1693,9 @@ window.autoLoginSharedAccount = async function(flatNo) {
         
         const msg = String(err.message || err).toLowerCase();
         if (msg.includes("email signups are disabled")) {
-            showToast("Soft Login setup required: Please enable 'Allow new users to sign up' in Supabase Authentication → Settings, or manually create user 'resident_v2@deepsikha.in' in auth.users.", "error");
-        } else if (msg.includes("invalid login credentials") || msg.includes("email not confirmed")) {
-            showToast("Soft Login blocked by Supabase. Please disable 'Email Confirmation' in Supabase Auth Settings, or confirm 'resident_v2@deepsikha.in' via SQL.", "error");
+            showToast("Soft Login setup required: Please enable 'Allow new users to sign up' in Supabase Authentication → Settings, then create user 'shared_owner@deepsikha.in' with password 'Deep@2024' in Supabase Auth Users.", "error");
         } else {
-            showToast("Authentication failed: " + (err.message || err), "error");
+            showToast("Soft Login blocked by Supabase. Please either:\n1. Disable 'Email Confirmation' in Auth Settings, OR\n2. Create + confirm user 'shared_owner@deepsikha.in' in Supabase Auth Users.", "error");
         }
     }
 };
