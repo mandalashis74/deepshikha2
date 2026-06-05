@@ -394,7 +394,8 @@ window.saveBoardPost = async function(e) {
 };
 
 window.closeBoardPost = async function(postId) {
-    if (!confirm('Mark this post as closed?')) return;
+    const { isConfirmed: close } = await Swal.fire({ title: 'Confirm', text: 'Mark this post as closed?', icon: 'question', showCancelButton: true, confirmButtonColor: '#f59e0b', confirmButtonText: 'Close', cancelButtonText: 'Cancel' });
+    if (!close) return;
     try {
         const { error } = await sbClient.from('community_posts').update({ status: 'closed' }).eq('id', postId);
         if (error) throw error;
@@ -407,7 +408,8 @@ window.closeBoardPost = async function(postId) {
 };
 
 window.deleteBoardPost = async function(postId) {
-    if (!confirm('Delete this post permanently?')) return;
+    const { isConfirmed: delPost } = await Swal.fire({ title: 'Confirm', text: 'Delete this post permanently?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delPost) return;
     try {
         const { error } = await sbClient.from('community_posts').delete().eq('id', postId);
         if (error) throw error;

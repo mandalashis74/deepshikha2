@@ -484,7 +484,8 @@ window.archiveTicket = async function(ticketId) {
 
 window.deleteTicket = async function(ticketId) {
     if (!sbClient) return;
-    if (!confirm("Are you sure you want to permanently delete this complaint ticket? This cannot be undone.")) return;
+    const { isConfirmed: delTick } = await Swal.fire({ title: 'Confirm', text: 'Are you sure you want to permanently delete this complaint ticket? This cannot be undone.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delTick) return;
     
     try {
         const { error } = await sbClient

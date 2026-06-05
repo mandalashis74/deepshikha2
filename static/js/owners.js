@@ -665,7 +665,8 @@ window.deleteEntry = async function(type, id, desc) {
         return;
     }
     
-    if (!confirm(`Are you sure you want to permanently delete this entry?\n\n"${desc}"`)) {
+    const { isConfirmed: delEntry } = await Swal.fire({ title: 'Delete Entry', text: `Are you sure you want to permanently delete this entry?\n\n"${desc}"`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delEntry) {
         return;
     }
 
@@ -721,7 +722,7 @@ window.onclick = function(event) {
 // Fetch building logo image and encode as base64
 async function getLogoBase64() {
     try {
-        const res = await fetch('/static/logo.png');
+        const res = await fetch('/logo.png');
         if (!res.ok) return null;
         const blob = await res.blob();
         return new Promise((resolve) => {
@@ -942,16 +943,14 @@ window.generateReceipt = async function(entryId) {
             doc.text(splitRemarks, 12, 133);
         }
         
-        // Collected By
-        if (data.collected_by) {
-            const collectedByY = (data.remarks && data.category !== "Other") ? 142 : 128;
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(7.5);
-            doc.setTextColor(100, 116, 139);
-            doc.text("Collected by:", 12, collectedByY);
-            doc.setFont("helvetica", "normal");
-            doc.text(data.collected_by, 38, collectedByY);
-        }
+        // Received by
+        const collectedByY = (data.remarks && data.category !== "Other") ? 142 : 128;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text("Received by:", 12, collectedByY);
+        doc.setFont("helvetica", "normal");
+        doc.text(data.collected_by || '—', 38, collectedByY);
         
         // Online Receipt
         doc.setFont("helvetica", "normal");
@@ -1274,7 +1273,8 @@ window.deleteHistoryEntry = async function(type, id, desc) {
         return;
     }
 
-    if (!confirm(`Are you sure you want to permanently delete this entry from history?\n\n"${desc}"`)) {
+    const { isConfirmed: delHist } = await Swal.fire({ title: 'Delete History Entry', text: `Are you sure you want to permanently delete this entry from history?\n\n"${desc}"`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delHist) {
         return;
     }
 

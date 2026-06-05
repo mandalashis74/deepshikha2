@@ -147,7 +147,8 @@ window.saveDocument = async function(e) {
 
 window.deleteDocument = async function(id) {
     if (!hasPermission('documents:delete')) { showToast("Access Denied.", "error"); return; }
-    if (!confirm('Delete this document permanently?')) return;
+    const { isConfirmed: delDoc } = await Swal.fire({ title: 'Confirm', text: 'Delete this document permanently?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delDoc) return;
     try {
         const { error } = await sbClient.from('document_vault').delete().eq('id', id);
         if (error) throw error;

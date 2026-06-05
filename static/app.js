@@ -170,13 +170,51 @@ window.loadDashStats = async function() {
         statusEl.innerHTML = `<i class="fa-solid fa-building" style="opacity:0.6;"></i> ${occupied} occupied &middot; ${vacant} vacant &middot; <i class="fa-solid fa-users" style="opacity:0.6;"></i> ${ownerOcc} owner &middot; ${tenantOcc} tenant`;
     }
     
-    const pct = n => totalFlats ? Math.round(n / totalFlats * 100) : 0;
-    document.getElementById('dash-owner-pct').textContent = pct(ownerOcc) + '%';
-    document.getElementById('dash-owner-bar').style.width = pct(ownerOcc) + '%';
-    document.getElementById('dash-tenant-pct').textContent = pct(tenantOcc) + '%';
-    document.getElementById('dash-tenant-bar').style.width = pct(tenantOcc) + '%';
-    document.getElementById('dash-vacant-pct').textContent = pct(vacant) + '%';
-    document.getElementById('dash-vacant-bar').style.width = pct(vacant) + '%';
+    // Occupancy donut chart in hero
+    if (window._occChart) { window._occChart.destroy(); window._occChart = null; }
+    const occCanvas = document.getElementById('dash-occupancy-canvas');
+    if (!occCanvas) return;
+    const ctx = occCanvas.getContext('2d');
+    if (ctx && typeof Chart !== 'undefined') {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = '/logo.png';
+        window._occChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Owner', 'Tenant', 'Vacant'],
+                datasets: [{
+                    data: [ownerOcc, tenantOcc, vacant],
+                    backgroundColor: ['#10b981', '#f59e0b', 'rgba(255,255,255,0.15)'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                cutout: '70%',
+                responsive: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw} (${totalFlats ? Math.round(ctx.raw / totalFlats * 100) : 0}%)` } }
+                }
+            },
+            plugins: [{
+                id: 'centerLogo',
+                afterDraw: function(chart) {
+                    if (!img.complete || img.naturalWidth === 0) return;
+                    const { width, height } = chart.chartArea;
+                    const centerX = (chart.width - width) / 2 + width / 2;
+                    const centerY = (chart.height - height) / 2 + height / 2;
+                    const radius = Math.min(width, height) * 0.35;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                    ctx.clip();
+                    ctx.drawImage(img, centerX - radius, centerY - radius, radius * 2, radius * 2);
+                    ctx.restore();
+                }
+            }]
+        });
+    }
     
     const eventsData = await safeQuery('events', async () => {
         const { data } = await sbClient.from('cultural_events')
@@ -528,7 +566,10 @@ window.setupAuthListener = function() {
                     }
                     document.getElementById("auth-container").style.display = "none";
                     const sidebar = document.getElementById("main-sidebar");
-                    if (sidebar) sidebar.classList.add("hidden");
+                    if (sidebar) {
+                        sidebar.classList.add("hidden");
+                        document.body.classList.add("sidebar-hidden");
+                    }
                     
                     const openTarget = new URLSearchParams(window.location.search).get('open');
                     if (openTarget === 'board' && window.hasPermission('board:view')) {
@@ -632,6 +673,7 @@ window.handleUserSession = async function(user) {
             } catch (_) {}
         }
         
+        await window.loadBuildingConfig();
         await window.ensureOwnersPopulated();
         
         window.loadFlats();
@@ -895,7 +937,8 @@ window.handleRegisterSubmit = async function(e) {
 // Logout Handler
 window.handleLogout = async function() {
     if (!sbClient) return;
-    if (!confirm("Are you sure you want to sign out?")) return;
+    const { isConfirmed: out } = await Swal.fire({ title: 'Sign Out', text: 'Are you sure you want to sign out?', icon: 'question', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Sign Out', cancelButtonText: 'Cancel' });
+    if (!out) return;
     
     try {
         localStorage.removeItem("isSoftLogin");
@@ -1645,7 +1688,8 @@ window.handleDeleteExpenseHead = async function(id, name) {
         return;
     }
     
-    if (!confirm(`Are you sure you want to delete the category "${name}"?\nNote: Existing expenses using this head will remain, but this category option will be removed.`)) {
+    const { isConfirmed: delCat } = await Swal.fire({ title: 'Delete Category', text: `Are you sure you want to delete the category "${name}"?\nNote: Existing expenses using this head will remain, but this category option will be removed.`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delCat) {
         return;
     }
     
@@ -1777,6 +1821,26 @@ window.handleSoftLoginSubmit = async function(e) {
     }
 };
 
+window.autoLoginSharedAccount = async function(flatNo) {
+    if (!sbClient) return;
+    try {
+        const { data, error } = await sbClient.auth.signInWithPassword({
+            email: 'shared_owner@deepsikha.in',
+            password: 'Deep@2024'
+        });
+        if (error) throw error;
+        localStorage.setItem("isSoftLogin", "true");
+        localStorage.setItem("currentFlatNo", flatNo);
+        if (data.session) {
+            await sbClient.auth.setSession(data.session);
+        }
+    } catch (e) {
+        console.warn("autoLoginSharedAccount failed, using viewer fallback:", e);
+        // Viewer fallback — call handleSoftUserSession directly with placeholder user
+        window.handleSoftUserSession({ id: null, email: 'shared_owner@deepsikha.in', user_metadata: {} }, flatNo);
+    }
+};
+
 window.handleSoftUserSession = async function(user, flatNo) {
     if (!sbClient) return;
     
@@ -1809,6 +1873,7 @@ window.handleSoftUserSession = async function(user, flatNo) {
         window.currentUserRole = 'viewer';
         window.applyRbacRestrictions('viewer');
         
+        await window.loadBuildingConfig();
         await window.ensureOwnersPopulated();
         window.loadFlats();
         window.loadExpenseHeads();

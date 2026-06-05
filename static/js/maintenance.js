@@ -1307,6 +1307,16 @@ async function renderPendingApprovalsTab(container, toolbar) {
     }
 
     let pendings = [];
+    let ownerMap = {};
+    try {
+        const { data: owners } = await sbClient.from('owners').select('flat_no, owner_name');
+        if (owners) {
+            owners.forEach(o => {
+                const name = window.displayStructured(o.owner_name, 'name') || o.owner_name || '';
+                ownerMap[o.flat_no] = name;
+            });
+        }
+    } catch {}
     try {
         const { data } = await sbClient.from('income')
             .select('*')
@@ -1334,6 +1344,7 @@ async function renderPendingApprovalsTab(container, toolbar) {
     html += '<table class="data-table"><thead><tr><th>Flat</th><th>Month</th><th>Amount</th><th>Payment Mode</th><th>Ref No.</th><th>Payment Date</th><th>Requested By</th><th>Actions</th></tr></thead><tbody>';
 
     for (const p of pendings) {
+        const requester = ownerMap[p.flat_no] || p.flat_no;
         html += `<tr>
             <td><strong>${escapeHtml(p.flat_no)}</strong></td>
             <td>${escapeHtml(p.month)} ${escapeHtml(p.year)}</td>
@@ -1341,7 +1352,7 @@ async function renderPendingApprovalsTab(container, toolbar) {
             <td>${escapeHtml(p.payment_mode || '—')}</td>
             <td style="font-size:0.8rem;">${escapeHtml(p.ref_number || '—')}</td>
             <td style="font-size:0.8rem;">${p.payment_date || '—'}</td>
-            <td style="font-size:0.8rem;">${escapeHtml(p.collected_by || '—')}</td>
+            <td style="font-size:0.8rem;">${escapeHtml(requester)}</td>
             <td>
                 <button class="btn btn-sm" style="background:var(--color-emerald);color:#fff;" onclick='approvePayment("${p.id}")'><i class="fa-solid fa-check"></i> Approve</button>
                 <button class="btn btn-sm" style="background:var(--color-rose);color:#fff;margin-left:4px;" onclick='rejectPayment("${p.id}")'><i class="fa-solid fa-xmark"></i> Reject</button>
@@ -1353,7 +1364,8 @@ async function renderPendingApprovalsTab(container, toolbar) {
 }
 
 window.approvePayment = async function(id) {
-    if (!confirm('Approve this payment?')) return;
+    const { isConfirmed: apr } = await Swal.fire({ title: 'Confirm', text: 'Approve this payment?', icon: 'question', showCancelButton: true, confirmButtonColor: '#059669', confirmButtonText: 'Approve', cancelButtonText: 'Cancel' });
+    if (!apr) return;
     try {
         const approver = window.currentUserName || window.currentUserEmail || 'System';
         const { error } = await sbClient.from('income')
@@ -1375,7 +1387,8 @@ window.approvePayment = async function(id) {
 };
 
 window.rejectPayment = async function(id) {
-    if (!confirm('Reject this payment?')) return;
+    const { isConfirmed: rej } = await Swal.fire({ title: 'Confirm', text: 'Reject this payment?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Reject', cancelButtonText: 'Cancel' });
+    if (!rej) return;
     try {
         const { error } = await sbClient.from('income')
             .update({
@@ -1395,7 +1408,8 @@ window.rejectPayment = async function(id) {
 };
 
 window.markDeposited = async function(id) {
-    if (!confirm('Mark this collection as deposited to treasurer?')) return;
+    const { isConfirmed: dep } = await Swal.fire({ title: 'Confirm', text: 'Mark this collection as deposited to treasurer?', icon: 'question', showCancelButton: true, confirmButtonColor: '#6366f1', confirmButtonText: 'Yes, mark deposited', cancelButtonText: 'Cancel' });
+    if (!dep) return;
     try {
         const depositor = window.currentUserName || window.currentUserEmail || 'System';
         const now = new Date().toISOString();

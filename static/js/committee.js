@@ -281,7 +281,8 @@ window.assignCommitteeMember = async function(positionId) {
     const select = document.getElementById(`assign-select-${positionId}`);
     const userId = select?.value;
     if (!userId) { showToast('Select a user first.', 'warning'); return; }
-    if (!confirm('Assign this user to the position?')) return;
+    const { isConfirmed: assign } = await Swal.fire({ title: 'Confirm', text: 'Assign this user to the position?', icon: 'question', showCancelButton: true, confirmButtonColor: '#059669', confirmButtonText: 'Assign', cancelButtonText: 'Cancel' });
+    if (!assign) return;
     try {
         const [posRes, profileRes] = await Promise.all([
             sbClient.from('committee_positions').select('title').eq('id', positionId).single(),
@@ -307,7 +308,8 @@ window.assignCommitteeMember = async function(positionId) {
 };
 
 window.removeCommitteeMember = async function(memberId) {
-    if (!confirm('Remove this committee member?')) return;
+    const { isConfirmed: remove } = await Swal.fire({ title: 'Confirm', text: 'Remove this committee member?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Remove', cancelButtonText: 'Cancel' });
+    if (!remove) return;
     try {
         const { error } = await sbClient.from('committee_members').update({ is_active: false }).eq('id', memberId);
         if (error) throw error;

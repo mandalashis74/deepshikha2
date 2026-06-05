@@ -241,7 +241,8 @@ window.toggleChecklistItem = async function(itemId, completed, handoverId) {
 
 window.completeHandover = async function(handoverId) {
     if (!hasPermission('handover:create')) { showToast("Access Denied.", "error"); return; }
-    if (!confirm('Mark this handover as complete? All checklist items should be done before proceeding.')) return;
+    const { isConfirmed: complete } = await Swal.fire({ title: 'Confirm', text: 'Mark this handover as complete? All checklist items should be done before proceeding.', icon: 'question', showCancelButton: true, confirmButtonColor: '#059669', confirmButtonText: 'Complete', cancelButtonText: 'Cancel' });
+    if (!complete) return;
     try {
         const { error } = await sbClient.from('committee_handovers').update({ status: 'completed' }).eq('id', handoverId);
         if (error) throw error;
@@ -255,7 +256,8 @@ window.completeHandover = async function(handoverId) {
 
 window.acknowledgeHandover = async function(handoverId) {
     if (!hasPermission('handover:create')) { showToast("Access Denied.", "error"); return; }
-    if (!confirm('Acknowledge receipt of all handover documents?')) return;
+    const { isConfirmed: ack } = await Swal.fire({ title: 'Confirm', text: 'Acknowledge receipt of all handover documents?', icon: 'question', showCancelButton: true, confirmButtonColor: '#6366f1', confirmButtonText: 'Acknowledge', cancelButtonText: 'Cancel' });
+    if (!ack) return;
     try {
         const { error } = await sbClient.from('committee_handovers').update({
             acknowledged_by: currentUserId, acknowledged_at: new Date().toISOString()

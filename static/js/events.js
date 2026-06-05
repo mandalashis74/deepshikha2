@@ -290,7 +290,8 @@ window.deleteEvent = async function(eventId, eventName) {
         showToast("Access Denied.", "error");
         return;
     }
-    if (!confirm(`Delete "${eventName}"? This will also remove all associated schedules, vendors, performances, competitions, gallery photos, and visitor passes.`)) return;
+    const { isConfirmed: delEvt } = await Swal.fire({ title: 'Delete Event', text: `Delete "${eventName}"? This will also remove all associated schedules, vendors, performances, competitions, gallery photos, and visitor passes.`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delEvt) return;
     if (!sbClient) return;
     try {
         const { error } = await sbClient.from('cultural_events').delete().eq('id', eventId);
@@ -995,7 +996,8 @@ window.addGalleryPhoto = async function(e) {
 
 window.deleteGalleryPhoto = async function(photoId) {
     if (!sbClient || !hasPermission('events:upload_gallery')) return;
-    if (!confirm('Delete this photo?')) return;
+    const { isConfirmed: delPhoto } = await Swal.fire({ title: 'Delete Photo', text: 'Delete this photo?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delPhoto) return;
     try {
         const { error } = await sbClient.from('event_gallery').delete().eq('id', photoId);
         if (error) throw error;
@@ -1664,7 +1666,8 @@ window.deletePerformance = async function(perfId, performerName) {
         showToast("Access Denied.", "error");
         return;
     }
-    if (!confirm(`Delete performance by "${performerName}"?`)) return;
+    const { isConfirmed: delPerf } = await Swal.fire({ title: 'Delete Performance', text: `Delete performance by "${performerName}"?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delPerf) return;
     if (!sbClient) return;
     try {
         const { data: deleted, error } = await sbClient.from('event_performances').delete().eq('id', perfId).select('id');
@@ -1789,7 +1792,8 @@ window.saveScheduleEntry = async function(e) {
 };
 
 window.deleteScheduleEntry = async function(id) {
-    if (!confirm('Delete this schedule entry?')) return;
+    const { isConfirmed: delSched } = await Swal.fire({ title: 'Delete Schedule', text: 'Delete this schedule entry?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delSched) return;
     try {
         await sbClient.from('event_schedules').delete().eq('id', id);
         showToast('Entry deleted.', 'success');
@@ -1849,7 +1853,8 @@ window.saveVendor = async function(e) {
 };
 
 window.deleteVendor = async function(id) {
-    if (!confirm('Delete this vendor?')) return;
+    const { isConfirmed: delVend } = await Swal.fire({ title: 'Delete Vendor', text: 'Delete this vendor?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delVend) return;
     try {
         await sbClient.from('event_vendors').delete().eq('id', id);
         showToast('Vendor deleted.', 'success');
@@ -1907,7 +1912,8 @@ window.saveCompetition = async function(e) {
 };
 
 window.deleteCompetition = async function(id) {
-    if (!confirm('Delete this competition?')) return;
+    const { isConfirmed: delComp } = await Swal.fire({ title: 'Delete Competition', text: 'Delete this competition?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delComp) return;
     try {
         await sbClient.from('event_competitions').delete().eq('id', id);
         showToast('Competition deleted.', 'success');
@@ -2208,7 +2214,8 @@ window.saveCoupon = async function(e) {
 
 window.deleteCoupon = async function(couponId) {
     if (!hasPermission('events:create')) { showToast('Access Denied.', 'error'); return; }
-    if (!confirm('Delete this coupon type?')) return;
+    const { isConfirmed: delCoup } = await Swal.fire({ title: 'Delete Coupon', text: 'Delete this coupon type?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delCoup) return;
     const { error } = await sbClient.from('event_food_coupons').delete().eq('id', couponId);
     if (error) { showToast('Error: ' + error.message, 'error'); return; }
     showToast('Coupon deleted.', 'success');

@@ -135,7 +135,8 @@ window.editSecurityPersonnel = function(personId) {
 
 window.removeSecurityPersonnel = async function(personId) {
     if (!hasSecurityPermission('security:manage')) { showToast('Access Denied.', 'error'); return; }
-    if (!confirm('Remove this personnel from the roster?')) return;
+    const { isConfirmed: remove } = await Swal.fire({ title: 'Confirm', text: 'Remove this personnel from the roster?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Remove', cancelButtonText: 'Cancel' });
+    if (!remove) return;
     const { error } = await sbClient.from('security_personnel').update({ is_active: false }).eq('id', personId);
     if (error) { showToast('Error: ' + error.message, 'error'); return; }
     showToast('Personnel removed.', 'success');

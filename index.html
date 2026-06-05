@@ -67,6 +67,10 @@
                         <i class="fa-solid fa-chart-pie"></i>
                         <span>Finance</span>
                     </button>
+                    <button class="sidebar-btn" id="side-maintenance" onclick="openMaintenanceModal()">
+                        <i class="fa-solid fa-wrench"></i>
+                        <span>Maintenance Fees</span>
+                    </button>
                     <button class="sidebar-btn" id="side-history" onclick="openHistoryModal()">
                         <i class="fa-solid fa-clock-rotate-left"></i>
                         <span>Ledger History</span>
@@ -173,13 +177,13 @@
                         <i class="fa-solid fa-square-parking"></i>
                         <span>Parking</span>
                     </button>
-                    <button class="sidebar-btn" id="side-maintenance" onclick="openMaintenanceModal()">
-                        <i class="fa-solid fa-wrench"></i>
-                        <span>Maintenance Fees</span>
-                    </button>
                     <button class="sidebar-btn" id="side-security" onclick="openSecurityModal()">
                         <i class="fa-solid fa-shield-halved"></i>
                         <span>Security</span>
+                    </button>
+                    <button class="sidebar-btn" id="side-handover" onclick="openHandoverModal()">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Handover Tool</span>
                     </button>
                 </nav>
             </div>
@@ -191,14 +195,6 @@
             </div>
             <div class="collapse-wrap" id="group-tools">
                 <nav class="sidebar-nav">
-                    <button class="sidebar-btn" id="side-handover" onclick="openHandoverModal()">
-                        <i class="fa-solid fa-arrows-rotate"></i>
-                        <span>Handover Tool</span>
-                    </button>
-                    <button class="sidebar-btn" id="side-analytics" onclick="openAnalyticsModal()">
-                        <i class="fa-solid fa-chart-line"></i>
-                        <span>Analytics</span>
-                    </button>
                 </nav>
             </div>
 
@@ -270,14 +266,19 @@
                     <div class="dash-hero-orb" style="position:absolute; top:-60px; right:-40px; width:260px; height:260px; border-radius:50%; background:radial-gradient(circle, rgba(99,102,241,0.2), transparent 70%);"></div>
                     <div class="dash-hero-orb" style="position:absolute; bottom:-50px; left:-40px; width:200px; height:200px; border-radius:50%; background:radial-gradient(circle, rgba(16,185,129,0.15), transparent 70%);"></div>
                     <div class="dash-hero-orb" style="position:absolute; top:10px; left:40%; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle, rgba(245,158,11,0.1), transparent 70%);"></div>
-                    <div style="position:relative; z-index:1;">
-                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
-                            <span style="font-size:0.8rem; color:rgba(255,255,255,0.6);" id="dashboard-greeting"></span>
-                            <span style="width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,0.2);"></span>
-                            <span style="font-size:0.8rem; color:rgba(255,255,255,0.6);" id="dashboard-date-time"></span>
+                    <div style="display:flex; align-items:center; justify-content:space-between; position:relative; z-index:1;">
+                        <div>
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                                <span style="font-size:0.8rem; color:rgba(255,255,255,0.6);" id="dashboard-greeting"></span>
+                                <span style="width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,0.2);"></span>
+                                <span style="font-size:0.8rem; color:rgba(255,255,255,0.6);" id="dashboard-date-time"></span>
+                            </div>
+                            <h1 style="font-size:1.8rem; font-weight:800; color:#fff; margin:0; letter-spacing:-0.5px;" id="dashboard-building-name"></h1>
+                            <p style="font-size:0.85rem; color:rgba(255,255,255,0.6); margin-top:8px;" id="dash-status-line"></p>
                         </div>
-                        <h1 style="font-size:1.8rem; font-weight:800; color:#fff; margin:0; letter-spacing:-0.5px;" id="dashboard-building-name"></h1>
-                        <p style="font-size:0.85rem; color:rgba(255,255,255,0.6); margin-top:8px;" id="dash-status-line"></p>
+                        <div style="flex-shrink:0; width:100px; height:100px;">
+                            <canvas id="dash-occupancy-canvas" width="100" height="100"></canvas>
+                        </div>
                     </div>
                 </div>
 
@@ -420,30 +421,6 @@
                             <div style="color: var(--text-muted); font-size: 0.85rem; padding: 12px; text-align: center;">Loading...</div>
                         </div>
 
-                        <div class="dash-section-title"><i class="fa-solid fa-chart-simple"></i> Occupancy Overview</div>
-                        <div id="dash-occupancy-chart" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 16px;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-                                <span style="font-size: 0.85rem; color: var(--text-secondary);">Owner Occupied</span>
-                                <span id="dash-owner-pct" style="font-weight: 700; color: var(--color-emerald);">0%</span>
-                            </div>
-                            <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
-                                <div id="dash-owner-bar" style="height: 100%; background: var(--color-emerald); border-radius: 3px; width: 0%;"></div>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-                                <span style="font-size: 0.85rem; color: var(--text-secondary);">Tenant Occupied</span>
-                                <span id="dash-tenant-pct" style="font-weight: 700; color: var(--color-yellow);">0%</span>
-                            </div>
-                            <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
-                                <div id="dash-tenant-bar" style="height: 100%; background: var(--color-yellow); border-radius: 3px; width: 0%;"></div>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="font-size: 0.85rem; color: var(--text-secondary);">Vacant</span>
-                                <span id="dash-vacant-pct" style="font-weight: 700; color: var(--text-muted);">0%</span>
-                            </div>
-                            <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-top: 8px;">
-                                <div id="dash-vacant-bar" style="height: 100%; background: var(--text-muted); border-radius: 3px; width: 0%;"></div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </main>
@@ -2296,20 +2273,6 @@
     </div>
 </div>
 
-<!-- MODAL: ADMIN DASHBOARD ANALYTICS -->
-<div id="analyticsModal" class="modal">
-    <div class="modal-content animate-zoom" style="max-width: 1000px;">
-        <div class="modal-header">
-            <h2><i class="fa-solid fa-chart-line"></i> Dashboard Analytics</h2>
-            <span class="close" onclick="closeModal('analyticsModal')">&times;</span>
-        </div>
-        <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
-            <div id="analytics-container">
-                <div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- MODAL: MAINTENANCE FEES -->
 <div id="maintenanceModal" class="modal">
@@ -3243,128 +3206,6 @@
                         <button type="submit" class="btn btn-indigo"><i class="fa-solid fa-check"></i> Sign Up</button>
                     </div>
                 </form>
-            </div>
-        </div>
-
-        <!-- MODAL: LAVISH DASHBOARD -->
-        <div id="lavishDashboardModal" class="modal">
-            <div class="modal-content animate-zoom" style="max-width: 1000px; padding: 0; overflow: hidden; border-radius: var(--border-radius-lg);">
-                <div id="dashboard-hero" style="background: linear-gradient(135deg, var(--color-indigo), #1e1b4b); padding: 32px; position: relative; overflow: hidden;">
-                    <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.04);"></div>
-                    <div style="position: absolute; bottom: -30px; left: -30px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,0.03);"></div>
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 1;">
-                        <div>
-                            <p style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 4px;" id="dashboard-greeting"></p>
-                            <h1 style="font-size: 1.8rem; font-weight: 800; color: #fff; margin: 0;" id="dashboard-building-name"></h1>
-                            <p style="font-size: 0.9rem; color: rgba(255,255,255,0.7); margin-top: 6px;" id="dashboard-date-time"></p>
-                        </div>
-                        <button class="close" onclick="closeModal('lavishDashboardModal')" style="color: rgba(255,255,255,0.7); font-size: 1.8rem; position: relative;">&times;</button>
-                    </div>
-                </div>
-                <div style="padding: 24px; max-height: 70vh; overflow-y: auto;">
-                    <!-- Hero Stats Row -->
-                    <div class="dash-stat-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px;">
-                        <div class="dash-stat-card" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
-                            <div class="dash-stat-icon"><i class="fa-solid fa-building"></i></div>
-                            <div>
-                                <div class="dash-stat-value" id="dash-total-flats">-</div>
-                                <div class="dash-stat-label">Total Flats</div>
-                            </div>
-                        </div>
-                        <div class="dash-stat-card" style="background: linear-gradient(135deg, #10b981, #059669);">
-                            <div class="dash-stat-icon"><i class="fa-solid fa-house-circle-check"></i></div>
-                            <div>
-                                <div class="dash-stat-value" id="dash-occupied-flats">-</div>
-                                <div class="dash-stat-label">Occupied</div>
-                            </div>
-                        </div>
-                        <div class="dash-stat-card" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
-                            <div class="dash-stat-icon"><i class="fa-solid fa-calendar-days"></i></div>
-                            <div>
-                                <div class="dash-stat-value" id="dash-active-events">-</div>
-                                <div class="dash-stat-label">Active Events</div>
-                            </div>
-                        </div>
-                        <div class="dash-stat-card" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
-                            <div class="dash-stat-icon"><i class="fa-solid fa-ticket"></i></div>
-                            <div>
-                                <div class="dash-stat-value" id="dash-open-tickets">-</div>
-                                <div class="dash-stat-label">Open Tickets</div>
-                            </div>
-                        </div>
-                        <div class="dash-stat-card" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
-                            <div class="dash-stat-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
-                            <div>
-                                <div class="dash-stat-value" id="dash-month-income">-</div>
-                                <div class="dash-stat-label">This Month Income</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Two-column layout -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <!-- Left Column -->
-                        <div>
-                            <div class="dash-section-title"><i class="fa-solid fa-bolt"></i> Quick Actions</div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                                <button class="dash-action-card" onclick="openMultiMonthIncomeModal(); closeModal('lavishDashboardModal')">
-                                    <i class="fa-solid fa-hand-holding-dollar" style="color: var(--color-emerald);"></i>
-                                    <span>Collect Fee</span>
-                                </button>
-                                <button class="dash-action-card" onclick="openModal('expenseModal'); closeModal('lavishDashboardModal')">
-                                    <i class="fa-solid fa-money-bill-transfer" style="color: var(--color-rose);"></i>
-                                    <span>Record Expense</span>
-                                </button>
-                                <button class="dash-action-card" onclick="openEventsModal(); closeModal('lavishDashboardModal')">
-                                    <i class="fa-solid fa-calendar-days" style="color: var(--color-indigo);"></i>
-                                    <span>Cultural Events</span>
-                                </button>
-                                <button class="dash-action-card" onclick="openTicketsModal(); closeModal('lavishDashboardModal')">
-                                    <i class="fa-solid fa-ticket" style="color: var(--color-yellow);"></i>
-                                    <span>Helpdesk</span>
-                                </button>
-                            </div>
-
-                            <div class="dash-section-title"><i class="fa-solid fa-calendar-days"></i> Upcoming Events</div>
-                            <div id="dash-events-list" style="margin-bottom: 20px;">
-                                <div style="color: var(--text-muted); font-size: 0.85rem; padding: 12px; text-align: center;">Loading...</div>
-                            </div>
-                        </div>
-
-                        <!-- Right Column -->
-                        <div>
-                            <div class="dash-section-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</div>
-                            <div id="dash-recent-activity" style="margin-bottom: 20px;">
-                                <div style="color: var(--text-muted); font-size: 0.85rem; padding: 12px; text-align: center;">Loading...</div>
-                            </div>
-
-                            <div class="dash-section-title"><i class="fa-solid fa-chart-simple"></i> Occupancy Overview</div>
-                            <div id="dash-occupancy-chart" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 16px;">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Owner Occupied</span>
-                                    <span id="dash-owner-pct" style="font-weight: 700; color: var(--color-emerald);">0%</span>
-                                </div>
-                                <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
-                                    <div id="dash-owner-bar" style="height: 100%; background: var(--color-emerald); border-radius: 3px; width: 0%;"></div>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Tenant Occupied</span>
-                                    <span id="dash-tenant-pct" style="font-weight: 700; color: var(--color-yellow);">0%</span>
-                                </div>
-                                <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
-                                    <div id="dash-tenant-bar" style="height: 100%; background: var(--color-yellow); border-radius: 3px; width: 0%;"></div>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Vacant</span>
-                                    <span id="dash-vacant-pct" style="font-weight: 700; color: var(--text-muted);">0%</span>
-                                </div>
-                                <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-top: 8px;">
-                                    <div id="dash-vacant-bar" style="height: 100%; background: var(--text-muted); border-radius: 3px; width: 0%;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 

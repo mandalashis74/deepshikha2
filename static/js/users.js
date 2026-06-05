@@ -716,7 +716,8 @@ window.handleDeleteRole = async function(roleName) {
     const role = rolesData.find(r => r.name === roleName);
     if (!role) return;
     
-    if (!confirm(`Are you sure you want to delete the role "${role.label || roleName}"?\n\nUsers with this role will retain it but lose all associated permissions until reassigned.`)) {
+    const { isConfirmed: delRole } = await Swal.fire({ title: 'Delete Role', text: `Are you sure you want to delete the role "${role.label || roleName}"?\n\nUsers with this role will retain it but lose all associated permissions until reassigned.`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Delete', cancelButtonText: 'Cancel' });
+    if (!delRole) {
         return;
     }
     

@@ -126,7 +126,8 @@ window.toggleVendorStatus = async function(id, currentStatus) {
     if (!hasPermission('vendors:manage')) { showToast("Access Denied.", "error"); return; }
     const newStatus = currentStatus === 'active' ? 'terminated' : 'active';
     const verb = newStatus === 'active' ? 'Activate' : 'Terminate';
-    if (!confirm(`${verb} this vendor?`)) return;
+    const { isConfirmed: vend } = await Swal.fire({ title: 'Confirm', text: `${verb} this vendor?`, icon: 'question', showCancelButton: true, confirmButtonColor: '#6366f1', confirmButtonText: verb, cancelButtonText: 'Cancel' });
+    if (!vend) return;
     try {
         const { error } = await sbClient.from('vendors').update({ status: newStatus }).eq('id', id);
         if (error) throw error;
