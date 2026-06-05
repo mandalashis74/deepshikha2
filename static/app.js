@@ -1207,6 +1207,9 @@ window.displayStructured = function(value, key) {
     if (Array.isArray(value)) {
         return value.map(o => o[key] || '').filter(Boolean).join(', ');
     }
+    if (typeof value === 'object') {
+        return value[key] || String(value);
+    }
     return String(value);
 };
 
@@ -1788,7 +1791,8 @@ window.handleSoftUserSession = async function(user, flatNo) {
             let label = `Flat ${flatNo}`;
             if (flatNo) {
                 const { data: owner } = await sbClient.from('owners').select('owner_name').eq('flat_no', flatNo).maybeSingle();
-                if (owner?.owner_name) label = `${flatNo} — ${owner.owner_name}`;
+                const name = window.displayStructured(owner?.owner_name, 'name') || owner?.owner_name || '';
+                if (name) label = `${flatNo} — ${name}`;
             }
             sideEmail.textContent = label;
             sideRole.textContent = "RESIDENT";

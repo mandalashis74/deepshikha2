@@ -95,7 +95,7 @@ body {
 .sidebar-toggle-btn {
     position: fixed;
     top: 6px;
-    left: 204px;
+    left: 6px;
     z-index: 100;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -104,15 +104,12 @@ body {
     cursor: pointer;
     padding: 6px 10px;
     border-radius: var(--border-radius-sm);
-    transition: left 0.25s ease, color 0.15s ease, background 0.15s ease;
+    transition: color 0.15s ease, background 0.15s ease;
     line-height: 1;
 }
 .sidebar-toggle-btn:hover {
     color: var(--text-primary);
     background: var(--bg-hover);
-}
-body.sidebar-hidden .sidebar-toggle-btn {
-    left: 6px;
 }
 
 /* Sidebar hidden/collapsed state (Icon Only) */
