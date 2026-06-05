@@ -1258,10 +1258,14 @@ async function renderFlatwiseData(container, flatNo) {
                 <td style="font-size:0.8rem;">${r.refNo}</td>
                 <td style="font-size:0.8rem;">${r.paidOn}</td>
                 <td>${r.colId && !r.isPending
-                    ? `<button class="btn btn-sm" style="font-size:0.65rem;padding:2px 8px;" onclick='generateReceipt("${r.colId}")'><i class="fa-solid fa-file-pdf"></i></button>`
+                    ? r.statusText === 'Rejected'
+                        ? `<button class="btn btn-sm" style="font-size:0.65rem;padding:2px 8px;" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}")'><i class="fa-solid fa-rotate"></i> Pay Again</button>`
+                        : `<button class="btn btn-sm" style="font-size:0.65rem;padding:2px 8px;" onclick='generateReceipt("${r.colId}")'><i class="fa-solid fa-file-pdf"></i></button>`
                     : r.isPending
                         ? '<span style="font-size:0.7rem;color:var(--color-orange);">Awaiting approval</span>'
-                        : ''
+                        : !r.exempt && r.rateAmt > 0
+                            ? `<button class="btn btn-sm" style="font-size:0.65rem;padding:2px 8px;" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}")'><i class="fa-solid fa-hand-holding-dollar"></i> Pay Now</button>`
+                            : ''
                 }</td>
             </tr>`;
         }
