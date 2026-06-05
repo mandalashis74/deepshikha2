@@ -69,8 +69,12 @@ serve(async (req) => {
     )
 
     // Using the shared credentials on the secure backend
-    const SHARED_EMAIL = 'shared_owner@deepsikha.in'
-    const SHARED_PASS = 'Deep@2024' // Secured inside Edge Function
+    const SHARED_EMAIL = Deno.env.get('SHARED_ACCOUNT_EMAIL')
+    const SHARED_PASS = Deno.env.get('SHARED_ACCOUNT_PASSWORD')
+    
+    if (!SHARED_EMAIL || !SHARED_PASS) {
+        throw new Error("Server configuration error: Missing shared account credentials.")
+    }
 
     const { data: authData, error: authError } = await authClient.auth.signInWithPassword({
         email: SHARED_EMAIL,

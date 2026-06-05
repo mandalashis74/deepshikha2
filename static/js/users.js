@@ -14,7 +14,10 @@ window.openBuildingConfigModal = function() {
     document.getElementById("cfg-gapi-key").value = buildingConfig?.google_api_key || '';
     document.getElementById("cfg-gclient-id").value = buildingConfig?.google_client_id || '';
     document.getElementById("cfg-vapid-public").value = buildingConfig?.vapid_public_key || '';
-    document.getElementById("cfg-vapid-private").value = buildingConfig?.vapid_private_key || '';
+    // Load vapid_private_key from app_secrets (admin-only table)
+    sbClient.from('app_secrets').select('vapid_private_key').eq('id', 1).single().then(({ data: sd }) => {
+        document.getElementById("cfg-vapid-private").value = sd?.vapid_private_key || '';
+    }).catch(() => {});
     document.getElementById("cfg-floors").value = getFloorCount();
     document.getElementById("cfg-wings").value = getWingsList().join(',');
     document.getElementById("cfg-flat-types").value = getFlatTypesList().join(',');
@@ -37,7 +40,7 @@ window.handleSaveBuildingConfig = async function(e) {
         google_api_key: document.getElementById("cfg-gapi-key").value.trim(),
         google_client_id: document.getElementById("cfg-gclient-id").value.trim(),
         vapid_public_key: document.getElementById("cfg-vapid-public").value.trim(),
-        vapid_private_key: document.getElementById("cfg-vapid-private").value.trim(),
+        // vapid_private_key saved separately to app_secrets below
         floors: parseInt(document.getElementById("cfg-floors").value, 10) || 8,
         wings: document.getElementById("cfg-wings").value.trim().toUpperCase(),
         flat_types: document.getElementById("cfg-flat-types").value.trim().toUpperCase(),
@@ -51,6 +54,15 @@ window.handleSaveBuildingConfig = async function(e) {
     };
     const saved = await saveBuildingConfig(config);
     if (saved) {
+        // Save vapid_private_key to app_secrets (admin-only table)
+        try {
+            await sbClient.from('app_secrets').upsert({
+                id: 1,
+                vapid_private_key: document.getElementById("cfg-vapid-private").value.trim()
+            }, { onConflict: 'id' });
+        } catch (e) {
+            console.warn("Failed to save vapid_private_key to app_secrets:", e);
+        }
         showToast("Building configuration saved!", "success");
         closeModal('buildingConfigModal');
         // Re-seed if flats changed

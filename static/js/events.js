@@ -760,7 +760,7 @@ window.generateVapidKeys = async function() {
 };
 
 window.registerPushSubscription = async function() {
-    if (!buildingConfig?.vapid_public_key || !buildingConfig?.vapid_private_key) {
+    if (!buildingConfig?.vapid_public_key) {
         showToast('Push notifications not configured. Ask admin to set up VAPID keys.', 'info');
         return false;
     }

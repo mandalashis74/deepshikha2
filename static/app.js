@@ -25,7 +25,6 @@ const DEFAULT_BUILDING_CONFIG = {
     google_api_key: '',
     google_client_id: '',
     vapid_public_key: '',
-    vapid_private_key: '',
     floors: 8,
     wings: 'A,B,C,D,E,F,G,H',
     flat_types: '1BHK,2BHK,3BHK',
@@ -327,7 +326,6 @@ window.saveBuildingConfig = async function(config) {
             google_api_key: config.google_api_key,
             google_client_id: config.google_client_id,
             vapid_public_key: config.vapid_public_key,
-            vapid_private_key: config.vapid_private_key,
             floors: parseInt(config.floors, 10) || 8,
             wings: config.wings,
             flat_types: config.flat_types,
@@ -595,6 +593,22 @@ window.applyRbacRestrictions = function(role) {
     setNav("side-parking", window.hasPermission('parking:view'));
     setNav("side-handover", window.hasPermission('handover:view'));
     setNav("side-analytics", window.hasPermission('analytics:view'));
+    
+    const updateGroupVisibility = (groupId, labelId) => {
+        const group = document.getElementById(groupId);
+        const label = document.getElementById(labelId);
+        if (!group || !label) return;
+        const visibleBtns = Array.from(group.querySelectorAll('.sidebar-btn')).filter(btn => btn.style.display !== 'none');
+        const show = visibleBtns.length > 0;
+        group.style.display = show ? "block" : "none";
+        label.style.display = show ? "flex" : "none";
+    };
+
+    updateGroupVisibility('group-finance', 'sh-finance');
+    updateGroupVisibility('group-community', 'sh-community');
+    updateGroupVisibility('group-services', 'sh-services');
+    updateGroupVisibility('group-property', 'sh-property');
+    updateGroupVisibility('group-tools', 'sh-tools');
     
     const hideDash = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? "" : "none"; };
     hideDash("dash-collect-fee", window.hasPermission('income:create'));

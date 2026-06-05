@@ -21,21 +21,20 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get VAPID keys from building_config
-    const { data: config } = await supabase
-      .from('building_config')
-      .select('vapid_public_key, vapid_private_key')
-      .eq('id', 1)
-      .single();
+    // Get VAPID public key from building_config, private key from app_secrets
+    const [bCfg, sec] = await Promise.all([
+      supabase.from('building_config').select('vapid_public_key').eq('id', 1).single(),
+      supabase.from('app_secrets').select('vapid_private_key').eq('id', 1).single()
+    ]);
 
-    if (!config?.vapid_public_key || !config?.vapid_private_key) {
+    if (!bCfg.data?.vapid_public_key || !sec.data?.vapid_private_key) {
       return new Response(JSON.stringify({ error: 'VAPID keys not configured' }), { status: 400 });
     }
 
     webpush.setVapidDetails(
       `mailto:admin@${(building_name || 'residence').toLowerCase().replace(/\s/g, '')}.com`,
-      config.vapid_public_key,
-      config.vapid_private_key
+      bCfg.data.vapid_public_key,
+      sec.data.vapid_private_key
     );
 
     // Get all subscriptions

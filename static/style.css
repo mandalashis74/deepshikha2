@@ -121,6 +121,7 @@ body.sidebar-hidden .sidebar-toggle-btn {
     min-width: 60px;
     transform: translateX(0);
     transition: width 0.25s ease, min-width 0.25s ease;
+    display: flex !important;
 }
 .sidebar:not(.hidden) {
     transform: translateX(0);
@@ -147,6 +148,8 @@ body.sidebar-hidden .sidebar-toggle-btn {
 .sidebar.hidden .sidebar-section-label {
     padding: 16px 0 6px 0;
     text-align: center;
+    display: flex;
+    justify-content: center;
 }
 
 .sidebar.hidden .sidebar-user {
