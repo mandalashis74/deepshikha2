@@ -1669,19 +1669,22 @@ window.autoLoginSharedAccount = async function(flatNo) {
     const password = "resident123";
     
     try {
-        // Always try sign-in directly
-        const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
-        if (!error) return;
+        // Try sign-in first (works if user exists and is confirmed)
+        const { error: si } = await sbClient.auth.signInWithPassword({ email, password });
+        if (!si) return;
         
-        // Sign-in failed — try sign-up (may error if already exists, that's ok)
-        const { error: su } = await sbClient.auth.signUp({ email, password });
-        if (su && !String(su.message || su).toLowerCase().includes('already')) {
+        // Sign-in failed — try sign-up (silently ignore disabled/already errors)
+        const { data: up, error: su } = await sbClient.auth.signUp({ email, password });
+        if (up?.session) return; // signUp auto-logged in
+        const suMsg = String(su?.message || su || '').toLowerCase();
+        if (su && !suMsg.includes('already') && !suMsg.includes('disabled') && !suMsg.includes('signups')) {
             throw su; // unexpected error
         }
         
-        // Now sign in again (user was just created or already existed)
+        // Try sign-in one more time (user was just created or already existed)
         const { error: re } = await sbClient.auth.signInWithPassword({ email, password });
-        if (re) throw re;
+        if (!re) return;
+        throw re;
     } catch (err) {
         console.error("autoLoginSharedAccount error:", err);
         localStorage.removeItem("isSoftLogin");
@@ -1689,7 +1692,9 @@ window.autoLoginSharedAccount = async function(flatNo) {
         document.getElementById("auth-container").style.display = "block";
         
         const msg = String(err.message || err).toLowerCase();
-        if (msg.includes("invalid login credentials") || msg.includes("email not confirmed")) {
+        if (msg.includes("email signups are disabled")) {
+            showToast("Soft Login setup required: Please enable 'Allow new users to sign up' in Supabase Authentication → Settings, or manually create user 'resident_v2@deepsikha.in' in auth.users.", "error");
+        } else if (msg.includes("invalid login credentials") || msg.includes("email not confirmed")) {
             showToast("Soft Login blocked by Supabase. Please disable 'Email Confirmation' in Supabase Auth Settings, or confirm 'resident_v2@deepsikha.in' via SQL.", "error");
         } else {
             showToast("Authentication failed: " + (err.message || err), "error");
