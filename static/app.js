@@ -1669,24 +1669,13 @@ window.autoLoginSharedAccount = async function(flatNo) {
     const password = "resident123";
     
     try {
-        const { error } = await sbClient.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
-        
-        if (error) {
-            const { error: signUpError } = await sbClient.auth.signUp({
-                email: email,
-                password: password
-            });
-            if (signUpError) throw signUpError;
-            
-            const { error: retryError } = await sbClient.auth.signInWithPassword({
-                email: email,
-                password: password
-            });
-            if (retryError) throw retryError;
-        }
+        // Try sign-up first; if already registered, that's fine
+        await sbClient.auth.signUp({ email, password });
+    } catch (_) { /* user likely already exists — proceed */ }
+    
+    try {
+        const { error } = await sbClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
     } catch (err) {
         console.error("autoLoginSharedAccount error:", err);
         localStorage.removeItem("isSoftLogin");
@@ -1694,7 +1683,7 @@ window.autoLoginSharedAccount = async function(flatNo) {
         document.getElementById("auth-container").style.display = "block";
         
         if (err.message && err.message.toLowerCase().includes("invalid login credentials")) {
-            showToast("Soft Login blocked by Supabase. Please disable 'Confirm Email' in Supabase Auth Settings, or manually confirm 'resident@deepsikha.in' via SQL.", "error");
+            showToast("Soft Login blocked by Supabase. Please disable 'Confirm Email' in Supabase Auth Settings, or manually confirm 'resident_v2@deepsikha.in' via SQL.", "error");
         } else {
             showToast("Authentication failed: " + err.message, "error");
         }
