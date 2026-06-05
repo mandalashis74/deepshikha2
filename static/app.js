@@ -1673,37 +1673,22 @@ window.handleSoftUserSession = async function(user, flatNo) {
 
 window.autoLoginSharedAccount = async function(flatNo) {
     if (!sbClient) return;
-    const email = "shared_owner@deepsikha.in";
-    const password = "Deep@2024";
-    
     try {
-        // Try sign-in first (works if user exists and is confirmed)
-        const { error: si } = await sbClient.auth.signInWithPassword({ email, password });
-        if (!si) return;
-        
-        // Sign-in failed — try sign-up (silently ignore disabled/already errors)
-        const { data: up, error: su } = await sbClient.auth.signUp({ email, password });
-        if (up?.session) return; // signUp auto-logged in
-        const suMsg = String(su?.message || su || '').toLowerCase();
-        if (su && !suMsg.includes('already') && !suMsg.includes('disabled') && !suMsg.includes('signups')) {
-            throw su; // unexpected error
-        }
-        
-        // Try sign-in one more time (user was just created or already existed)
-        const { error: re } = await sbClient.auth.signInWithPassword({ email, password });
-        if (!re) return;
-        throw re;
+        // Use Supabase anonymous sign-in — no credentials exposed
+        const { data, error } = await sbClient.auth.signInAnonymously();
+        if (error) throw error;
+        if (!data?.session) throw new Error('No session returned');
+        // Session will trigger onAuthStateChange → handleSoftUserSession
     } catch (err) {
         console.error("autoLoginSharedAccount error:", err);
         localStorage.removeItem("isSoftLogin");
         localStorage.removeItem("currentFlatNo");
         document.getElementById("auth-container").style.display = "block";
-        
         const msg = String(err.message || err).toLowerCase();
-        if (msg.includes("email signups are disabled")) {
-            showToast("Soft Login setup required: Please enable 'Allow new users to sign up' in Supabase Authentication → Settings, then create user 'shared_owner@deepsikha.in' with password 'Deep@2024' in Supabase Auth Users.", "error");
+        if (msg.includes('anonymous') || msg.includes('disabled')) {
+            showToast("Soft Login requires Anonymous Sign-In to be enabled in Supabase Dashboard → Authentication → Settings.", "error");
         } else {
-            showToast("Soft Login blocked by Supabase. Please either:\n1. Disable 'Email Confirmation' in Auth Settings, OR\n2. Create + confirm user 'shared_owner@deepsikha.in' in Supabase Auth Users.", "error");
+            showToast("Soft Login failed: " + err.message, "error");
         }
     }
 };
