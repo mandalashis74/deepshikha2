@@ -161,7 +161,7 @@
 
             <!-- Property -->
             <div class="sidebar-section-label collapse-header" id="sh-property" onclick="toggleCollapse('group-property')">
-                <span><i class="fa-solid fa-building"></i> Property</span>
+                <i class="fa-solid fa-building"></i> <span>Property</span>
                 <i class="fa-solid fa-chevron-down collapse-icon"></i>
             </div>
             <div class="collapse-wrap" id="group-property">
@@ -187,7 +187,7 @@
 
             <!-- Tools -->
             <div class="sidebar-section-label collapse-header" id="sh-tools" onclick="toggleCollapse('group-tools')">
-                <span><i class="fa-solid fa-toolbox"></i> Tools</span>
+                <i class="fa-solid fa-toolbox"></i> <span>Tools</span>
                 <i class="fa-solid fa-chevron-down collapse-icon"></i>
             </div>
             <div class="collapse-wrap" id="group-tools">
@@ -205,7 +205,7 @@
 
             <!-- Administration -->
             <div class="sidebar-section-label collapse-header" id="side-admin-label" style="display:none;" onclick="toggleCollapse('group-admin')">
-                <span><i class="fa-solid fa-user-shield"></i> Administration</span>
+                <i class="fa-solid fa-user-shield"></i> <span>Administration</span>
                 <i class="fa-solid fa-chevron-down collapse-icon"></i>
             </div>
             <div class="collapse-wrap" id="group-admin">
@@ -1265,6 +1265,10 @@
                             <label for="soft-verify-code">Verification Code (Phone No. or Passcode)</label>
                             <input type="text" id="soft-verify-code" placeholder="e.g. 9876543210 or 1234" required
                                 autocomplete="off">
+                        </div>
+                        <div class="input-field" style="display: flex; align-items: center; gap: 10px;">
+                            <label id="math-captcha-label" for="math-captcha-answer" style="white-space: nowrap; margin-bottom: 0;">Math:</label>
+                            <input type="number" id="math-captcha-answer" placeholder="?" required style="flex: 1;" autocomplete="off">
                         </div>
                         <button type="submit" class="btn btn-indigo btn-full" id="btn-soft-login-submit"
                             style="margin-top: 10px;">

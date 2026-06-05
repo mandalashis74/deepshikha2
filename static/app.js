@@ -385,6 +385,9 @@ window.setupAuthListener = function() {
                         await window.handleUserSession(session.user);
                     }
                     document.getElementById("auth-container").style.display = "none";
+                    const sidebar = document.getElementById("main-sidebar");
+                    if (sidebar) sidebar.classList.add("hidden");
+                    
                     const openTarget = new URLSearchParams(window.location.search).get('open');
                     if (openTarget === 'board' && window.hasPermission('board:view')) {
                         setTimeout(() => openBoardModal(), 200);
@@ -1538,6 +1541,20 @@ window.loadFlatsForSoftLogin = async function() {
     }
 };
 
+window.setupMathCaptcha = function() {
+    window.captchaNum1 = Math.floor(Math.random() * 10) + 1;
+    window.captchaNum2 = Math.floor(Math.random() * 10) + 1;
+    const label = document.getElementById("math-captcha-label");
+    if (label) {
+        label.textContent = `What is ${window.captchaNum1} + ${window.captchaNum2}?`;
+    }
+    const input = document.getElementById("math-captcha-answer");
+    if (input) input.value = '';
+};
+
+// Call it on script load
+window.setupMathCaptcha();
+
 window.handleSoftLoginSubmit = async function(e) {
     e.preventDefault();
     if (!sbClient) {
@@ -1547,83 +1564,49 @@ window.handleSoftLoginSubmit = async function(e) {
     
     const flatNo = document.getElementById("soft-flat-no").value.trim().toUpperCase();
     const verifyCode = document.getElementById("soft-verify-code").value.trim().toLowerCase();
+    const mathAnswer = document.getElementById("math-captcha-answer").value.trim();
     
     const btn = document.getElementById("btn-soft-login-submit");
     btn.disabled = true;
     btn.textContent = "Verifying...";
     
-    console.log("Starting verification for flat:", flatNo, "with code:", verifyCode);
+    console.log("Starting secure verification for flat:", flatNo);
     
     try {
-        // Use raw fetch to bypass any Supabase SDK internal locks (e.g. Auth token refresh hanging)
-        console.log("Querying Supabase owners table via raw fetch...");
-        
-        const sbUrl = localStorage.getItem('supabaseUrl') || import.meta.env.VITE_SUPABASE_URL;
-        const sbKey = localStorage.getItem('supabaseKey') || import.meta.env.VITE_SUPABASE_ANON_KEY;
-        
-        const dbUrl = `${sbUrl}/rest/v1/owners?flat_no=eq.${encodeURIComponent(flatNo)}&select=*`;
-        
-        const fetchPromise = fetch(dbUrl, {
-            method: 'GET',
-            headers: {
-                'apikey': sbKey,
-                'Authorization': `Bearer ${sbKey}`,
-                'Content-Type': 'application/json'
+        // Call the secure Edge Function to verify the code and get a session
+        const { data, error } = await sbClient.functions.invoke('soft-login', {
+            body: { 
+                flatNo, 
+                verifyCode, 
+                mathAnswer: parseInt(mathAnswer),
+                num1: window.captchaNum1,
+                num2: window.captchaNum2
             }
         });
         
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("Raw fetch query timed out after 6 seconds.")), 6000)
-        );
-        
-        console.log("Waiting for raw fetch response...");
-        const res = await Promise.race([fetchPromise, timeoutPromise]);
-        console.log("Raw fetch response received. Status:", res.status);
-        
-        if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`Database error (${res.status}): ${errText}`);
+        if (error || !data || data.error) {
+            throw new Error(data?.error || error?.message || "Invalid verification code.");
         }
         
-        const list = await res.json();
-        const data = list && list.length > 0 ? list[0] : null;
-        
-        console.log("Owner details loaded via raw fetch:", data);
-        
-        if (!data) {
-            throw new Error("Flat details not found in registry.");
+        if (data.session) {
+            // Set local storage FIRST so onAuthStateChange listener sees it
+            localStorage.setItem("isSoftLogin", "true");
+            localStorage.setItem("currentFlatNo", flatNo);
+
+            // Securely set the session returned by the server
+            const { error: sessionError } = await sbClient.auth.setSession(data.session);
+            if (sessionError) throw sessionError;
+            
+            showToast("Access Verified! Signed in successfully.", "success");
+            console.log("Secure soft login completed.");
+        } else {
+            throw new Error("No session returned from server.");
         }
-        
-        // Clean and compare contact number and passcode
-        const contactVal = window.displayStructured(data.contact_no, 'phone');
-        const dbContact = String(contactVal || '').trim().replace(/\D/g, '');
-        const inputClean = verifyCode.replace(/\D/g, '');
-        
-        const dbPasscode = data.passcode ? String(data.passcode).trim() : '';
-        
-        console.log("Comparing input code with database contact:", dbContact, "and passcode:", dbPasscode);
-        
-        const isMatch = (inputClean && dbContact && dbContact.includes(inputClean)) || 
-                        (verifyCode && dbPasscode && dbPasscode === verifyCode);
-                        
-        if (!isMatch) {
-            throw new Error("Verification code does not match. Please contact Administrator.");
-        }
-        
-        // Success! Set local storage
-        localStorage.setItem("isSoftLogin", "true");
-        localStorage.setItem("currentFlatNo", flatNo);
-        
-        showToast("Access Verified! Signing in...", "success");
-        console.log("Soft login verified. Triggering background auth sync...");
-        
-        // Log in to shared account
-        await autoLoginSharedAccount(flatNo);
-        console.log("Background auth sync completed.");
         
     } catch (err) {
         console.error("handleSoftLoginSubmit error:", err);
         showToast(err.message || "Verification failed.", "error");
+        window.setupMathCaptcha(); // Reset captcha on failure
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Verify & Sign In';
@@ -1649,7 +1632,7 @@ window.handleSoftUserSession = async function(user, flatNo) {
             sideProfile.style.display = "flex";
         }
         
-        // Hide change-password button — shared account, not user-owned
+        // Hide change-password button - shared account, not user-owned
         const pwBtn = document.getElementById('btn-change-password');
         if (pwBtn) pwBtn.style.display = 'none';
         
@@ -1661,52 +1644,10 @@ window.handleSoftUserSession = async function(user, flatNo) {
         window.loadExpenseHeads();
         window.refreshDashboard();
 
-        // Auto-open own flat in Owners Directory for soft login
-        if (flatNo) {
-            setTimeout(() => window.openOwnersDirectoryModal(flatNo), 800);
-        }
+        // Removed: Auto-open own flat in Owners Directory for soft login
     } catch (e) {
         console.error("handleSoftUserSession error:", e);
         showToast("Error retrieving flat details.", "error");
-    }
-};
-
-window.autoLoginSharedAccount = async function(flatNo) {
-    if (!sbClient) return;
-    try {
-        // Check if already signed in
-        const { data: { session: existing } } = await sbClient.auth.getSession();
-        if (existing) return; // already has a session, onAuthStateChange will handle it
-        
-        // Try sign-in with the shared account
-        const { error: si } = await sbClient.auth.signInWithPassword({
-            email: 'shared_owner@deepsikha.in',
-            password: 'Deep@2024'
-        });
-        if (si) {
-            // Account might not exist — try to create it
-            await sbClient.auth.signUp({
-                email: 'shared_owner@deepsikha.in',
-                password: 'Deep@2024'
-            }).catch(() => {});
-            // Try sign-in again
-            const { error: si2 } = await sbClient.auth.signInWithPassword({
-                email: 'shared_owner@deepsikha.in',
-                password: 'Deep@2024'
-            });
-            if (si2) {
-                // Auth failed entirely — set up app state manually
-                // App works without session since anon key has read access via RLS
-                console.warn("Soft login auth unavailable, running in offline viewer mode");
-                window.handleSoftUserSession({ id: null, email: null, user_metadata: {} }, flatNo);
-                return;
-            }
-        }
-        // onAuthStateChange will trigger handleSoftUserSession
-    } catch (err) {
-        console.error("autoLoginSharedAccount error:", err);
-        // Don't clear soft login — fall back to offline viewer mode
-        window.handleSoftUserSession({ id: null, email: null, user_metadata: {} }, flatNo);
     }
 };
 

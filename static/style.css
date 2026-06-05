@@ -115,14 +115,47 @@ body.sidebar-hidden .sidebar-toggle-btn {
     left: 6px;
 }
 
-/* Sidebar hidden state */
+/* Sidebar hidden/collapsed state (Icon Only) */
 .sidebar.hidden {
-    transform: translateX(-100%);
-    transition: transform 0.25s ease;
+    width: 60px;
+    min-width: 60px;
+    transform: translateX(0);
+    transition: width 0.25s ease, min-width 0.25s ease;
 }
 .sidebar:not(.hidden) {
     transform: translateX(0);
-    transition: transform 0.25s ease;
+    width: 240px;
+    min-width: 240px;
+    transition: width 0.25s ease, min-width 0.25s ease;
+}
+
+/* Hide text elements in collapsed state */
+.sidebar.hidden .sidebar-brand-text,
+.sidebar.hidden .sidebar-btn span,
+.sidebar.hidden .sidebar-section-label span,
+.sidebar.hidden .collapse-icon,
+.sidebar.hidden .sidebar-user-info {
+    display: none !important;
+}
+
+/* Center icons in collapsed state */
+.sidebar.hidden .sidebar-btn {
+    justify-content: center;
+    padding: 10px 0;
+}
+
+.sidebar.hidden .sidebar-section-label {
+    padding: 16px 0 6px 0;
+    text-align: center;
+}
+
+.sidebar.hidden .sidebar-user {
+    justify-content: center;
+    padding: 12px 0;
+}
+
+.sidebar.hidden .sidebar-user-actions {
+    display: none;
 }
 .main-area {
     flex: 1;
@@ -133,8 +166,8 @@ body.sidebar-hidden .sidebar-toggle-btn {
 }
 .sidebar.hidden + .main-area,
 .sidebar-hidden .main-area {
-    margin-left: 0;
-    max-width: 100%;
+    margin-left: 60px;
+    max-width: calc(100% - 60px);
 }
 
 .sidebar-brand-icon {
@@ -417,7 +450,10 @@ body.sidebar-hidden .sidebar-toggle-btn {
 .workspace.has-bg::before {
     content: '';
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 240px;
+    right: 0;
+    bottom: 0;
     background-image: var(--dash-bg);
     background-size: cover;
     background-position: center;
@@ -425,6 +461,10 @@ body.sidebar-hidden .sidebar-toggle-btn {
     opacity: 0.08;
     pointer-events: none;
     z-index: 0;
+    transition: left 0.25s ease;
+}
+body.sidebar-hidden .workspace.has-bg::before {
+    left: 60px;
 }
 .workspace.has-bg > * {
     position: relative;
