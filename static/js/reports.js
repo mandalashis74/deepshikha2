@@ -687,11 +687,9 @@ function cleanSpreadsheetDate(rawVal, year, monthName) {
     if (!rawVal) return fallback;
     
     if (rawVal instanceof Date) {
-        // Add 12 hours to safely push past any precision-related midnight issues from Excel floats
-        const safeDate = new Date(rawVal.getTime() + 12 * 60 * 60 * 1000);
-        const y = safeDate.getFullYear();
-        const m = String(safeDate.getMonth() + 1).padStart(2, '0');
-        const d = String(safeDate.getDate()).padStart(2, '0');
+        const y = rawVal.getFullYear();
+        const m = String(rawVal.getMonth() + 1).padStart(2, '0');
+        const d = String(rawVal.getDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
     }
     
