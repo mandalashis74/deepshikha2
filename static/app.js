@@ -1669,23 +1669,30 @@ window.autoLoginSharedAccount = async function(flatNo) {
     const password = "resident123";
     
     try {
-        // Try sign-up first; if already registered, that's fine
-        await sbClient.auth.signUp({ email, password });
-    } catch (_) { /* user likely already exists — proceed */ }
-    
-    try {
-        const { error } = await sbClient.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        // Always try sign-in directly
+        const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
+        if (!error) return;
+        
+        // Sign-in failed — try sign-up (may error if already exists, that's ok)
+        const { error: su } = await sbClient.auth.signUp({ email, password });
+        if (su && !String(su.message || su).toLowerCase().includes('already')) {
+            throw su; // unexpected error
+        }
+        
+        // Now sign in again (user was just created or already existed)
+        const { error: re } = await sbClient.auth.signInWithPassword({ email, password });
+        if (re) throw re;
     } catch (err) {
         console.error("autoLoginSharedAccount error:", err);
         localStorage.removeItem("isSoftLogin");
         localStorage.removeItem("currentFlatNo");
         document.getElementById("auth-container").style.display = "block";
         
-        if (err.message && err.message.toLowerCase().includes("invalid login credentials")) {
-            showToast("Soft Login blocked by Supabase. Please disable 'Confirm Email' in Supabase Auth Settings, or manually confirm 'resident_v2@deepsikha.in' via SQL.", "error");
+        const msg = String(err.message || err).toLowerCase();
+        if (msg.includes("invalid login credentials") || msg.includes("email not confirmed")) {
+            showToast("Soft Login blocked by Supabase. Please disable 'Email Confirmation' in Supabase Auth Settings, or confirm 'resident_v2@deepsikha.in' via SQL.", "error");
         } else {
-            showToast("Authentication failed: " + err.message, "error");
+            showToast("Authentication failed: " + (err.message || err), "error");
         }
     }
 };
