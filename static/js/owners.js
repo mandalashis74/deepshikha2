@@ -289,17 +289,35 @@ function renderStructuredRows(prefix, value, canEdit) {
     return html;
 }
 
-// Add a new empty structured row
 window.addStructuredRow = function(prefix) {
+    console.log("addStructuredRow called with prefix:", prefix);
     const fields = STRUCTURED_FIELDS[prefix];
-    if (!fields) return;
-    const container = document.getElementById(getContainerId(prefix));
-    if (!container) return;
+    if (!fields) {
+        console.error("No fields found for prefix:", prefix);
+        return;
+    }
+    const containerId = getContainerId(prefix);
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error("Container not found for ID:", containerId);
+        showToast("Error: Container not found for " + prefix, "error");
+        return;
+    }
     
-    const tbody = container.querySelector('.structured-rows');
-    if (!tbody) return;
+    let tbody = container.querySelector('.structured-rows');
+    if (!tbody) {
+        console.log("tbody not found in container. Initializing table structure for prefix:", prefix);
+        container.innerHTML = renderStructuredRows(prefix, '[]', true);
+        tbody = container.querySelector('.structured-rows');
+    }
+    if (!tbody) {
+        console.error("Failed to find or initialize tbody inside container for prefix:", prefix);
+        showToast("Error: Table structure missing for " + prefix, "error");
+        return;
+    }
     
     const count = tbody.querySelectorAll('.structured-row').length;
+    console.log("Current rows count:", count, "Appending new row...");
     const row = document.createElement("tr");
     row.className = 'structured-row';
     let innerHtml = '';
