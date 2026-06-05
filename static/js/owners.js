@@ -1234,7 +1234,7 @@ function renderHistoryTable(entries) {
 
         const canDelete = (entry.type === "INCOME" && hasPermission('income:delete')) || (entry.type === "EXPENSE" && hasPermission('expense:delete'));
         const deleteButton = canDelete
-            ? `<button class="btn-delete" title="Delete entry" onclick="deleteHistoryEntry('${entry.type}', ${entry.id}, '${entry.description.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
+            ? `<button class="btn-delete" title="Delete entry" onclick="deleteHistoryEntry('${entry.type}', ${entry.id}, '${window.escapeHtml(String(entry.description)).replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
                     <i class="fa-solid fa-trash-can"></i>
                </button>`
             : '';
@@ -1242,7 +1242,7 @@ function renderHistoryTable(entries) {
         tr.innerHTML = `
             <td>${window.formatDateDisplay(entry.date)}</td>
             <td>${typeBadge}</td>
-            <td><strong>${entry.description}</strong></td>
+            <td><strong>${window.escapeHtml(entry.description)}</strong></td>
             <td class="text-right ${entry.type === "INCOME" ? "icon-emerald" : "icon-rose"}" style="font-weight: 600;">
                 ${entry.type === "INCOME" ? "+" : "-"} ${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </td>

@@ -892,7 +892,7 @@ window.renderTable = function(entries) {
 
         const canDelete = (entry.type === "INCOME" && window.hasPermission('income:delete')) || (entry.type === "EXPENSE" && window.hasPermission('expense:delete'));
         const deleteButton = canDelete
-            ? `<button class="btn-delete" title="Delete entry" onclick="deleteEntry('${entry.type}', ${entry.id}, '${entry.description.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
+            ? `<button class="btn-delete" title="Delete entry" onclick="deleteEntry('${entry.type}', ${entry.id}, '${window.escapeHtml(String(entry.description)).replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
                     <i class="fa-solid fa-trash-can"></i>
                </button>`
             : '';
@@ -900,7 +900,7 @@ window.renderTable = function(entries) {
         tr.innerHTML = `
             <td>#${entry.id}</td>
             <td>${typeBadge}</td>
-            <td><strong>${entry.description}</strong></td>
+            <td><strong>${window.escapeHtml(entry.description)}</strong></td>
             <td>${entry.month} ${entry.year}</td>
             <td class="text-right ${entry.type === "INCOME" ? "icon-emerald" : "icon-rose"}" style="font-weight: 600;">
                 ${entry.type === "INCOME" ? "+" : "-"} ${Number(entry.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
