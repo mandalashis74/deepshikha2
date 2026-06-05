@@ -500,8 +500,11 @@ window.selectFlatForEdit = function(flatNo) {
                     `}
                 </div>
                 
-                <div class="modal-actions" style="margin-top: 16px; display: none;" id="save-profile-actions">
-                    <button type="submit" class="btn btn-emerald" style="width: 100%;">
+                <div class="modal-actions" style="margin-top: 16px; display: none; gap: 8px;" id="save-profile-actions">
+                    <button type="button" class="btn btn-slate" style="flex: 1;" onclick="selectFlatForEdit('${item.flat_no}')">
+                        <i class="fa-solid fa-xmark"></i> Discard
+                    </button>
+                    <button type="submit" class="btn btn-emerald" style="flex: 1;">
                         <i class="fa-solid fa-floppy-disk"></i> Save Profile
                     </button>
                 </div>
