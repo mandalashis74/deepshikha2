@@ -590,6 +590,9 @@ window.handleUserSession = async function(user) {
         
         if (sideProfile && sideEmail && sideRole) {
             sideEmail.textContent = user.email;
+            if (user.user_metadata?.full_name) {
+                sideEmail.textContent = `${user.user_metadata.full_name} (${user.email})`;
+            }
             sideRole.textContent = currentUserRole.toUpperCase();
             const roleColor = window.getRoleColor(currentUserRole);
             sideRole.className = "badge";
@@ -1782,7 +1785,12 @@ window.handleSoftUserSession = async function(user, flatNo) {
         const sideRole = document.getElementById("side-user-role");
         
         if (sideProfile && sideEmail && sideRole) {
-            sideEmail.textContent = `Flat ${flatNo}`;
+            let label = `Flat ${flatNo}`;
+            if (flatNo) {
+                const { data: owner } = await sbClient.from('owners').select('owner_name').eq('flat_no', flatNo).maybeSingle();
+                if (owner?.owner_name) label = `${flatNo} — ${owner.owner_name}`;
+            }
+            sideEmail.textContent = label;
             sideRole.textContent = "RESIDENT";
             sideRole.className = "badge";
             sideRole.style.borderColor = "var(--border-color)";
