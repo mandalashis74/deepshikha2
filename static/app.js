@@ -1674,19 +1674,38 @@ window.handleSoftUserSession = async function(user, flatNo) {
 window.autoLoginSharedAccount = async function(flatNo) {
     if (!sbClient) return;
     try {
-        // Clear any existing session first
-        await sbClient.auth.signOut();
-        // Use Supabase anonymous sign-in — no credentials exposed
-        const { data, error } = await sbClient.auth.signInAnonymously();
-        if (error) throw error;
-        if (!data?.session) throw new Error('No session returned');
-        // Session will trigger onAuthStateChange → handleSoftUserSession
+        // Check if already signed in
+        const { data: { session: existing } } = await sbClient.auth.getSession();
+        if (existing) return; // already has a session, onAuthStateChange will handle it
+        
+        // Try sign-in with the shared account (created in Supabase Auth)
+        const { error: si } = await sbClient.auth.signInWithPassword({
+            email: 'shared_owner@deepsikha.in',
+            password: 'Deep@2024'
+        });
+        if (si) {
+            // Account might not exist — try to create it (will fail silently if it does)
+            const { error: su } = await sbClient.auth.signUp({
+                email: 'shared_owner@deepsikha.in',
+                password: 'Deep@2024'
+            });
+            if (su && !su.message?.toLowerCase().includes('already') && !su.message?.toLowerCase().includes('signups')) {
+                throw su;
+            }
+            // Try sign-in again after sign-up
+            const { error: si2 } = await sbClient.auth.signInWithPassword({
+                email: 'shared_owner@deepsikha.in',
+                password: 'Deep@2024'
+            });
+            if (si2) throw si2;
+        }
+        // onAuthStateChange will trigger handleSoftUserSession
     } catch (err) {
         console.error("autoLoginSharedAccount error:", err);
         localStorage.removeItem("isSoftLogin");
         localStorage.removeItem("currentFlatNo");
         document.getElementById("auth-container").style.display = "block";
-        showToast(err.message || "Soft Login failed", "error");
+        showToast("Soft Login failed: " + (err.message || err), "error");
     }
 };
 
