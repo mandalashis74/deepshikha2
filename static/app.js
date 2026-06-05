@@ -454,6 +454,10 @@ window.handleUserSession = async function(user) {
             sideProfile.style.display = "flex";
         }
         
+        // Show change-password button (hidden in soft-login)
+        const pwBtn = document.getElementById('btn-change-password');
+        if (pwBtn) pwBtn.style.display = '';
+        
         const notifBtn = document.getElementById('side-notif-toggle');
         if (notifBtn) {
             notifBtn.style.display = 'flex';
@@ -1644,6 +1648,10 @@ window.handleSoftUserSession = async function(user, flatNo) {
             sideRole.style.color = "var(--text-secondary)";
             sideProfile.style.display = "flex";
         }
+        
+        // Hide change-password button — shared account, not user-owned
+        const pwBtn = document.getElementById('btn-change-password');
+        if (pwBtn) pwBtn.style.display = 'none';
         
         window.currentUserRole = 'viewer';
         window.applyRbacRestrictions('viewer');
