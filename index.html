@@ -437,15 +437,18 @@
                     <span class="close-btn" onclick="closeModal('importModal')">&times;</span>
                 </div>
                 <div class="modal-body">
-                    <p class="warning-text"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Warning:</strong>
-                        Importing a new ledger will completely overwrite current database entries with the spreadsheet's
-                        values.</p>
                     <form id="import-form" onsubmit="handleImportSubmit(event)">
                         <div class="file-dropzone">
                             <i class="fa-solid fa-file-excel dropzone-icon"></i>
                             <span class="dropzone-text">Click or drag Excel file here</span>
                             <input type="file" id="import-file" accept=".xlsx, .xls" required
                                 onchange="updateDropzoneText(this)">
+                        </div>
+                        <div class="import-options">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="import-replace" checked>
+                                <span>Replace existing data (delete old records before import)</span>
+                            </label>
                         </div>
                         <div class="modal-actions">
                             <button type="button" class="btn btn-slate"
@@ -567,6 +570,12 @@
                                 <option value="ALL">All Entries</option>
                                 <option value="INCOME">Collections (Income)</option>
                                 <option value="EXPENSE">Expenses (Outflow)</option>
+                            </select>
+                        </div>
+                        <div class="input-field">
+                            <label for="hist-floor">Floor</label>
+                            <select id="hist-floor" onchange="popHistFlatFilter(); fetchHistory();">
+                                <option value="ALL">All Floors</option>
                             </select>
                         </div>
                         <div class="input-field">
@@ -2061,7 +2070,10 @@
                     <button class="pill" data-asset="broken" onclick="filterAssets('broken')">Broken</button>
                     <button class="pill" data-asset="decommissioned" onclick="filterAssets('decommissioned')">Decom.</button>
                 </div>
-                <button class="btn btn-primary" id="btn-create-asset" onclick="openCreateAssetModal()" style="display:none;"><i class="fa-solid fa-plus"></i> Add Asset</button>
+                <div style="display:flex;gap:6px;">
+                    <button class="btn btn-primary" id="btn-create-asset" onclick="openCreateAssetModal()" style="display:none;"><i class="fa-solid fa-plus"></i> Add Asset</button>
+                    <button class="btn btn-slate" onclick="generateAssetReport()"><i class="fa-solid fa-file-pdf"></i> Report</button>
+                </div>
             </div>
             <div id="assets-container"><div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
         </div>
@@ -2083,9 +2095,10 @@
                     <div class="input-field"><label>Category</label><select id="asset-category"><option value="equipment">Equipment</option><option value="electrical">Electrical</option><option value="plumbing">Plumbing</option><option value="safety">Safety</option><option value="furniture">Furniture</option><option value="it">IT</option><option value="other">Other</option></select></div>
                 </div>
                 <div class="input-field"><label>Location</label><input type="text" id="asset-location" placeholder="e.g. Ground Floor Lobby"></div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
                     <div class="input-field"><label>Purchase Date</label><input type="date" id="asset-purchase-date"></div>
                     <div class="input-field"><label>Purchase Cost (₹)</label><input type="number" id="asset-cost" step="0.01" min="0" placeholder="0"></div>
+                    <div class="input-field"><label>Quantity</label><input type="number" id="asset-quantity" min="1" value="1" placeholder="1"></div>
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                     <div class="input-field"><label>Warranty Expiry</label><input type="date" id="asset-warranty"></div>

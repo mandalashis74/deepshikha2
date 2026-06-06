@@ -2264,6 +2264,24 @@ select.directory-search {
     cursor: pointer;
 }
 
+.import-options {
+    padding: 10px 0;
+}
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.checkbox-label input[type="checkbox"] {
+    accent-color: var(--color-indigo);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
 /* ==========================================
    CULTURAL EVENTS MODULE
    ========================================== */

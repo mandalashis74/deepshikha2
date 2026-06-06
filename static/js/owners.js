@@ -735,6 +735,7 @@ async function getLogoBase64() {
         return null;
     }
 }
+window.getLogoBase64 = getLogoBase64;
 
 // Generate Receipt PDF inside browser client using jsPDF
 window.generateReceipt = async function(entryId) {
@@ -974,6 +975,39 @@ window.generateReceipt = async function(entryId) {
 };
 
 // Open History Modal and populate its flat selections
+window.popHistFloorFilter = function() {
+    const sel = document.getElementById('hist-floor');
+    if (!sel) return;
+    const count = window.getFloorCount ? window.getFloorCount() : 8;
+    let opts = '<option value="ALL">All Floors</option>';
+    for (let i = 1; i <= count; i++) {
+        opts += `<option value="${i}">Floor ${i}</option>`;
+    }
+    sel.innerHTML = opts;
+};
+
+window.popHistFlatFilter = function() {
+    const floorSel = document.getElementById('hist-floor');
+    const flatSel = document.getElementById('hist-flat');
+    if (!flatSel || !floorSel) return;
+    const floor = floorSel.value;
+    const currentVal = flatSel.value;
+    let firstVal = 'ALL';
+    flatSel.innerHTML = '<option value="ALL">All Flats</option>';
+    (window._allFlatsCache || []).forEach(item => {
+        if (floor !== 'ALL') {
+            const f = window.getFlatFloor ? window.getFlatFloor(item.flat_no) : null;
+            if (f !== parseInt(floor, 10)) return;
+        }
+        const opt = document.createElement("option");
+        opt.value = item.flat_no;
+        opt.textContent = `${item.flat_no} - ${window.displayStructured(item.owner_name, 'name') || 'Unknown'}`;
+        flatSel.appendChild(opt);
+        if (firstVal === 'ALL') firstVal = item.flat_no;
+    });
+    flatSel.value = currentVal !== 'ALL' && [...flatSel.options].some(o => o.value === currentVal) ? currentVal : firstVal;
+};
+
 window.openHistoryModal = async function() {
     openModal('historyModal');
     // Reset toggle to Period mode with current month defaults
@@ -994,6 +1028,8 @@ window.openHistoryModal = async function() {
     if (startDateInput) startDateInput.value = '';
     if (endDateInput) endDateInput.value = '';
     await loadFlats();
+    window.popHistFloorFilter();
+    window.popHistFlatFilter();
     fetchHistory();
 };
 
@@ -1032,6 +1068,7 @@ window.fetchHistory = async function() {
     if (!sbClient) return;
     
     const type = document.getElementById("hist-type").value;
+    const histFloor = document.getElementById("hist-floor").value;
     let flat = document.getElementById("hist-flat").value;
     const monthPickerVal = document.getElementById("hist-month-picker").value;
     const year = monthPickerVal ? monthPickerVal.split('-')[0] : '';
@@ -1065,6 +1102,20 @@ window.fetchHistory = async function() {
             
             if (flat) {
                 q = q.eq('flat_no', flat);
+            } else if (histFloor && histFloor !== 'ALL') {
+                const floorPrefix = histFloor;
+                const flats = window._allFlatsCache || [];
+                const floorFlatNos = flats
+                    .filter(item => {
+                        const f = window.getFlatFloor ? window.getFlatFloor(item.flat_no) : null;
+                        return f === parseInt(floorPrefix, 10);
+                    })
+                    .map(item => item.flat_no);
+                if (floorFlatNos.length > 0) {
+                    q = q.in('flat_no', floorFlatNos);
+                } else {
+                    q = q.eq('flat_no', '__NONE__');
+                }
             }
             
             const isPeriodMode = !document.getElementById('period-mode-toggle')?.checked;

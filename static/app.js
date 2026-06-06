@@ -266,6 +266,7 @@ window.loadDashStats = async function() {
     const incomeResult = await safeQuery('income', async () => {
         const { data } = await sbClient.from('income')
             .select('amount')
+            .or('status.eq.approved,status.is.null')
             .eq('year', year)
             .eq('month', month);
         return (data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
@@ -277,6 +278,7 @@ window.loadDashStats = async function() {
     const yearIncome = await safeQuery('year_income', async () => {
         const { data } = await sbClient.from('income')
             .select('amount')
+            .or('status.eq.approved,status.is.null')
             .eq('year', year);
         return (data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
     });
@@ -297,6 +299,7 @@ window.loadDashStats = async function() {
     const monthlyData = await safeQuery('monthly_data', async () => {
         const { data } = await sbClient.from('income')
             .select('month, amount')
+            .or('status.eq.approved,status.is.null')
             .eq('year', year);
         const { data: expData } = await sbClient.from('expenses')
             .select('month, amount')
@@ -335,6 +338,7 @@ window.loadDashStats = async function() {
     const recentIncome = await safeQuery('recent_income', async () => {
         const { data } = await sbClient.from('income')
             .select('flat_no, amount, date_received, category')
+            .or('status.eq.approved,status.is.null')
             .order('date_received', { ascending: false })
             .limit(5);
         return data || [];
@@ -986,6 +990,7 @@ window.loadFlats = async function() {
         let { data, error } = await sbClient.from('owners').select('flat_no, owner_name').order('flat_no');
         if (error) throw error;
         
+        window._allFlatsCache = data || [];
         data = window.filterFlatsByAssignment(data);
         
         const flatSelect = document.getElementById("inc-flat");
@@ -1130,6 +1135,7 @@ window.refreshDashboard = async function() {
     try {
         const { data: incomeData, error: incErr } = await sbClient.from('income')
             .select('id, flat_no, year, month, amount, date_received, category, event_name, remarks')
+            .or('status.eq.approved,status.is.null')
             .eq('year', year)
             .eq('month', month);
         if (incErr) throw incErr;

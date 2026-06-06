@@ -458,20 +458,23 @@ async function renderCollectionsData(container, month, year) {
     const selMonthStr = monthNames[month - 1];
     const statusPriority = { rejected: 0, pending: 1, approved: 2 };
     for (const c of allCollections) {
+        const st = c.status || 'approved';
         const key = c.month + '-' + c.year;
         if (!paidMap[c.flat_no]) paidMap[c.flat_no] = {};
-        paidMap[c.flat_no][key] = (paidMap[c.flat_no][key] || 0) + parseFloat(c.amount);
+        if (st !== 'pending' && st !== 'rejected') {
+            paidMap[c.flat_no][key] = (paidMap[c.flat_no][key] || 0) + parseFloat(c.amount);
+        }
         if (c.month === selMonthStr && String(c.year) === String(year)) {
-            // Track total for current month too
-            if (!currentCollectedMap[c.flat_no]) {
-                currentCollectedMap[c.flat_no] = { ...c, amount: parseFloat(c.amount) };
-            } else {
-                currentCollectedMap[c.flat_no].amount += parseFloat(c.amount);
+            if (st !== 'pending' && st !== 'rejected') {
+                if (!currentCollectedMap[c.flat_no]) {
+                    currentCollectedMap[c.flat_no] = { ...c, amount: parseFloat(c.amount) };
+                } else {
+                    currentCollectedMap[c.flat_no].amount += parseFloat(c.amount);
+                }
             }
-            // Track best status (approved > pending > rejected)
-            const st = c.status || 'approved';
-            const existing = currentStatusMap[c.flat_no] || 'rejected';
-            if ((statusPriority[st] || 0) > (statusPriority[existing] || 0)) {
+            // Track best status for display (Processing / Rejected / Paid badges)
+            const existingSt = currentStatusMap[c.flat_no] || 'rejected';
+            if ((statusPriority[st] || 0) > (statusPriority[existingSt] || 0)) {
                 currentStatusMap[c.flat_no] = st;
             }
         }
@@ -1161,13 +1164,13 @@ async function renderFlatwiseData(container, flatNo) {
         let isPending = false;
 
         if (col) {
-            paidAmt = parseFloat(col.amount) || 0;
+            const st = col.status || 'approved';
+            paidAmt = (st !== 'pending' && st !== 'rejected') ? parseFloat(col.amount) || 0 : 0;
             totalPaid += paidAmt;
             pmtMode = col.payment_mode || '—';
             refNo = col.ref_number || '—';
             paidOn = col.payment_date || col.date_received || '—';
             colId = col.id;
-            const st = col.status || 'approved';
             if (st === 'pending') { isPending = true; statusText = 'Processing'; statusColor = 'var(--color-orange)'; }
             else if (st === 'rejected') { statusText = 'Rejected'; statusColor = 'var(--color-rose)'; }
             else if (paidAmt < rateAmt) { statusText = 'Partial'; statusColor = 'var(--color-yellow)'; }

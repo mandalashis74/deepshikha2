@@ -543,7 +543,7 @@ async function _renderResidentPanel(container) {
     if (myPasses.length === 0) {
         html += '<div style="text-align:center;padding:16px;color:var(--text-muted);">No gate passes yet</div>';
     } else {
-        html += '<table class="data-table"><thead><tr><th>Visitor</th><th>Type</th><th>Status</th><th>Time</th></tr></thead><tbody>';
+        html += '<table class="data-table"><thead><tr><th>Visitor</th><th>Type</th><th>Status</th><th>Time</th><th></th></tr></thead><tbody>';
         for (const p of myPasses) {
             const typeLabel = p.pass_type === 'immediate_inward' ? 'Ad-hoc' : p.pass_type === 'pre_auth_guest' ? 'Pre-Auth' : p.pass_type === 'monthly_pass' ? 'Staff' : 'Visitor';
             const statusLabel = p.status === 'pending' ? 'Pending' : p.status === 'approved' ? 'Approved' : p.status === 'checked_in' ? 'Checked In' : p.status === 'checked_out' ? 'Done' : p.status === 'rejected' ? 'Rejected' : p.status;
@@ -551,7 +551,8 @@ async function _renderResidentPanel(container) {
             html += '<tr><td><strong>' + escapeHtml(p.visitor_name) + '</strong>' + (p.company_name ? '<br><span style="font-size:0.7rem;">' + escapeHtml(p.company_name) + '</span>' : '') + '</td>';
             html += '<td style="font-size:0.75rem;">' + typeLabel + '</td>';
             html += '<td style="color:' + statusColor + ';font-weight:600;">' + statusLabel + '</td>';
-            html += '<td style="font-size:0.75rem;">' + _timeAgo(p.created_at) + '</td></tr>';
+            html += '<td style="font-size:0.75rem;">' + _timeAgo(p.created_at) + '</td>';
+            html += '<td><button class="btn btn-sm" style="background:transparent;color:var(--text-muted);font-size:0.65rem;padding:2px 6px;border:1px solid var(--border-color);" onclick="gatePrintPassById(\'' + p.id + '\')" title="Print Pass"><i class="fa-solid fa-print"></i></button></td></tr>';
         }
         html += '</tbody></table>';
     }
@@ -978,10 +979,9 @@ window.gateCreatePreAuth = async function() {
         const { data, error } = await sbClient.from('visitor_passes').insert(insData).select('id').single();
         if (error) throw error;
         showToast('✓ QR Pass generated!', 'success', {
-            text: '<i class="fa-solid fa-share"></i> Share via WhatsApp',
+            text: '<i class="fa-solid fa-print"></i> Print Gate Pass',
             callback: () => {
-                const msg = encodeURIComponent('🏢 Gate Pass\nGuest: ' + name + '\nCode: ' + qrToken + '\nFlat: ' + flatNo + '\nValid till: ' + (validUntil ? new Date(validUntil).toLocaleString('en-IN') : 'Today'));
-                window.open('https://wa.me/?text=' + msg, '_blank');
+                gatePrintPass({ id: data.id, visitor_name: name, flat_no: flatNo, company_name: '', vehicle_no: vehicle, purpose: purpose, status: 'approved', created_at: new Date().toISOString(), qr_token: qrToken });
             }
         });
         document.getElementById('gp-name').value = '';

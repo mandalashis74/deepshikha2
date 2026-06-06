@@ -687,9 +687,12 @@ function cleanSpreadsheetDate(rawVal, year, monthName) {
     if (!rawVal) return fallback;
     
     if (rawVal instanceof Date) {
-        const y = rawVal.getFullYear();
-        const m = String(rawVal.getMonth() + 1).padStart(2, '0');
-        const d = String(rawVal.getDate()).padStart(2, '0');
+        if (isNaN(rawVal.getTime())) return fallback;
+        const day = 86400000;
+        const nearestUtcMidnight = new Date(Math.round(rawVal.getTime() / day) * day);
+        const y = nearestUtcMidnight.getUTCFullYear();
+        const m = String(nearestUtcMidnight.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(nearestUtcMidnight.getUTCDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
     }
     
@@ -803,11 +806,15 @@ window.handleImportSubmit = async function(e) {
                 incomeSheetName = sheetNames[0];
             }
             
-            const { error: delIncError } = await sbClient.from('income').delete().gt('id', -1);
-            if (delIncError) throw delIncError;
+            const replaceChecked = document.getElementById('import-replace')?.checked;
             
-            const { error: delExpError } = await sbClient.from('expenses').delete().gt('id', -1);
-            if (delExpError) throw delExpError;
+            if (replaceChecked) {
+                const { error: delIncError } = await sbClient.from('income').delete().gt('id', -1);
+                if (delIncError) throw delIncError;
+                
+                const { error: delExpError } = await sbClient.from('expenses').delete().gt('id', -1);
+                if (delExpError) throw delExpError;
+            }
             
             let importedIncomeCount = 0;
             let importedExpensesCount = 0;
@@ -818,7 +825,7 @@ window.handleImportSubmit = async function(e) {
             
             let headerRowIdx = -1;
             let isSimpleIncome = false;
-            let simpleFlatIdx = -1, simpleDateIdx = -1, simpleAmtIdx = -1;
+            let simpleFlatIdx = -1, simpleDateIdx = -1, simpleAmtIdx = -1, simpleMonthIdx = -1, simpleYearIdx = -1;
 
             for (let r = 0; r < incRows.length; r++) {
                 const rowCells = incRows[r].map(v => String(v || '').toUpperCase().trim());
@@ -826,12 +833,16 @@ window.handleImportSubmit = async function(e) {
                 const fIdx = rowCells.findIndex(v => v === "FLAT NO" || v === "FLAT NO.");
                 const dIdx = rowCells.findIndex(v => v === "DATE RECEIVED" || v === "DATE");
                 const aIdx = rowCells.findIndex(v => v === "AMOUNT");
+                const mIdx = rowCells.findIndex(v => v === "MONTH");
+                const yIdx = rowCells.findIndex(v => v === "YEAR");
                 
                 if (fIdx !== -1 && dIdx !== -1 && aIdx !== -1) {
                     isSimpleIncome = true;
                     simpleFlatIdx = fIdx;
                     simpleDateIdx = dIdx;
                     simpleAmtIdx = aIdx;
+                    simpleMonthIdx = mIdx;
+                    simpleYearIdx = yIdx;
                     headerRowIdx = r;
                     break;
                 }
@@ -908,10 +919,16 @@ window.handleImportSubmit = async function(e) {
                         let amtVal = parseFloat(rawAmt);
                         if (!isNaN(amtVal) && amtVal > 0) {
                             const dateStr = cleanSpreadsheetDate(rawDt, "2026", "May");
-                            const parsedD = new Date(dateStr);
-                            const actualYear = String(parsedD.getFullYear());
-                            const monthsArr = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                            const actualMonth = monthsArr[parsedD.getMonth()] || "May";
+                            let actualYear, actualMonth;
+                            if (simpleYearIdx !== -1 && simpleMonthIdx !== -1) {
+                                actualYear = String(row[simpleYearIdx] || '').trim();
+                                actualMonth = String(row[simpleMonthIdx] || '').trim();
+                            } else {
+                                const parsedD = new Date(dateStr);
+                                actualYear = String(parsedD.getUTCFullYear());
+                                const monthsArr = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                                actualMonth = monthsArr[parsedD.getUTCMonth()] || "May";
+                            }
                             incomeInserts.push({
                                 flat_no: flatVal,
                                 year: actualYear,
@@ -940,14 +957,10 @@ window.handleImportSubmit = async function(e) {
                                 
                                 if (amtVal > 0) {
                                     const dateStr = cleanSpreadsheetDate(rawDt, mp.year, mp.month);
-                                    const parsedD = new Date(dateStr);
-                                    const actualYear = String(parsedD.getFullYear());
-                                    const monthsArr = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                                    const actualMonth = monthsArr[parsedD.getMonth()] || mp.month;
                                     incomeInserts.push({
                                         flat_no: flatVal,
-                                        year: actualYear,
-                                        month: actualMonth,
+                                        year: mp.year,
+                                        month: mp.month,
                                         amount: amtVal,
                                         date_received: dateStr
                                     });
@@ -980,7 +993,7 @@ window.handleImportSubmit = async function(e) {
                 
                 let expHeaderIdx = -1;
                 let isSimpleExpense = false;
-                let expDescIdx = -1, expDateIdx = -1, expAmtIdx = -1;
+                let expDescIdx = -1, expDateIdx = -1, expAmtIdx = -1, expMonthIdx = -1, expYearIdx = -1;
 
                 for (let r = 0; r < expRows.length; r++) {
                     const rowCells = expRows[r].map(v => String(v || '').toUpperCase().trim());
@@ -988,12 +1001,16 @@ window.handleImportSubmit = async function(e) {
                     const dIdx = rowCells.findIndex(v => v === "DESCRIPTION");
                     const dateIdx = rowCells.findIndex(v => v === "DATE SPENT" || v === "DATE");
                     const aIdx = rowCells.findIndex(v => v === "AMOUNT");
+                    const mIdx = rowCells.findIndex(v => v === "MONTH");
+                    const yIdx = rowCells.findIndex(v => v === "YEAR");
 
                     if (dIdx !== -1 && dateIdx !== -1 && aIdx !== -1) {
                         isSimpleExpense = true;
                         expDescIdx = dIdx;
                         expDateIdx = dateIdx;
                         expAmtIdx = aIdx;
+                        expMonthIdx = mIdx;
+                        expYearIdx = yIdx;
                         expHeaderIdx = r;
                         break;
                     }
@@ -1059,10 +1076,16 @@ window.handleImportSubmit = async function(e) {
                             
                             if (!isNaN(parsedAmt) && parsedAmt > 0) {
                                 const dateStr = cleanSpreadsheetDate(rawDt, "2026", "May");
-                                const parsedD = new Date(dateStr);
-                                const actualYear = String(parsedD.getFullYear());
-                                const monthsArr = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                                const actualMonth = monthsArr[parsedD.getMonth()] || "May";
+                                let actualYear, actualMonth;
+                                if (expYearIdx !== -1 && expMonthIdx !== -1) {
+                                    actualYear = String(row[expYearIdx] || '').trim();
+                                    actualMonth = String(row[expMonthIdx] || '').trim();
+                                } else {
+                                    const parsedD = new Date(dateStr);
+                                    actualYear = String(parsedD.getUTCFullYear());
+                                    const monthsArr = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                                    actualMonth = monthsArr[parsedD.getUTCMonth()] || "May";
+                                }
                                 expenseInserts.push({
                                     year: actualYear,
                                     month: actualMonth,
@@ -1093,13 +1116,9 @@ window.handleImportSubmit = async function(e) {
                                     
                                     if (parsedAmt > 0) {
                                         const dateStr = cleanSpreadsheetDate(dtValRaw, emc.year, emc.month);
-                                        const parsedD = new Date(dateStr);
-                                        const actualYear = String(parsedD.getFullYear());
-                                        const monthsArr = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                                        const actualMonth = monthsArr[parsedD.getMonth()] || emc.month;
                                         expenseInserts.push({
-                                            year: actualYear,
-                                            month: actualMonth,
+                                            year: emc.year,
+                                            month: emc.month,
                                             expense_head: 'Uncategorized',
                                             description: desc,
                                             amount: parsedAmt,

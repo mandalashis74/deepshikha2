@@ -333,6 +333,7 @@ function renderAssets(status) {
                 <div class="data-card-row"><span class="data-label">Category</span> ${escapeHtml(a.category)}</div>
                 ${a.location ? `<div class="data-card-row"><span class="data-label">Location</span> ${escapeHtml(a.location)}</div>` : ''}
                 ${a.purchase_cost > 0 ? `<div class="data-card-row"><span class="data-label">Cost</span> ₹${Number(a.purchase_cost).toLocaleString('en-IN')}</div>` : ''}
+                <div class="data-card-row"><span class="data-label">Qty</span> ${Number(a.quantity) || 1}</div>
                 <div class="data-card-row"><span class="data-label">Warranty</span> ${warrantyStr}</div>
                 ${a.serial_no ? `<div class="data-card-row"><span class="data-label">S/N</span> ${escapeHtml(a.serial_no)}</div>` : ''}
                 ${a.notes ? `<div class="data-card-row"><span class="data-label">Notes</span> ${escapeHtml(a.notes)}</div>` : ''}
@@ -354,6 +355,7 @@ window.openCreateAssetModal = function(data = null) {
     document.getElementById('asset-location').value = data ? data.location : '';
     document.getElementById('asset-purchase-date').value = data ? data.purchase_date : '';
     document.getElementById('asset-cost').value = data ? data.purchase_cost : '';
+    document.getElementById('asset-quantity').value = data ? data.quantity : 1;
     document.getElementById('asset-warranty').value = data ? data.warranty_expiry : '';
     document.getElementById('asset-serial').value = data ? data.serial_no : '';
     document.getElementById('asset-status').value = data ? data.status : 'operational';
@@ -371,6 +373,7 @@ window.saveAsset = async function(e) {
         location: document.getElementById('asset-location').value.trim(),
         purchase_date: document.getElementById('asset-purchase-date').value || null,
         purchase_cost: parseFloat(document.getElementById('asset-cost').value) || 0,
+        quantity: parseInt(document.getElementById('asset-quantity').value) || 1,
         warranty_expiry: document.getElementById('asset-warranty').value || null,
         serial_no: document.getElementById('asset-serial').value.trim(),
         status: document.getElementById('asset-status').value,
@@ -672,5 +675,125 @@ window.saveParking = async function(e) {
 window.editParking = function(id) {
     const item = allParking.find(s => s.id === id);
     if (item) openCreateParkingModal(item);
+};
+
+window.generateAssetReport = async function() {
+    if (!window.jspdf) { showToast('PDF library not loaded.', 'error'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = 210, pageH = 297, margin = 14;
+    const contentW = pageW - 2 * margin;
+    let y = margin;
+
+    function addPage() {
+        doc.addPage();
+        y = margin;
+    }
+
+    function checkPage(needed) {
+        if (y + needed > pageH - margin) addPage();
+    }
+
+    try {
+        const { data } = await sbClient.from('assets').select('*').order('name');
+        const items = data || [];
+        if (items.length === 0) { showToast('No assets to report.', 'info'); return; }
+
+        const logo = await getLogoBase64();
+        const bldg = getBuildingName();
+        const dateStr = new Date().toLocaleDateString('en-IN');
+
+        // Header
+        if (logo) {
+            doc.addImage(logo, 'PNG', margin, y - 2, 18, 12);
+            doc.setFontSize(16);
+            doc.text(bldg || 'Asset Inventory Report', margin + 22, y + 4);
+        } else {
+            doc.setFontSize(18);
+            doc.text(bldg || 'Asset Inventory Report', margin, y + 6);
+        }
+        doc.setFontSize(10);
+        doc.text('Generated: ' + dateStr, pageW - margin, y + 6, { align: 'right' });
+        doc.setFontSize(14);
+        doc.text('Asset Inventory Report', pageW / 2, y + 14, { align: 'center' });
+        y += 20;
+
+        // Table header
+        const cols = ['#', 'Name', 'Category', 'Location', 'Qty', 'Cost (Rs.)', 'Status', 'Warranty'];
+        const colW = [6, 40, 22, 28, 8, 28, 28, 22];
+        doc.setFontSize(8);
+        doc.setFillColor(15, 23, 42);
+        doc.setTextColor(255, 255, 255);
+        doc.rect(margin, y, contentW, 6, 'F');
+        let x = margin + 1;
+        cols.forEach((c, i) => {
+            doc.text(c, x + 1, y + 4);
+            x += colW[i];
+        });
+        y += 6;
+
+        // Table rows
+        doc.setTextColor(30, 30, 30);
+        let totalQty = 0, totalCost = 0;
+        items.forEach((a, idx) => {
+            checkPage(6);
+            if (idx % 2 === 1) {
+                doc.setFillColor(240, 240, 245);
+                doc.rect(margin, y, contentW, 5.5, 'F');
+            }
+            x = margin + 1;
+            doc.text(String(idx + 1), x + 1, y + 4);
+            x += colW[0];
+            doc.text(a.name || '', x + 1, y + 4, { maxWidth: colW[1] - 2 });
+            x += colW[1];
+            doc.text(a.category || '', x + 1, y + 4, { maxWidth: colW[2] - 2 });
+            x += colW[2];
+            doc.text(a.location || '', x + 1, y + 4, { maxWidth: colW[3] - 2 });
+            x += colW[3];
+            const qty = Number(a.quantity) || 1;
+            doc.text(String(qty), x + 1, y + 4);
+            x += colW[4];
+            const cost = Number(a.purchase_cost) || 0;
+            doc.text(cost > 0 ? cost.toLocaleString('en-IN') : '-', x + 1, y + 4);
+            x += colW[5];
+            doc.text((a.status || '').replace(/_/g, ' '), x + 1, y + 4);
+            x += colW[6];
+            doc.text(a.warranty_expiry ? a.warranty_expiry.split('T')[0] : '-', x + 1, y + 4);
+            y += 5.5;
+            totalQty += qty;
+            totalCost += cost;
+        });
+
+        // Summary
+        y += 6;
+        checkPage(14);
+        doc.setDrawColor(15, 23, 42);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, pageW - margin, y);
+        y += 4;
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Summary', margin, y);
+        y += 6;
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(9);
+        doc.text('Total Items: ' + items.length, margin, y);
+        doc.text('Total Quantity: ' + totalQty, margin + 60, y);
+        doc.text('Total Cost: Rs. ' + totalCost.toLocaleString('en-IN'), margin + 120, y);
+        y += 5;
+        doc.text('Operational: ' + items.filter(a => a.status === 'operational').length, margin, y);
+        doc.text('Under Maintenance: ' + items.filter(a => a.status === 'under_maintenance').length, margin + 60, y);
+        doc.text('Broken: ' + items.filter(a => a.status === 'broken').length, margin + 120, y);
+
+        const pdfDataUri = doc.output('datauristring');
+        const newTab = window.open();
+        if (newTab) {
+            newTab.document.write('<iframe width="100%" height="100%" src="' + pdfDataUri + '"></iframe>');
+        } else {
+            doc.save('Asset_Inventory_Report.pdf');
+        }
+    } catch (err) {
+        showToast(err.message || 'Failed to generate report.', 'error');
+    }
 };
 

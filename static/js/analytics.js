@@ -28,7 +28,7 @@ async function loadAnalytics() {
             sbClient.from('meetings').select('status'),
             sbClient.from('polls').select('status'),
             sbClient.from('parking_slots').select('status'),
-            sbClient.from('assets').select('status'),
+            sbClient.from('assets').select('status, quantity'),
             sbClient.from('visitor_passes').select('status')
         ]);
 
@@ -177,7 +177,7 @@ async function loadAnalytics() {
                     <div class="analytics-stat-row"><span>Meetings</span><span>${(meetingsRes.data || []).length} (${(meetingsRes.data || []).filter(m => m.status === 'completed').length} done)</span></div>
                     <div class="analytics-stat-row"><span>Polls</span><span>${(pollsRes.data || []).length} (${(pollsRes.data || []).filter(p => p.status === 'active').length} active)</span></div>
                     <div class="analytics-stat-row"><span>Parking Slots</span><span>${(parkingRes.data || []).length} (${(parkingRes.data || []).filter(s => s.status === 'allotted').length} allotted)</span></div>
-                    <div class="analytics-stat-row"><span>Assets</span><span>${(assetsRes.data || []).length} (${(assetsRes.data || []).filter(a => a.status === 'operational').length} OK)</span></div>
+                    <div class="analytics-stat-row"><span>Assets</span><span>${(assetsRes.data || []).reduce((s, a) => s + (Number(a.quantity) || 1), 0)} (${(assetsRes.data || []).filter(a => a.status === 'operational').reduce((s, a) => s + (Number(a.quantity) || 1), 0)} OK)</span></div>
                     <div class="analytics-stat-row"><span>Visitor Passes</span><span>${(visitorsRes.data || []).length} total</span></div>
                 </div>
             </div>
