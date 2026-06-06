@@ -5,7 +5,7 @@ RETURNS BOOLEAN SECURITY DEFINER AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM public.profiles
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid() AND (role = 'admin' OR role = 'super_admin')
   );
 END;
 $$ LANGUAGE plpgsql;
@@ -20,6 +20,8 @@ DROP POLICY IF EXISTS "Allow users to read profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Allow users to update their own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Allow admins to update all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Allow admin write access to profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow users or admins to update profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow users to insert own profile" ON public.profiles;
 
 -- 4. Create SELECT policy: authenticated users can read all profiles
 -- (needed so the Manage Users list can be displayed in the UI)

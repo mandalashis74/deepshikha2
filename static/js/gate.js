@@ -24,14 +24,14 @@ const _PURPOSE_DURATION = {
 const _MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function _hasGate(perm) {
-    if (currentUserRole === 'admin') return true;
+    if (currentUserRole === 'admin' || currentUserRole === 'super_admin') return true;
     if (!window.currentRolePermissions) return false;
     return window.currentRolePermissions.includes(perm);
 }
 
 function _isGuard() {
     const role = currentUserRole || '';
-    return role === 'admin' || role === 'security' || _hasGate('gate:guard');
+    return role === 'admin' || role === 'super_admin' || role === 'security' || _hasGate('gate:guard');
 }
 
 function _flatNo() { return localStorage.getItem('currentFlatNo') || ''; }

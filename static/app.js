@@ -664,7 +664,9 @@ window.handleUserSession = async function(user) {
     } catch (e) {
         console.error("handleUserSession error:", e);
         showToast("Error retrieving user profile role credentials.", "error");
+        return;
     }
+    window.logAudit('user_login', { email: user.email, role: window.currentUserRole });
 };
 
 // Committee module loaded from static/js/committee.js
@@ -700,9 +702,12 @@ window.loadRoles = async function() {
     }
 };
 
+const ALL_PERMS = ['dashboard:view','income:create','income:delete','expense:create','expense:delete','history:view','reports:view','ledger:import','ledger:export','owners:upload','owners:edit_any','owners:edit_own','expense_heads:manage','expense_heads:create','expense_heads:delete','users:manage','users:role_change','tickets:assign','tickets:recommend','tickets:approve','tickets:resolve','tickets:close','tickets:reopen','tickets:archive','tickets:delete','tickets:comment','events:view','events:create','events:delete','events:contribute','events:perform','events:manage_vendors','events:manage_competitions','events:vote','events:score','events:upload_gallery','events:generate_passes','board:view','board:create','board:moderate','committee:view','committee:manage','meetings:view','meetings:create','meetings:manage','resolutions:view','documents:view','documents:upload','documents:delete','compliance:view','compliance:create','compliance:manage','vendors:view','vendors:create','vendors:manage','visitors:view','visitors:create','visitors:approve','assets:view','assets:create','assets:manage','polls:view','polls:create','polls:vote','parking:view','parking:assign','parking:manage','handover:view','handover:create','analytics:view','maintenance:view','maintenance:manage_rates','maintenance:collect','security:view','security:manage','gate:view','gate:guard'];
+
 window.getDefaultRoles = function() {
     return [
-        { name: 'admin', label: 'Administrator', permissions: ['dashboard:view','income:create','income:delete','expense:create','expense:delete','history:view','reports:view','ledger:import','ledger:export','owners:upload','owners:edit_any','owners:edit_own','expense_heads:manage','expense_heads:create','expense_heads:delete','users:manage','users:role_change','tickets:assign','tickets:recommend','tickets:approve','tickets:resolve','tickets:close','tickets:reopen','tickets:archive','tickets:delete','tickets:comment','events:view','events:create','events:delete','events:contribute','events:perform','events:manage_vendors','events:manage_competitions','events:vote','events:score','events:upload_gallery','events:generate_passes','board:view','board:create','board:moderate','committee:view','committee:manage','meetings:view','meetings:create','meetings:manage','resolutions:view','documents:view','documents:upload','documents:delete','compliance:view','compliance:create','compliance:manage','vendors:view','vendors:create','vendors:manage','visitors:view','visitors:create','visitors:approve','assets:view','assets:create','assets:manage','polls:view','polls:create','polls:vote','parking:view','parking:assign','parking:manage','handover:view','handover:create','analytics:view','maintenance:view','maintenance:manage_rates','maintenance:collect','security:view','security:manage','gate:view','gate:guard'], color: 'var(--color-emerald)' },
+        { name: 'super_admin', label: 'Super Admin', permissions: [...ALL_PERMS], color: 'var(--color-red)' },
+        { name: 'admin', label: 'Administrator', permissions: [...ALL_PERMS], color: 'var(--color-emerald)' },
         { name: 'editor', label: 'Editor', permissions: ['dashboard:view','income:create','expense:create','history:view','reports:view','ledger:export','tickets:resolve','tickets:comment','board:view','board:create','board:moderate','meetings:view','resolutions:view'], color: 'var(--color-rose)' },
         { name: 'floor_manager', label: 'Floor Manager', permissions: ['dashboard:view','income:create','history:view','reports:view','tickets:recommend','tickets:comment','board:view','board:create','meetings:view','resolutions:view'], color: 'var(--color-yellow)' },
         { name: 'committee_member', label: 'Committee Member', permissions: ['dashboard:view','history:view','reports:view','tickets:approve','tickets:comment','board:view','board:create','board:moderate','committee:view','meetings:view','meetings:create','meetings:manage','resolutions:view','documents:view','documents:upload','compliance:view','compliance:create','compliance:manage','vendors:view','vendors:create','visitors:view','visitors:create','visitors:approve','assets:view','assets:create','assets:manage','polls:view','polls:create','polls:vote','parking:view','parking:assign','handover:view','handover:create','analytics:view','maintenance:view','maintenance:manage_rates','maintenance:collect','security:view','security:manage','gate:view','gate:guard'], color: 'var(--color-violet)' },
@@ -711,6 +716,7 @@ window.getDefaultRoles = function() {
 };
 
 window.hasPermission = function(perm) {
+    if (window.currentUserRole === 'super_admin') return true;
     return (window.currentRolePermissions || []).includes(perm);
 };
 
@@ -740,7 +746,7 @@ window.applyRbacRestrictions = function(role) {
     setNav("side-export", window.hasPermission('ledger:export'));
     setNav("side-manage-users", window.hasPermission('users:manage'));
     setNav("side-manage-roles", window.hasPermission('users:role_change'));
-    setNav("side-building-config", role === 'admin');
+    setNav("side-building-config", role === 'admin' || role === 'super_admin');
     
     const canViewDashboard = window.hasPermission('dashboard:view');
     setNav("side-dashboard", true);
@@ -794,6 +800,7 @@ window.applyRbacRestrictions = function(role) {
     setBlock("side-admin-label", hasAdminAccess);
     setBlock("side-admin-nav", hasAdminAccess);
     setNav("side-manage-committee", window.hasPermission('committee:manage'));
+    setNav("side-audit-trail", window.currentUserRole === 'super_admin');
     
     setBlock("workspace", canViewDashboard);
     
@@ -923,6 +930,7 @@ window.handleLogout = async function() {
     if (!out) return;
     
     try {
+        await window.logAudit('user_logout', { email: currentUserEmail });
         localStorage.removeItem("isSoftLogin");
         localStorage.removeItem("currentFlatNo");
         const { error } = await sbClient.auth.signOut();
@@ -1366,10 +1374,79 @@ window.saveProfile = async function() {
         window.currentUserName = name;
         const sideEmail = document.getElementById('side-user-email');
         if (sideEmail) sideEmail.textContent = name + ' (' + currentUserEmail + ')';
+        await window.logAudit('profile_updated', { name, address, contact });
         showToast("Profile updated!", "success");
         closeModal('profileModal');
     } catch (err) {
         showToast("Failed to update profile: " + err.message, "error");
+    }
+};
+
+// Audit trail
+window.logAudit = async function(action, details) {
+    if (!sbClient || !currentUserEmail) return;
+    try {
+        await sbClient.from('audit_log').insert({
+            user_id: currentUserId,
+            user_email: currentUserEmail,
+            action: action,
+            details: details || {}
+        });
+    } catch (_) {} // silently fail — audit should never block the main action
+};
+
+window.openAuditTrailModal = async function() {
+    openModal('auditTrailModal');
+    document.getElementById('audit-table-body').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; color:var(--text-muted);">Loading...</td></tr>';
+    // Populate filter dropdown
+    const filter = document.getElementById('audit-filter');
+    filter.innerHTML = '<option value="">All Actions</option>';
+    try {
+        const { data: actions } = await sbClient.from('audit_log').select('action', { count: 'exact', head: false }).limit(1000);
+        const unique = [...new Set((actions || []).map(a => a.action).filter(Boolean))].sort();
+        unique.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a; opt.textContent = a;
+            filter.appendChild(opt);
+        });
+    } catch (_) {}
+    await renderAuditTrail();
+};
+
+window.renderAuditTrail = async function() {
+    const tbody = document.getElementById('audit-table-body');
+    if (!tbody) return;
+    try {
+        const search = (document.getElementById('audit-search')?.value || '').toLowerCase();
+        const filterAction = document.getElementById('audit-filter')?.value || '';
+        let query = sbClient.from('audit_log').select('*').order('created_at', { ascending: false }).limit(200);
+        if (filterAction) query = query.eq('action', filterAction);
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; color:var(--text-muted);">No audit entries found.</td></tr>';
+            return;
+        }
+        let rows = data;
+        if (search) {
+            rows = data.filter(r =>
+                (r.action || '').toLowerCase().includes(search) ||
+                (r.user_email || '').toLowerCase().includes(search) ||
+                JSON.stringify(r.details || {}).toLowerCase().includes(search)
+            );
+        }
+        tbody.innerHTML = rows.map(r => {
+            const d = r.details || {};
+            const detailStr = typeof d === 'object' ? Object.entries(d).map(([k, v]) => `<span style="color:var(--text-secondary);">${k}:</span> ${escapeHtml(String(v))}`).join('; ') : escapeHtml(String(d));
+            return `<tr>
+                <td style="white-space:nowrap; font-size:0.75rem; color:var(--text-muted);">${new Date(r.created_at).toLocaleString('en-IN')}</td>
+                <td style="font-size:0.8rem;">${escapeHtml(r.user_email || '—')}</td>
+                <td><span class="badge" style="font-size:0.65rem; padding:1px 6px;">${escapeHtml(r.action)}</span></td>
+                <td style="font-size:0.75rem; color:var(--text-secondary);">${detailStr || '—'}</td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; color:var(--color-rose);">Failed to load audit trail: ' + escapeHtml(err.message) + '</td></tr>';
     }
 };
 
@@ -1544,8 +1621,10 @@ window.handleIncomeSubmit = async function(e) {
                     lastId = data.id;
                 }
                 if (isSelfService) {
+                    window.logAudit('income_self_service', { flat_no: flatNo, amount: amtVal, months: insertedCount });
                     showToast(`Payment request of ₹${formatCurrency(amtVal)} submitted for ${flatNo}. Awaiting approval.`, "success");
                 } else {
+                    window.logAudit('income_collected', { flat_no: flatNo, amount: amtVal, months: insertedCount });
                     showToast(`₹${formatCurrency(amtVal)} collected from ${flatNo} (${insertedCount} month${insertedCount > 1 ? 's' : ''}).`, "success", {
                         text: '<i class="fa-solid fa-file-pdf"></i> Receipt (last entry)',
                         callback: () => generateReceipt(lastId)
@@ -1585,8 +1664,10 @@ window.handleIncomeSubmit = async function(e) {
             data = await insertIncomeRow(insertData);
             
             if (isSelfService) {
+                window.logAudit('income_self_service', { flat_no: flatNo, amount: amtVal, category: category });
                 showToast(`Payment request of ₹${formatCurrency(amtVal)} submitted for ${flatNo}. Awaiting approval.`, "success");
             } else {
+                window.logAudit('income_collected', { flat_no: flatNo, amount: amtVal, category: category });
                 showToast(`Payment logged for Flat ${flatNo}`, "success", {
                     text: '<i class="fa-solid fa-file-pdf"></i> Receipt',
                     callback: () => generateReceipt(data.id)
@@ -1660,6 +1741,7 @@ window.handleExpenseSubmit = async function(e) {
         
         if (error) throw error;
         
+        window.logAudit('expense_created', { expense_head: expenseHead, description: desc, amount: amtVal });
         showToast(`Expense saved: ${desc}`);
         document.getElementById("exp-desc").value = "";
         document.getElementById("exp-amount").value = "";

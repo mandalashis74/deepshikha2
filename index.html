@@ -221,6 +221,10 @@
                         <i class="fa-solid fa-building"></i>
                         <span>Building Setup</span>
                     </button>
+                    <button class="sidebar-btn" id="side-audit-trail" onclick="openAuditTrailModal()" style="display:none;">
+                        <i class="fa-solid fa-clipboard-list"></i>
+                        <span>Audit Trail</span>
+                    </button>
                     <button class="sidebar-btn" id="side-manage-committee" onclick="openCommitteeManageModal()">
                         <i class="fa-solid fa-gavel"></i>
                         <span>Manage Committee</span>
@@ -1497,6 +1501,14 @@
                                 <button type="button" class="btn btn-slate" style="font-size:0.75rem; padding:4px 10px; align-self:flex-start;" onclick="generateVapidKeys()"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Keys</button>
                             </div>
                         </details>
+                        <details style="margin-top: 12px;">
+                            <summary style="cursor:pointer; font-weight:600; font-size:0.8rem; color:var(--color-rose);">Super Admin (Hidden User)</summary>
+                            <div class="input-field" style="margin-top: 8px;">
+                                <label for="cfg-super-admin-user-id">Auth User ID (hidden from Manage Users)</label>
+                                <input type="text" id="cfg-super-admin-user-id" placeholder="e.g. a1b2c3d4-... (UUID from auth.users)">
+                                <span style="font-size:0.65rem; color:var(--text-muted);">This user will have super_admin privileges but will not appear in Manage Users or role lists.</span>
+                            </div>
+                        </details>
                         <div class="modal-actions" style="margin-top: 16px;">
                             <button type="button" class="btn btn-slate" onclick="closeModal('buildingConfigModal')">Cancel</button>
                             <button type="submit" class="btn btn-indigo">
@@ -1504,6 +1516,40 @@
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audit Trail Modal -->
+        <div id="auditTrailModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 900px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-clipboard-list"></i> Audit Trail</h2>
+                    <span class="close" onclick="closeModal('auditTrailModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center; flex-wrap:wrap;">
+                        <input type="text" id="audit-search" placeholder="Search action, email, or details..." style="flex:1; min-width:150px; padding:6px 10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-primary); color:var(--text-primary); font-size:0.8rem;" oninput="renderAuditTrail()">
+                        <select id="audit-filter" class="filter-select" style="font-size:0.8rem;" onchange="renderAuditTrail()">
+                            <option value="">All Actions</option>
+                        </select>
+                        <button class="btn btn-slate" style="padding:4px 10px; font-size:0.75rem;" onclick="renderAuditTrail()"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                    </div>
+                    <div class="table-container" style="max-height:60vh; overflow-y:auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:160px;">Date & Time</th>
+                                    <th style="width:180px;">User</th>
+                                    <th style="width:130px;">Action</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-table-body">
+                                <tr><td colspan="4" style="text-align:center; padding:30px; color:var(--text-muted);">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

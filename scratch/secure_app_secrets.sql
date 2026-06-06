@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS public.app_secrets (
 
 INSERT INTO public.app_secrets (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
+-- Add super_admin_user_id column (hidden super admin, excluded from user listing)
+ALTER TABLE public.app_secrets ADD COLUMN IF NOT EXISTS super_admin_user_id UUID DEFAULT NULL;
+
 ALTER TABLE public.app_secrets ENABLE ROW LEVEL SECURITY;
 
 -- Only admins can read secrets

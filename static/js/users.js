@@ -4,7 +4,7 @@
 
 // Building Configuration Modal
 window.openBuildingConfigModal = function() {
-    if (currentUserRole !== 'admin') {
+    if (currentUserRole !== 'admin' && currentUserRole !== 'super_admin') {
         showToast("Access Denied. Building Setup is available only for administrators.", "error");
         return;
     }
@@ -14,9 +14,10 @@ window.openBuildingConfigModal = function() {
     document.getElementById("cfg-gapi-key").value = buildingConfig?.google_api_key || '';
     document.getElementById("cfg-gclient-id").value = buildingConfig?.google_client_id || '';
     document.getElementById("cfg-vapid-public").value = buildingConfig?.vapid_public_key || '';
-    // Load vapid_private_key from app_secrets (admin-only table)
-    sbClient.from('app_secrets').select('vapid_private_key').eq('id', 1).single().then(({ data: sd }) => {
+    // Load vapid_private_key and super_admin_user_id from app_secrets (admin-only table)
+    sbClient.from('app_secrets').select('vapid_private_key, super_admin_user_id').eq('id', 1).single().then(({ data: sd }) => {
         document.getElementById("cfg-vapid-private").value = sd?.vapid_private_key || '';
+        document.getElementById("cfg-super-admin-user-id").value = sd?.super_admin_user_id || '';
     }).catch(() => {});
     document.getElementById("cfg-floors").value = getFloorCount();
     document.getElementById("cfg-wings").value = getWingsList().join(',');
@@ -54,17 +55,19 @@ window.handleSaveBuildingConfig = async function(e) {
     };
     const saved = await saveBuildingConfig(config);
     if (saved) {
-        // Save vapid_private_key to app_secrets (admin-only table)
+        // Save vapid_private_key and super_admin_user_id to app_secrets (admin-only table)
         try {
             await sbClient.from('app_secrets').upsert({
                 id: 1,
-                vapid_private_key: document.getElementById("cfg-vapid-private").value.trim()
+                vapid_private_key: document.getElementById("cfg-vapid-private").value.trim(),
+                super_admin_user_id: document.getElementById("cfg-super-admin-user-id").value.trim() || null
             }, { onConflict: 'id' });
         } catch (e) {
-            console.warn("Failed to save vapid_private_key to app_secrets:", e);
+            console.warn("Failed to save app_secrets:", e);
         }
         showToast("Building configuration saved!", "success");
         closeModal('buildingConfigModal');
+        await window.logAudit('building_config_updated', { building_name: config.building_name });
         // Re-seed if flats changed
         await ensureOwnersPopulated();
         // Refresh directory if open
@@ -84,6 +87,13 @@ window.openUsersModal = async function() {
     openModal("usersModal");
     const tbody = document.getElementById("users-table-body");
     tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Loading users...</td></tr>';
+    
+    // Load hidden super_admin user ID to exclude from listing
+    let hiddenUserId = null;
+    try {
+        const { data: secret } = await sbClient.from('app_secrets').select('super_admin_user_id').eq('id', 1).single();
+        hiddenUserId = secret?.super_admin_user_id;
+    } catch (_) {}
     
     try {
         let { data: profiles, error } = await sbClient
@@ -107,13 +117,17 @@ window.openUsersModal = async function() {
         }
         
         // Only administrators can assign or view the Administrator option.
-        const canAssignAdministrator = currentUserRole === 'admin';
+        const canAssignAdministrator = currentUserRole === 'admin' || currentUserRole === 'super_admin';
         const roleOptionsMap = rolesData
-            .filter(r => canAssignAdministrator || r.name !== 'admin')
+            .filter(r => r.name !== 'super_admin' && (canAssignAdministrator || r.name !== 'admin'))
             .map(r => 
             ({ value: r.name, label: r.label || r.name })
         );
         
+        // Exclude hidden super_admin user from listing
+        if (hiddenUserId) {
+            profiles = profiles.filter(p => p.id !== hiddenUserId);
+        }
         tbody.innerHTML = '';
         profiles.forEach(p => {
             const tr = document.createElement("tr");
@@ -122,8 +136,8 @@ window.openUsersModal = async function() {
             ).join('');
             
             const isSystemAccount = p.email === 'shared_owner@deepsikha.in';
-            // Prevent changing own role via UI for safety. Non-admins cannot change administrator rows.
-            const isRestrictedAdminRow = p.role === 'admin' && !canAssignAdministrator;
+            // Prevent changing own role via UI for safety. Non-admins cannot change administrator/super_admin rows.
+            const isRestrictedAdminRow = (p.role === 'admin' || p.role === 'super_admin') && !canAssignAdministrator;
             let disableSelect = p.id === currentUserId
                 ? 'disabled title="Cannot change your own role"'
                 : isRestrictedAdminRow
@@ -142,7 +156,7 @@ window.openUsersModal = async function() {
                 <td>${escapeHtml(p.name || '—')}</td>
                 <td>${p.email}${isSystemAccount ? ' <span style="font-size:0.65rem;color:var(--text-muted);">(System)</span>' : ''}</td>
                 <td>
-                    <select id="role-select-${p.id}" class="filter-select" ${disableSelect}>
+                    <select id="role-select-${p.id}" class="filter-select" data-user-email="${escapeHtml(p.email)}" ${disableSelect}>
                         ${roleOptions}
                     </select>
                 </td>
@@ -174,8 +188,12 @@ window.updateUserRole = async function(userId) {
     
     const select = document.getElementById(`role-select-${userId}`);
     const newRole = select.value;
-    if (newRole === 'admin' && currentUserRole !== 'admin') {
+    if (newRole === 'admin' && currentUserRole !== 'admin' && currentUserRole !== 'super_admin') {
         showToast("Only administrators can assign the Administrator role.", "error");
+        return;
+    }
+    if (newRole === 'super_admin') {
+        showToast("Super Admin role cannot be assigned via this interface.", "error");
         return;
     }
     
@@ -187,6 +205,7 @@ window.updateUserRole = async function(userId) {
             
         if (error) throw error;
         showToast("User role updated successfully!", "success");
+        window.logAudit('user_role_updated', { target_user: select.dataset.userEmail || '', new_role: newRole });
     } catch (err) {
         console.error("Error updating user role:", err);
         showToast("Failed to update user role: " + (err.message || err.details || JSON.stringify(err)), "error");
@@ -476,6 +495,12 @@ const PERMISSION_GROUPS = [
             { perm: 'security:view', col: 'view', label: 'View' },
             { perm: 'security:manage', col: 'edit', label: 'Manage' }
         ]
+    },
+    {
+        label: 'Gate', actions: [
+            { perm: 'gate:view', col: 'view', label: 'View' },
+            { perm: 'gate:guard', col: 'other', label: 'Guard Access' }
+        ]
     }
 ];
 
@@ -541,7 +566,7 @@ function renderRolesManager() {
                     <button class="btn btn-indigo" style="padding: 4px 10px; font-size: 0.7rem;" onclick="openEditRoleModal('${role.name}')">
                         <i class="fa-solid fa-pen"></i> Edit
                     </button>
-                    ${role.name !== 'admin' ? `<button class="btn btn-rose" style="padding: 4px 10px; font-size: 0.7rem;" onclick="handleDeleteRole('${role.name}')">
+                    ${role.name !== 'admin' && role.name !== 'super_admin' ? `<button class="btn btn-rose" style="padding: 4px 10px; font-size: 0.7rem;" onclick="handleDeleteRole('${role.name}')">
                         <i class="fa-solid fa-trash-can"></i> Delete
                     </button>` : ''}
                 </div>
@@ -687,6 +712,7 @@ window.handleSaveRole = async function(e) {
             });
             if (error) throw error;
             showToast(`Role "${label}" created!`, "success");
+            window.logAudit('role_created', { name, label, permission_count: permissions.length });
         } else {
             // Update existing role
             const { error } = await sbClient.from('roles')
@@ -699,6 +725,7 @@ window.handleSaveRole = async function(e) {
                 .eq('name', originalName);
             if (error) throw error;
             showToast(`Role "${label}" updated!`, "success");
+            window.logAudit('role_updated', { original_name: originalName, name, label, permission_count: permissions.length });
         }
         
         closeModal('editRoleModal');
@@ -723,8 +750,8 @@ window.handleDeleteRole = async function(roleName) {
         return;
     }
     
-    if (roleName === 'admin') {
-        showToast("Cannot delete the default admin role.", "error");
+    if (roleName === 'admin' || roleName === 'super_admin') {
+        showToast("Cannot delete a system role.", "error");
         return;
     }
     
@@ -741,6 +768,7 @@ window.handleDeleteRole = async function(roleName) {
         if (error) throw error;
         
         showToast(`Role "${role.label || roleName}" deleted.`, "success");
+        window.logAudit('role_deleted', { role_name: roleName, label: role.label });
         await loadRoles();
         renderRolesManager();
         applyRbacRestrictions(currentUserRole);

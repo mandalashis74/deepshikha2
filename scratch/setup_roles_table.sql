@@ -15,23 +15,29 @@ CREATE TABLE IF NOT EXISTS roles (
 -- 2. Enable RLS
 ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
 
--- 3. Allow authenticated users to read roles (needed for permission checks)
+-- 3. Drop existing policies first to make script idempotent
+DROP POLICY IF EXISTS "Allow read access to all authenticated users" ON roles;
+DROP POLICY IF EXISTS "Allow admin write access" ON roles;
+
+-- 4. Allow authenticated users to read roles (needed for permission checks)
 CREATE POLICY "Allow read access to all authenticated users" ON roles
     FOR SELECT USING (auth.role() = 'authenticated');
 
--- 4. Allow only admins to insert/update/delete roles
--- Adjust this policy name/definition based on your existing profiles table structure
+-- 5. Allow only admins/super_admins to insert/update/delete roles
 CREATE POLICY "Allow admin write access" ON roles
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM profiles
             WHERE profiles.id = auth.uid()
-            AND profiles.role = 'admin'
+            AND (profiles.role = 'admin' OR profiles.role = 'super_admin')
         )
     );
 
 -- 5. Seed default roles (matching the hardcoded defaults in app.js)
 INSERT INTO roles (name, label, permissions, color, priority) VALUES
+('super_admin', 'Super Admin',
+ '["dashboard:view","income:create","income:delete","expense:create","expense:delete","history:view","reports:view","ledger:import","ledger:export","owners:upload","owners:edit_any","owners:edit_own","expense_heads:manage","expense_heads:create","expense_heads:delete","users:manage","users:role_change","tickets:assign","tickets:recommend","tickets:approve","tickets:resolve","tickets:close","tickets:reopen","tickets:archive","tickets:delete","tickets:comment","events:view","events:create","events:delete","events:contribute","events:perform","events:manage_vendors","events:manage_competitions","events:vote","events:score","events:upload_gallery","events:generate_passes","board:view","board:create","board:moderate","committee:view","committee:manage","meetings:view","meetings:create","meetings:manage","resolutions:view","documents:view","documents:upload","documents:delete","compliance:view","compliance:create","compliance:manage","vendors:view","vendors:create","vendors:manage","visitors:view","visitors:create","visitors:approve","assets:view","assets:create","assets:manage","polls:view","polls:create","polls:vote","parking:view","parking:assign","parking:manage","handover:view","handover:create","analytics:view","maintenance:view","maintenance:manage_rates","maintenance:collect","security:view","security:manage","gate:view","gate:guard"]'::jsonb,
+ 'var(--color-red)', 200),
 ('admin', 'Administrator',
  '["dashboard:view","income:create","income:delete","expense:create","expense:delete","history:view","reports:view","ledger:import","ledger:export","owners:upload","owners:edit_any","owners:edit_own","expense_heads:manage","expense_heads:create","expense_heads:delete","users:manage","users:role_change","tickets:assign","tickets:recommend","tickets:approve","tickets:resolve","tickets:close","tickets:reopen","tickets:archive","tickets:delete","tickets:comment","events:view","events:create","events:delete","events:contribute","events:perform","events:manage_vendors","events:manage_competitions","events:vote","events:score","events:upload_gallery","events:generate_passes","board:view","board:create","board:moderate","committee:view","committee:manage","meetings:view","meetings:create","meetings:manage","resolutions:view","documents:view","documents:upload","documents:delete","compliance:view","compliance:create","compliance:manage","vendors:view","vendors:create","vendors:manage","visitors:view","visitors:create","visitors:approve","assets:view","assets:create","assets:manage","polls:view","polls:create","polls:vote","parking:view","parking:assign","parking:manage","handover:view","handover:create","analytics:view"]'::jsonb,
  'var(--color-emerald)', 100),
