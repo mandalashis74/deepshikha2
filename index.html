@@ -237,16 +237,20 @@
 
             <!-- User Profile -->
             <div id="side-user-profile" class="sidebar-user" style="display: none;">
-                <div class="sidebar-user-avatar">
-                    <i class="fa-solid fa-circle-user"></i>
+                <div class="sidebar-user-avatar" onclick="openProfileModal()" style="cursor:pointer; position:relative;" title="View Profile">
+                    <img id="side-avatar-img" src="" alt="" style="width:28px; height:28px; border-radius:50%; object-fit:cover; display:none;">
+                    <i id="side-avatar-icon" class="fa-solid fa-circle-user"></i>
                 </div>
-                <div class="sidebar-user-info">
+                <div class="sidebar-user-info" onclick="openProfileModal()" style="cursor:pointer;" title="View Profile">
                     <span id="side-user-email"
                         style="font-size:0.75rem; font-weight:600; color:var(--text-primary);"></span>
                     <span id="side-user-role" class="badge"
                         style="padding: 1px 6px; font-size:0.55rem; font-weight:700;"></span>
                 </div>
                 <div class="sidebar-user-actions">
+                    <button class="sidebar-icon-btn" id="btn-user-profile" title="Profile" onclick="openProfileModal()">
+                        <i class="fa-solid fa-user"></i>
+                    </button>
                     <button class="sidebar-icon-btn" id="btn-change-password" title="Change Password" onclick="openPasswordModal()">
                         <i class="fa-solid fa-key"></i>
                     </button>
@@ -318,31 +322,6 @@
                             <div class="dash-stat-value" id="dash-month-income">-</div>
                             <div class="dash-stat-label">This Month Income</div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Financial KPI Row -->
-                <div class="kpi-grid">
-                    <div class="kpi-card kpi-income">
-                        <div class="kpi-info">
-                            <div class="kpi-title">Year to Date Income</div>
-                            <h3 id="dash-year-income">-</h3>
-                        </div>
-                        <div class="kpi-icon-wrapper"><i class="fa-solid fa-arrow-trend-up"></i></div>
-                    </div>
-                    <div class="kpi-card kpi-expense">
-                        <div class="kpi-info">
-                            <div class="kpi-title">Year to Date Expense</div>
-                            <h3 id="dash-year-expense">-</h3>
-                        </div>
-                        <div class="kpi-icon-wrapper"><i class="fa-solid fa-arrow-trend-down"></i></div>
-                    </div>
-                    <div class="kpi-card kpi-cash">
-                        <div class="kpi-info">
-                            <div class="kpi-title">Net Cash Flow</div>
-                            <h3 id="dash-cash-flow">-</h3>
-                        </div>
-                        <div class="kpi-icon-wrapper"><i class="fa-solid fa-scale-balance"></i></div>
                     </div>
                 </div>
 
@@ -472,6 +451,7 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
+                                    <th>Name</th>
                                     <th>Email</th>
                                     <th>Current Role</th>
                                     <th>Assigned Floors</th>
@@ -481,7 +461,7 @@
                             <tbody id="users-table-body">
                                 <!-- Populated dynamically -->
                                 <tr>
-                                    <td colspan="3" style="text-align: center;">Loading...</td>
+                                    <td colspan="5" style="text-align: center;">Loading...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -511,6 +491,54 @@
                     </div>
                     <button class="btn btn-indigo" onclick="updateUserPassword()"
                         style="width: 100%; margin-top: 16px;">Update Password</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Modal -->
+        <div id="profileModal" class="modal">
+            <div class="modal-content animate-zoom" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-user"></i> My Profile</h2>
+                    <span class="close" onclick="closeModal('profileModal')">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div style="text-align:center; margin-bottom:20px;">
+                        <div style="position:relative; display:inline-block;">
+                            <img id="profile-avatar-img" src="" alt="Avatar" style="width:72px; height:72px; border-radius:50%; object-fit:cover; display:none; border:2px solid var(--border-color);">
+                            <div id="profile-avatar-icon" style="font-size:3rem; color:var(--color-indigo);"><i class="fa-solid fa-circle-user"></i></div>
+                            <button type="button" onclick="document.getElementById('avatar-upload-input').click()" title="Upload Photo" style="position:absolute; bottom:-2px; right:-2px; width:26px; height:26px; border-radius:50%; border:2px solid var(--bg-primary); background:var(--color-indigo); color:#fff; font-size:0.65rem; cursor:pointer; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-camera"></i></button>
+                        </div>
+                        <input type="file" id="avatar-upload-input" accept="image/*" style="display:none;" onchange="uploadAvatar(this)">
+                        <div id="profile-role-badge" class="badge" style="margin-top:8px; padding:3px 10px; font-size:0.7rem; font-weight:700; display:inline-block;"></div>
+                    </div>
+                    <div class="input-field">
+                        <label>Name</label>
+                        <input type="text" id="profile-name" placeholder="Your full name">
+                    </div>
+                    <div class="input-field">
+                        <label>Email</label>
+                        <input type="email" id="profile-email" readonly style="background:var(--bg-secondary); color:var(--text-primary); cursor:not-allowed;">
+                    </div>
+                    <div class="input-field">
+                        <label>Role</label>
+                        <input type="text" id="profile-role" readonly style="background:var(--bg-secondary); color:var(--text-primary); cursor:not-allowed;">
+                    </div>
+                    <div class="input-field" id="profile-floors-field">
+                        <label>Assigned Floors</label>
+                        <input type="text" id="profile-floors" readonly style="background:var(--bg-secondary); color:var(--text-primary); cursor:not-allowed;">
+                    </div>
+                    <div class="input-field">
+                        <label>Address</label>
+                        <textarea id="profile-address" rows="2" placeholder="Your address"></textarea>
+                    </div>
+                    <div class="input-field">
+                        <label>Contact No</label>
+                        <input type="text" id="profile-contact" placeholder="Phone number">
+                    </div>
+                    <hr style="border-color:var(--border-color); margin:16px 0;">
+                    <button class="btn btn-indigo" onclick="saveProfile()" style="width:100%;"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+                    <button class="btn btn-slate" onclick="openPasswordModal(); closeModal('profileModal');" style="width:100%; margin-top:8px;"><i class="fa-solid fa-key"></i> Change Password</button>
                 </div>
             </div>
         </div>

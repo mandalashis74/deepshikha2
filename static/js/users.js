@@ -86,15 +86,23 @@ window.openUsersModal = async function() {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Loading users...</td></tr>';
     
     try {
-        const { data: profiles, error } = await sbClient
+        let { data: profiles, error } = await sbClient
             .from('profiles')
-            .select('id, email, role, assigned_floors')
+            .select('id, email, role, assigned_floors, name, address, contact_no')
             .order('email');
             
-        if (error) throw error;
+        if (error) {
+            // Fallback: new columns may not exist yet
+            const { data: fb, error: fbErr } = await sbClient
+                .from('profiles')
+                .select('id, email, role, assigned_floors')
+                .order('email');
+            if (fbErr) throw fbErr;
+            profiles = fb;
+        }
         
         if (!profiles || profiles.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No registered users found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No registered users found.</td></tr>';
             return;
         }
         
@@ -113,19 +121,26 @@ window.openUsersModal = async function() {
                 `<option value="${r.value}" ${r.value === p.role ? 'selected' : ''}>${r.label}</option>`
             ).join('');
             
+            const isSystemAccount = p.email === 'shared_owner@deepsikha.in';
             // Prevent changing own role via UI for safety. Non-admins cannot change administrator rows.
             const isRestrictedAdminRow = p.role === 'admin' && !canAssignAdministrator;
-            const disableSelect = p.id === currentUserId
+            let disableSelect = p.id === currentUserId
                 ? 'disabled title="Cannot change your own role"'
                 : isRestrictedAdminRow
                     ? 'disabled title="Only administrators can change administrator users"'
                     : '';
+            let disableSave = '';
+            if (isSystemAccount) {
+                disableSelect = 'disabled title="System account — cannot be modified"';
+                disableSave = 'disabled';
+            }
             
             const userFloors = Array.isArray(p.assigned_floors) ? p.assigned_floors : [];
             const floorsText = userFloors.length > 0 ? `Floor ${userFloors.sort().join(', Floor ')}` : 'All';
             
             tr.innerHTML = `
-                <td>${p.email}</td>
+                <td>${escapeHtml(p.name || '—')}</td>
+                <td>${p.email}${isSystemAccount ? ' <span style="font-size:0.65rem;color:var(--text-muted);">(System)</span>' : ''}</td>
                 <td>
                     <select id="role-select-${p.id}" class="filter-select" ${disableSelect}>
                         ${roleOptions}
@@ -138,7 +153,7 @@ window.openUsersModal = async function() {
                     </button>
                 </td>
                 <td>
-                    <button class="btn btn-emerald" style="padding: 4px 8px; font-size: 0.8rem;" ${disableSelect} onclick="updateUserRole('${p.id}')">Save Role</button>
+                    <button class="btn btn-emerald" style="padding: 4px 8px; font-size: 0.8rem;" ${disableSelect} ${disableSave} onclick="updateUserRole('${p.id}')">Save Role</button>
                 </td>
             `;
             tbody.appendChild(tr);

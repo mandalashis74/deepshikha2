@@ -274,27 +274,7 @@ window.loadDashStats = async function() {
     const monthIncome = incomeResult ?? 0;
     document.getElementById('dash-month-income').textContent = monthIncome !== null ? '₹' + monthIncome.toLocaleString('en-IN') : '-';
     
-    // Year-to-date KPIs
-    const yearIncome = await safeQuery('year_income', async () => {
-        const { data } = await sbClient.from('income')
-            .select('amount')
-            .or('status.eq.approved,status.is.null')
-            .eq('year', year);
-        return (data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
-    });
-    const yearExpense = await safeQuery('year_expense', async () => {
-        const { data } = await sbClient.from('expenses')
-            .select('amount')
-            .eq('year', year);
-        return (data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
-    });
-    const yIncome = yearIncome ?? 0;
-    const yExpense = yearExpense ?? 0;
-    const cashFlow = yIncome - yExpense;
-    document.getElementById('dash-year-income').textContent = '₹' + yIncome.toLocaleString('en-IN');
-    document.getElementById('dash-year-expense').textContent = '₹' + yExpense.toLocaleString('en-IN');
-    document.getElementById('dash-cash-flow').textContent = '₹' + cashFlow.toLocaleString('en-IN');
-    
+
     // Monthly chart data (all months this year)
     const monthlyData = await safeQuery('monthly_data', async () => {
         const { data } = await sbClient.from('income')
@@ -558,7 +538,7 @@ window.setupAuthListener = function() {
         if (session) {
             window.currentUserId = session.user.id;
             window.currentUserEmail = session.user.email;
-            window.currentUserName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email || '';
+            window.currentUserName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
             
             setTimeout(async () => {
                 try {
@@ -616,28 +596,26 @@ window.handleUserSession = async function(user) {
     try {
         await window.loadRoles();
         
-        let { data, error } = await sbClient.from('profiles').select('role, assigned_floors').eq('id', user.id).single();
+        let { data, error } = await sbClient.from('profiles').select('role, assigned_floors, name, address, contact_no, avatar_url').eq('id', user.id).maybeSingle();
         
         if (error) {
-            console.warn("Profile fetching failed, retrying in 1s...", error);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const retryRes = await sbClient.from('profiles').select('role, assigned_floors').eq('id', user.id).single();
-            data = retryRes.data;
-            if (retryRes.error) throw retryRes.error;
+            // Fallback: columns may not exist yet; try minimal query
+            const { data: fallback, error: fbErr } = await sbClient.from('profiles').select('role, assigned_floors').eq('id', user.id).maybeSingle();
+            if (fbErr) throw fbErr;
+            data = { ...fallback, name: null, address: null, contact_no: null, avatar_url: null };
         }
         
         window.currentUserRole = data && data.role ? data.role.toLowerCase().trim() : "viewer";
         currentUserAssignedFloors = data && Array.isArray(data.assigned_floors) ? data.assigned_floors : [];
+        if (data?.name) window.currentUserName = data.name;
+        if (data?.avatar_url) window.setAvatarDisplay(data.avatar_url);
         
         const sideProfile = document.getElementById("side-user-profile");
         const sideEmail = document.getElementById("side-user-email");
         const sideRole = document.getElementById("side-user-role");
         
         if (sideProfile && sideEmail && sideRole) {
-            sideEmail.textContent = user.email;
-            if (user.user_metadata?.full_name) {
-                sideEmail.textContent = `${user.user_metadata.full_name} (${user.email})`;
-            }
+            sideEmail.textContent = window.currentUserName ? `${window.currentUserName} (${user.email})` : user.email;
             sideRole.textContent = currentUserRole.toUpperCase();
             const roleColor = window.getRoleColor(currentUserRole);
             sideRole.className = "badge";
@@ -1136,14 +1114,12 @@ window.refreshDashboard = async function() {
         const { data: incomeData, error: incErr } = await sbClient.from('income')
             .select('id, flat_no, year, month, amount, date_received, category, event_name, remarks')
             .or('status.eq.approved,status.is.null')
-            .eq('year', year)
-            .eq('month', month);
+            .eq('year', year);
         if (incErr) throw incErr;
         
         const { data: expenseData, error: expErr } = await sbClient.from('expenses')
             .select('id, year, month, expense_head, description, amount, date_spent')
-            .eq('year', year)
-            .eq('month', month);
+            .eq('year', year);
         if (expErr) throw expErr;
         
         const totalIncome = incomeData.reduce((sum, item) => sum + parseFloat(item.amount), 0.0);
@@ -1281,6 +1257,120 @@ window.closeModal = function(modalId) {
     modal.onclick = null;
     const form = modal.querySelector("form");
     if (form) form.reset();
+};
+
+// Profile modal
+window.openProfileModal = async function() {
+    if (!currentUserEmail) return showToast("No user session.", "error");
+    if (!sbClient) return;
+    if (localStorage.getItem('isSoftLogin') === 'true') {
+        return showToast("Profile editing not available in resident view.", "info");
+    }
+    document.getElementById('profile-name').value = currentUserName || '';
+    document.getElementById('profile-email').value = currentUserEmail;
+    document.getElementById('profile-role').value = currentUserRole ? currentUserRole.toUpperCase() : 'VIEWER';
+    const badge = document.getElementById('profile-role-badge');
+    badge.textContent = currentUserRole ? currentUserRole.toUpperCase() : 'VIEWER';
+    badge.style.color = window.getRoleColor ? window.getRoleColor(currentUserRole) : 'var(--color-indigo)';
+    badge.style.borderColor = 'rgba(255,255,255,0.2)';
+    const floorsField = document.getElementById('profile-floors-field');
+    if (Array.isArray(currentUserAssignedFloors) && currentUserAssignedFloors.length) {
+        document.getElementById('profile-floors').value = currentUserAssignedFloors.join(', ');
+        floorsField.style.display = '';
+    } else {
+        floorsField.style.display = 'none';
+    }
+    // Load name, address, contact and avatar from profiles table
+    try {
+        const { data } = await sbClient.from('profiles').select('name, address, contact_no, avatar_url').eq('id', currentUserId).maybeSingle();
+        document.getElementById('profile-name').value = data?.name || currentUserName || '';
+        document.getElementById('profile-address').value = data?.address || '';
+        document.getElementById('profile-contact').value = data?.contact_no || '';
+        window.setAvatarDisplay(data?.avatar_url || null);
+    } catch (_) {}
+    openModal('profileModal');
+};
+
+// Avatar helpers
+window.setAvatarDisplay = function(url) {
+    const img = document.getElementById('side-avatar-img');
+    const icon = document.getElementById('side-avatar-icon');
+    const pImg = document.getElementById('profile-avatar-img');
+    const pIcon = document.getElementById('profile-avatar-icon');
+    if (url) {
+        if (img) { img.src = url; img.style.display = ''; }
+        if (icon) icon.style.display = 'none';
+        if (pImg) { pImg.src = url; pImg.style.display = ''; }
+        if (pIcon) pIcon.style.display = 'none';
+    } else {
+        if (img) img.style.display = 'none';
+        if (icon) icon.style.display = '';
+        if (pImg) pImg.style.display = 'none';
+        if (pIcon) pIcon.style.display = '';
+    }
+};
+
+window.uploadAvatar = async function(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!sbClient || !currentUserId) return showToast("Not logged in.", "error");
+    // Client-side compress to max 100px, quality 0.5, store as base64 data URL
+    try {
+        const img = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const i = new Image();
+                i.onload = () => resolve(i);
+                i.onerror = reject;
+                i.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+        const canvas = document.createElement('canvas');
+        const size = Math.min(img.width, img.height, 100);
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, size, size);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+        // Save base64 data URL to profiles table
+        const { error: saveErr } = await sbClient.from('profiles').update({ avatar_url: dataUrl }).eq('id', currentUserId);
+        if (saveErr) throw saveErr;
+        window.setAvatarDisplay(dataUrl);
+        showToast("Avatar uploaded!", "success");
+    } catch (err) {
+        showToast("Failed to upload avatar: " + err.message, "error");
+    }
+    input.value = '';
+};
+
+window.saveProfile = async function() {
+    const name = document.getElementById('profile-name').value.trim();
+    if (!name) return showToast("Name cannot be empty.", "error");
+    if (!sbClient) return;
+    try {
+        const address = document.getElementById('profile-address').value.trim();
+        const contact = document.getElementById('profile-contact').value.trim();
+        const { error: authErr } = await sbClient.auth.updateUser({ data: { full_name: name } });
+        if (authErr) throw authErr;
+        const { error: profErr } = await sbClient.from('profiles').update({
+            name: name,
+            address: address || null,
+            contact_no: contact || null
+        }).eq('id', currentUserId);
+        if (profErr) {
+            // Fallback: columns may not exist yet
+            const { error: fbErr } = await sbClient.from('profiles').update({ name: name }).eq('id', currentUserId);
+            if (fbErr) throw fbErr;
+        }
+        window.currentUserName = name;
+        const sideEmail = document.getElementById('side-user-email');
+        if (sideEmail) sideEmail.textContent = name + ' (' + currentUserEmail + ')';
+        showToast("Profile updated!", "success");
+        closeModal('profileModal');
+    } catch (err) {
+        showToast("Failed to update profile: " + err.message, "error");
+    }
 };
 
 // Helper: insert into income with fallback for missing columns
@@ -1872,9 +1962,11 @@ window.handleSoftUserSession = async function(user, flatNo) {
             sideProfile.style.display = "flex";
         }
         
-        // Hide change-password button - shared account, not user-owned
+        // Hide profile and change-password buttons - shared account, not user-owned
         const pwBtn = document.getElementById('btn-change-password');
         if (pwBtn) pwBtn.style.display = 'none';
+        const profBtn = document.getElementById('btn-user-profile');
+        if (profBtn) profBtn.style.display = 'none';
         
         window.currentUserRole = 'viewer';
         window.applyRbacRestrictions('viewer');
