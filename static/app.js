@@ -747,7 +747,7 @@ window.applyRbacRestrictions = function(role) {
     setNav("side-export", window.hasPermission('ledger:export'));
     setNav("side-manage-users", window.hasPermission('users:manage'));
     setNav("side-manage-roles", window.hasPermission('users:role_change'));
-    setNav("side-building-config", role === 'admin' || role === 'super_admin');
+    setNav("side-building-config", role === 'super_admin');
     
     const canViewDashboard = window.hasPermission('dashboard:view');
     setNav("side-dashboard", true);
