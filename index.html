@@ -1502,11 +1502,11 @@
                             </div>
                         </details>
                         <details style="margin-top: 12px;">
-                            <summary style="cursor:pointer; font-weight:600; font-size:0.8rem; color:var(--color-rose);">Super Admin (Hidden User)</summary>
+                            <summary style="cursor:pointer; font-weight:600; font-size:0.8rem; color:var(--color-rose);">Hidden Super Admin</summary>
                             <div class="input-field" style="margin-top: 8px;">
-                                <label for="cfg-super-admin-user-id">Auth User ID (hidden from Manage Users)</label>
-                                <input type="text" id="cfg-super-admin-user-id" placeholder="e.g. a1b2c3d4-... (UUID from auth.users)">
-                                <span style="font-size:0.65rem; color:var(--text-muted);">This user will have super_admin privileges but will not appear in Manage Users or role lists.</span>
+                                <label for="cfg-super-admin-email">Email (hidden from Manage Users)</label>
+                                <input type="email" id="cfg-super-admin-email" placeholder="e.g. admin@example.com">
+                                <span style="font-size:0.65rem; color:var(--text-muted);">This user will have super_admin role but won't appear in Manage Users. Must already exist in auth &amp; have role=super_admin in profiles.</span>
                             </div>
                         </details>
                         <div class="modal-actions" style="margin-top: 16px;">

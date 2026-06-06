@@ -501,7 +501,8 @@ window.saveBuildingConfig = async function(config) {
             flat_include_floor: config.flat_include_floor !== false,
             flat_include_wing_letter: config.flat_include_wing_letter !== false,
             flat_delimiter: config.flat_delimiter || '',
-            flat_exceptions: config.flat_exceptions || ''
+            flat_exceptions: config.flat_exceptions || '',
+            super_admin_email: config.super_admin_email || null
         }, { onConflict: 'id' });
         initGoogleDrivePicker();
         window.updateBuildingUI();

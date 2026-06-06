@@ -14,10 +14,10 @@ window.openBuildingConfigModal = function() {
     document.getElementById("cfg-gapi-key").value = buildingConfig?.google_api_key || '';
     document.getElementById("cfg-gclient-id").value = buildingConfig?.google_client_id || '';
     document.getElementById("cfg-vapid-public").value = buildingConfig?.vapid_public_key || '';
-    // Load vapid_private_key and super_admin_user_id from app_secrets (admin-only table)
-    sbClient.from('app_secrets').select('vapid_private_key, super_admin_user_id').eq('id', 1).single().then(({ data: sd }) => {
+    document.getElementById("cfg-super-admin-email").value = buildingConfig?.super_admin_email || '';
+    // Load vapid_private_key from app_secrets (admin-only table)
+    sbClient.from('app_secrets').select('vapid_private_key').eq('id', 1).single().then(({ data: sd }) => {
         document.getElementById("cfg-vapid-private").value = sd?.vapid_private_key || '';
-        document.getElementById("cfg-super-admin-user-id").value = sd?.super_admin_user_id || '';
     }).catch(() => {});
     document.getElementById("cfg-floors").value = getFloorCount();
     document.getElementById("cfg-wings").value = getWingsList().join(',');
@@ -51,19 +51,19 @@ window.handleSaveBuildingConfig = async function(e) {
         flat_include_floor: document.getElementById("cfg-flat-include-floor").checked,
         flat_include_wing_letter: document.getElementById("cfg-flat-include-wing-letter").checked,
         flat_delimiter: document.getElementById("cfg-flat-delimiter").value,
-        flat_exceptions: document.getElementById("cfg-flat-exceptions").value.trim()
+        flat_exceptions: document.getElementById("cfg-flat-exceptions").value.trim(),
+        super_admin_email: document.getElementById("cfg-super-admin-email").value.trim() || null
     };
     const saved = await saveBuildingConfig(config);
     if (saved) {
-        // Save vapid_private_key and super_admin_user_id to app_secrets (admin-only table)
+        // Save vapid_private_key to app_secrets (admin-only table)
         try {
             await sbClient.from('app_secrets').upsert({
                 id: 1,
-                vapid_private_key: document.getElementById("cfg-vapid-private").value.trim(),
-                super_admin_user_id: document.getElementById("cfg-super-admin-user-id").value.trim() || null
+                vapid_private_key: document.getElementById("cfg-vapid-private").value.trim()
             }, { onConflict: 'id' });
         } catch (e) {
-            console.warn("Failed to save app_secrets:", e);
+            console.warn("Failed to save vapid_private_key:", e);
         }
         showToast("Building configuration saved!", "success");
         closeModal('buildingConfigModal');
@@ -88,12 +88,13 @@ window.openUsersModal = async function() {
     const tbody = document.getElementById("users-table-body");
     tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Loading users...</td></tr>';
     
-    // Load hidden super_admin user ID to exclude from listing
+    // Exclude hidden super_admin user from listing
     let hiddenUserId = null;
-    try {
-        const { data: secret } = await sbClient.from('app_secrets').select('super_admin_user_id').eq('id', 1).single();
-        hiddenUserId = secret?.super_admin_user_id;
-    } catch (_) {}
+    const hiddenEmail = window.buildingConfig?.super_admin_email;
+    if (hiddenEmail) {
+        const { data: match } = await sbClient.from('profiles').select('id').eq('email', hiddenEmail).maybeSingle();
+        if (match) hiddenUserId = match.id;
+    }
     
     try {
         let { data: profiles, error } = await sbClient

@@ -10,9 +10,6 @@ CREATE TABLE IF NOT EXISTS public.app_secrets (
 
 INSERT INTO public.app_secrets (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
--- Add super_admin_user_id column (hidden super admin, excluded from user listing)
-ALTER TABLE public.app_secrets ADD COLUMN IF NOT EXISTS super_admin_user_id UUID DEFAULT NULL;
-
 ALTER TABLE public.app_secrets ENABLE ROW LEVEL SECURITY;
 
 -- Only admins can read secrets
@@ -30,8 +27,9 @@ CREATE POLICY "Admin manage app_secrets" ON public.app_secrets
     USING (public.is_admin())
     WITH CHECK (public.is_admin());
 
--- 2. Remove vapid_private_key from building_config
+-- 2. Remove vapid_private_key from building_config, add super_admin_email
 ALTER TABLE public.building_config DROP COLUMN IF EXISTS vapid_private_key;
+ALTER TABLE public.building_config ADD COLUMN IF NOT EXISTS super_admin_email TEXT DEFAULT NULL;
 
 -- 3. Enable RLS on building_config (was entirely missing!)
 ALTER TABLE public.building_config ENABLE ROW LEVEL SECURITY;
