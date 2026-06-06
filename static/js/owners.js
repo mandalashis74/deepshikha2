@@ -1089,10 +1089,12 @@ window.fetchHistory = async function() {
             
             incData.forEach(r => {
                 const ownerName = ownersMap[r.flat_no] || `Flat ${r.flat_no}`;
-                let description = `Flat ${r.flat_no} Maintenance Fee`;
+                let incCategory = 'Maintenance Fee', description = `Flat ${r.flat_no} Maintenance Fee`;
                 if (r.category === 'Special Event') {
+                    incCategory = 'Event';
                     description = `Flat ${r.flat_no} ${r.event_name} Subscription`;
                 } else if (r.category === 'Other') {
+                    incCategory = 'Other';
                     description = `Flat ${r.flat_no} Other - ${r.remarks || 'Misc'}`;
                 }
                 const amountStr = String(r.amount);
@@ -1113,6 +1115,7 @@ window.fetchHistory = async function() {
                         type: "INCOME",
                         flat_no: r.flat_no,
                         owner_name: ownerName,
+                        category: incCategory,
                         description: description,
                         year: r.year,
                         month: r.month,
@@ -1148,10 +1151,11 @@ window.fetchHistory = async function() {
             
             expData.forEach(r => {
                 const amountStr = String(r.amount);
-                const fullDesc = `${r.expense_head}: ${r.description}`;
+                const expCat = r.expense_head || 'Uncategorized';
+                const expDesc = r.description || '';
                 let matchesSearch = true;
                 if (search) {
-                    matchesSearch = fullDesc.toLowerCase().includes(search) ||
+                    matchesSearch = (expCat + ': ' + expDesc).toLowerCase().includes(search) ||
                                     amountStr.includes(search) ||
                                     r.date_spent.includes(search) ||
                                     r.month.toLowerCase().includes(search) ||
@@ -1164,7 +1168,8 @@ window.fetchHistory = async function() {
                         type: "EXPENSE",
                         flat_no: "",
                         owner_name: "",
-                        description: fullDesc,
+                        category: expCat,
+                        description: expDesc,
                         year: r.year,
                         month: r.month,
                         amount: parseFloat(r.amount),
@@ -1204,6 +1209,8 @@ function renderHistoryTable(entries) {
         return;
     }
 
+    const filterType = document.getElementById("hist-type")?.value || 'ALL';
+
     entries.forEach(entry => {
         const tr = document.createElement("tr");
         
@@ -1214,9 +1221,11 @@ function renderHistoryTable(entries) {
             netTotal -= amt;
         }
         
-        const typeBadge = entry.type === "INCOME" 
-            ? `<span class="badge badge-income">Income</span>`
-            : `<span class="badge badge-expense">Expense</span>`;
+        let catHtml = window.escapeHtml(entry.category || '');
+        if (filterType === 'ALL') {
+            const tag = entry.type === 'INCOME' ? 'INC' : 'EXP';
+            catHtml = `<span class="badge ${entry.type === 'INCOME' ? 'badge-income' : 'badge-expense'}" style="font-size:0.6rem;padding:1px 5px;margin-right:4px;">${tag}</span> ${catHtml}`;
+        }
 
         const receiptBtn = entry.type === "INCOME"
             ? `<button class="btn-receipt" title="Generate PDF Receipt" onclick="generateReceipt(${entry.id})">
@@ -1233,8 +1242,8 @@ function renderHistoryTable(entries) {
 
         tr.innerHTML = `
             <td>${window.formatDateDisplay(entry.date)}</td>
-            <td>${typeBadge}</td>
-            <td><strong>${window.escapeHtml(entry.description)}</strong></td>
+            <td>${catHtml}</td>
+            <td>${window.escapeHtml(entry.description)}</td>
             <td class="text-right ${entry.type === "INCOME" ? "icon-emerald" : "icon-rose"}" style="font-weight: 600;">
                 ${entry.type === "INCOME" ? "+" : "-"} ${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </td>
