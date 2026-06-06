@@ -88,12 +88,12 @@ window.openUsersModal = async function() {
     const tbody = document.getElementById("users-table-body");
     tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Loading users...</td></tr>';
     
-    // Exclude hidden super_admin user from listing
-    let hiddenUserId = null;
-    const hiddenEmail = window.buildingConfig?.super_admin_email;
-    if (hiddenEmail) {
-        const { data: match } = await sbClient.from('profiles').select('id').eq('email', hiddenEmail).maybeSingle();
-        if (match) hiddenUserId = match.id;
+    // Exclude hidden super_admin users from listing
+    const hiddenEmails = (window.buildingConfig?.super_admin_email || '').split(',').map(e => e.trim()).filter(Boolean);
+    const hiddenUserIds = [];
+    for (const email of hiddenEmails) {
+        const { data: match } = await sbClient.from('profiles').select('id').eq('email', email).maybeSingle();
+        if (match) hiddenUserIds.push(match.id);
     }
     
     try {
@@ -125,9 +125,9 @@ window.openUsersModal = async function() {
             ({ value: r.name, label: r.label || r.name })
         );
         
-        // Exclude hidden super_admin user from listing
-        if (hiddenUserId) {
-            profiles = profiles.filter(p => p.id !== hiddenUserId);
+        // Exclude hidden super_admin users from listing
+        if (hiddenUserIds.length) {
+            profiles = profiles.filter(p => !hiddenUserIds.includes(p.id));
         }
         tbody.innerHTML = '';
         profiles.forEach(p => {

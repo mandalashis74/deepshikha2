@@ -1505,8 +1505,8 @@
                             <summary style="cursor:pointer; font-weight:600; font-size:0.8rem; color:var(--color-rose);">Hidden Super Admin</summary>
                             <div class="input-field" style="margin-top: 8px;">
                                 <label for="cfg-super-admin-email">Email (hidden from Manage Users)</label>
-                                <input type="email" id="cfg-super-admin-email" placeholder="e.g. admin@example.com">
-                                <span style="font-size:0.65rem; color:var(--text-muted);">This user will have super_admin role but won't appear in Manage Users. Must already exist in auth &amp; have role=super_admin in profiles.</span>
+                                <input id="cfg-super-admin-email" placeholder="admin@a.com, other@b.com">
+                                <span style="font-size:0.65rem; color:var(--text-muted);">Comma-separated emails of super_admin users hidden from Manage Users.</span>
                             </div>
                         </details>
                         <div class="modal-actions" style="margin-top: 16px;">
