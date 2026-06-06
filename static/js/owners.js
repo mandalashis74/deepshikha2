@@ -980,19 +980,14 @@ window.openHistoryModal = async function() {
     const toggle = document.getElementById('period-mode-toggle');
     if (toggle) toggle.checked = false;
     const now = new Date();
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const yearSelect = document.getElementById('hist-year');
-    const monthSelect = document.getElementById('hist-month');
-    if (yearSelect) yearSelect.value = String(now.getFullYear());
-    if (monthSelect) monthSelect.value = months[now.getMonth()];
+    const monthPicker = document.getElementById('hist-month-picker');
+    if (monthPicker) monthPicker.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     // Force UI to period mode
-    const yearField = document.getElementById('hist-year-field');
     const monthField = document.getElementById('hist-month-field');
     const startDateField = document.getElementById('hist-start-date-field');
     const endDateField = document.getElementById('hist-end-date-field');
     const startDateInput = document.getElementById('hist-start-date');
     const endDateInput = document.getElementById('hist-end-date');
-    if (yearField) yearField.classList.remove('hidden');
     if (monthField) monthField.classList.remove('hidden');
     if (startDateField) startDateField.classList.add('hidden');
     if (endDateField) endDateField.classList.add('hidden');
@@ -1005,16 +1000,13 @@ window.openHistoryModal = async function() {
 // Toggle between period-based (Year/Month) and date-range-based filtering
 window.togglePeriodMode = function() {
     const isDateRange = document.getElementById('period-mode-toggle').checked;
-    const yearField = document.getElementById('hist-year-field');
     const monthField = document.getElementById('hist-month-field');
     const startDateField = document.getElementById('hist-start-date-field');
     const endDateField = document.getElementById('hist-end-date-field');
-    const yearSelect = document.getElementById('hist-year');
-    const monthSelect = document.getElementById('hist-month');
+    const monthPicker = document.getElementById('hist-month-picker');
     const startDateInput = document.getElementById('hist-start-date');
     const endDateInput = document.getElementById('hist-end-date');
     if (!isDateRange) {
-        yearField.classList.remove('hidden');
         monthField.classList.remove('hidden');
         startDateField.classList.add('hidden');
         endDateField.classList.add('hidden');
@@ -1023,10 +1015,8 @@ window.togglePeriodMode = function() {
     } else {
         startDateField.classList.remove('hidden');
         endDateField.classList.remove('hidden');
-        yearField.classList.add('hidden');
         monthField.classList.add('hidden');
-        if (yearSelect) yearSelect.value = 'ALL';
-        if (monthSelect) monthSelect.value = 'ALL';
+        if (monthPicker) monthPicker.value = '';
         const now = new Date();
         const currentYear = now.getFullYear();
         const todayStr = now.toISOString().split('T')[0];
@@ -1043,8 +1033,11 @@ window.fetchHistory = async function() {
     
     const type = document.getElementById("hist-type").value;
     let flat = document.getElementById("hist-flat").value;
-    const year = document.getElementById("hist-year").value;
-    const month = document.getElementById("hist-month").value;
+    const monthPickerVal = document.getElementById("hist-month-picker").value;
+    const year = monthPickerVal ? monthPickerVal.split('-')[0] : '';
+    const monthNum = monthPickerVal ? parseInt(monthPickerVal.split('-')[1], 10) : 0;
+    const months = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const month = monthNum >= 1 && monthNum <= 12 ? months[monthNum] : '';
     const startDate = document.getElementById("hist-start-date").value;
     const endDate = document.getElementById("hist-end-date").value;
     const search = document.getElementById("hist-search").value.trim().toLowerCase();

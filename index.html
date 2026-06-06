@@ -575,35 +575,9 @@
                                 <option value="ALL">All Flats</option>
                             </select>
                         </div>
-                        <div class="input-field" id="hist-year-field">
-                            <label for="hist-year">Year</label>
-                            <select id="hist-year" onchange="fetchHistory()">
-                                <option value="ALL">All Years</option>
-                                <option value="2025">2025</option>
-                                <option value="2026">2026</option>
-                                <option value="2027">2027</option>
-                                <option value="2028">2028</option>
-                                <option value="2029">2029</option>
-                                <option value="2030">2030</option>
-                            </select>
-                        </div>
                         <div class="input-field" id="hist-month-field">
-                            <label for="hist-month">Month</label>
-                            <select id="hist-month" onchange="fetchHistory()">
-                                <option value="ALL">All Months</option>
-                                <option value="January">January</option>
-                                <option value="February">February</option>
-                                <option value="March">March</option>
-                                <option value="April">April</option>
-                                <option value="May">May</option>
-                                <option value="June">June</option>
-                                <option value="July">July</option>
-                                <option value="August">August</option>
-                                <option value="September">September</option>
-                                <option value="October">October</option>
-                                <option value="November">November</option>
-                                <option value="December">December</option>
-                            </select>
+                            <label for="hist-month-picker">Month</label>
+                            <input type="month" id="hist-month-picker" onchange="fetchHistory()">
                         </div>
                         <div class="input-field hidden" id="hist-start-date-field">
                             <label for="hist-start-date">Start Date</label>
