@@ -785,15 +785,20 @@ window.generateAssetReport = async function() {
         doc.text('Under Maintenance: ' + items.filter(a => a.status === 'under_maintenance').length, margin + 60, y);
         doc.text('Broken: ' + items.filter(a => a.status === 'broken').length, margin + 120, y);
 
-        const pdfDataUri = doc.output('datauristring');
-        const newTab = window.open();
-        if (newTab) {
-            newTab.document.write('<iframe width="100%" height="100%" src="' + pdfDataUri + '"></iframe>');
-        } else {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
             doc.save('Asset_Inventory_Report.pdf');
+            showToast("Report downloaded successfully.", "success");
+        } else {
+            const pdfDataUri = doc.output('datauristring');
+            const newTab = window.open();
+            if (newTab) {
+                newTab.document.write(`<iframe width='100%' height='100%' style='border:none;margin:0;padding:0;' src='${pdfDataUri}'></iframe>`);
+            } else {
+                doc.save('Asset_Inventory_Report.pdf');
+            }
         }
     } catch (err) {
         showToast(err.message || 'Failed to generate report.', 'error');
     }
 };
-

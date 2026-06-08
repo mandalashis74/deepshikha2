@@ -959,13 +959,19 @@ window.generateReceipt = async function(entryId) {
         doc.setTextColor(148, 163, 184);
         doc.text("ONLINE RECEIPT", 170, 140);
         
-        const pdfDataUri = doc.output('datauristring');
-        const newTab = window.open();
-        if (newTab) {
-            newTab.document.write(`<iframe width='100%' height='100%' src='${pdfDataUri}'></iframe>`);
-        } else {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
             doc.save(`Receipt_${receiptId}.pdf`);
-            showToast("Receipt downloaded (new window blocked).");
+            showToast("Receipt downloaded successfully.", "success");
+        } else {
+            const pdfDataUri = doc.output('datauristring');
+            const newTab = window.open();
+            if (newTab) {
+                newTab.document.write(`<iframe width='100%' height='100%' style='border:none;margin:0;padding:0;' src='${pdfDataUri}'></iframe>`);
+            } else {
+                doc.save(`Receipt_${receiptId}.pdf`);
+                showToast("Receipt downloaded (new window blocked).");
+            }
         }
         
     } catch (err) {
