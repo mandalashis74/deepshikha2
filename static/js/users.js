@@ -326,6 +326,7 @@ const PERMISSION_GROUPS = [
     {
         label: 'Income', actions: [
             { perm: 'income:create', col: 'add', label: 'Add' },
+            { perm: 'income:approve', col: 'approve', label: 'Approve' },
             { perm: 'income:delete', col: 'delete', label: 'Delete' }
         ]
     },

@@ -59,7 +59,7 @@ window.openMaintenanceModal = async function() {
     // Show/hide pending approvals tab based on permission
     const pendingTab = document.querySelector('#maintenance-tabs .pill[data-mt="pending"]');
     if (pendingTab) {
-        pendingTab.style.display = window.hasPermission('income:create') ? '' : 'none';
+        pendingTab.style.display = window.hasPermission('income:approve') ? '' : 'none';
     }
     await loadOwnersForMaintenance();
     await renderMaintenanceTab('collections');
@@ -1449,7 +1449,7 @@ async function renderPendingApprovalsTab(container, toolbar) {
     toolbar.innerHTML = '';
     container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
 
-    if (!hasPermission('income:create')) {
+    if (!hasPermission('income:approve')) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-lock"></i><br>Access Denied</div>';
         return;
     }
@@ -1526,7 +1526,7 @@ window.approvePayment = async function(id) {
             .eq('id', id)
             .select();
         if (error) throw error;
-        if (!updated || updated.length === 0) throw new Error('No rows updated. You may not have permission to approve this payment.');
+        if (!updated || updated.length === 0) throw new Error('No rows updated. Your role does not have permission to approve payments. Ask an admin to assign "Income → Approve" permission to your role.');
         showToast('Payment approved.', 'success');
         const container = document.getElementById('maintenance-container');
         const toolbar = document.getElementById('maintenance-toolbar');
@@ -1549,7 +1549,7 @@ window.rejectPayment = async function(id) {
             .eq('id', id)
             .select();
         if (error) throw error;
-        if (!updated || updated.length === 0) throw new Error('No rows updated. You may not have permission to reject this payment.');
+        if (!updated || updated.length === 0) throw new Error('No rows updated. Your role does not have permission to reject payments. Ask an admin to assign "Income → Approve" permission to your role.');
         showToast('Payment rejected.', 'success');
         const container = document.getElementById('maintenance-container');
         const toolbar = document.getElementById('maintenance-toolbar');
