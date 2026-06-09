@@ -407,6 +407,23 @@ async function renderCollectionsTab(container, toolbar) {
         controls.appendChild(yearPicker);
         controls.appendChild(searchInput);
         controls.appendChild(statusFilter);
+
+        const exportGroup = document.createElement('div');
+        exportGroup.style.cssText = 'display:flex;gap:4px;margin-left:auto;';
+        const pdfBtn = document.createElement('button');
+        pdfBtn.className = 'btn btn-sm btn-slate';
+        pdfBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i>';
+        pdfBtn.title = 'Export PDF';
+        pdfBtn.onclick = () => exportCollectionsPDF(selMonth, selYear, monthNames[selMonth - 1]);
+        const xlsBtn = document.createElement('button');
+        xlsBtn.className = 'btn btn-sm btn-slate';
+        xlsBtn.innerHTML = '<i class="fa-solid fa-file-excel"></i>';
+        xlsBtn.title = 'Export Excel';
+        xlsBtn.onclick = () => exportCollectionsExcel(selMonth, selYear, monthNames[selMonth - 1]);
+        exportGroup.appendChild(pdfBtn);
+        exportGroup.appendChild(xlsBtn);
+        controls.appendChild(exportGroup);
+
         renderCollectionsData(container, selMonth, selYear);
     }
 
@@ -678,6 +695,103 @@ async function renderCollectionsData(container, month, year) {
     </tr>`;
     html += '</tbody></table>';
     container.innerHTML = html;
+}
+
+function exportCollectionsPDF(month, year, monthName) {
+    const table = document.querySelector('#maintenance-container table.data-table');
+    if (!table) { showToast('No data to export.', 'info'); return; }
+    if (!window.jspdf) { showToast('PDF library not loaded.', 'error'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = 297, pageH = 210, margin = 10;
+    const contentW = pageW - 2 * margin;
+    let y = margin;
+
+    function checkPage(needed) {
+        if (y + needed > pageH - margin) { doc.addPage(); y = margin; }
+    }
+
+    doc.setFontSize(14);
+    doc.text('Maintenance Collections - ' + monthName + ' ' + year, pageW / 2, y + 5, { align: 'center' });
+    y += 12;
+
+    const headers = ['Flat', 'Type', 'Owner', 'Rate', 'Paid', 'Pending', 'Status', 'Deposit', 'Last Paid'];
+    const colW = [14, 12, 36, 18, 18, 20, 18, 24, 26];
+    const visible = table.querySelectorAll('tbody tr:not([style*="display:none"]):not([style*="display: none"])');
+    doc.setFontSize(7);
+    doc.setFillColor(15, 23, 42);
+    doc.setTextColor(255, 255, 255);
+    doc.rect(margin, y, contentW, 5, 'F');
+    let x = margin + 1;
+    headers.forEach((h, i) => { doc.text(h, x + 1, y + 3.5); x += colW[i]; });
+    y += 5;
+
+    doc.setTextColor(30, 30, 30);
+    let rowIdx = 0;
+    visible.forEach(tr => {
+        checkPage(5);
+        if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 4.5, 'F'); }
+        const tds = tr.querySelectorAll('td');
+        x = margin + 1;
+        for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
+            const txt = tds[i].textContent.trim().replace(/\s+/g, ' ').substring(0, 40);
+            doc.text(txt, x + 1, y + 3, { maxWidth: colW[i] - 2 });
+            x += colW[i];
+        }
+        y += 4.5;
+        rowIdx++;
+    });
+
+    // Summary row
+    checkPage(5);
+    doc.setDrawColor(15, 23, 42);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageW - margin, y);
+    y += 1;
+    const lastTr = table.querySelector('tbody tr:last-child');
+    if (lastTr) {
+        const tds = lastTr.querySelectorAll('td');
+        x = margin + 1;
+        for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
+            const txt = tds[i].textContent.trim().replace(/\s+/g, ' ');
+            doc.text(txt, x + 1, y + 3, { maxWidth: colW[i] - 2 });
+            x += colW[i];
+        }
+    }
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+        doc.save('Collections_' + monthName + '_' + year + '.pdf');
+    } else {
+        const uri = doc.output('datauristring');
+        const w = window.open();
+        if (w) w.document.write('<iframe width="100%" height="100%" src="' + uri + '"></iframe>');
+        else doc.save('Collections_' + monthName + '_' + year + '.pdf');
+    }
+}
+
+function exportCollectionsExcel(month, year, monthName) {
+    const table = document.querySelector('#maintenance-container table.data-table');
+    if (!table) { showToast('No data to export.', 'info'); return; }
+    if (typeof XLSX === 'undefined') { showToast('Excel library not loaded.', 'error'); return; }
+
+    const headers = ['Flat', 'Type', 'Owner', 'Rate', 'Paid', 'Pending', 'Status', 'Deposit', 'Last Paid'];
+    const rows = [headers];
+    const visible = table.querySelectorAll('tbody tr:not([style*="display:none"]):not([style*="display: none"])');
+
+    visible.forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        const row = [];
+        for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
+            row.push(tds[i].textContent.trim().replace(/\s+/g, ' '));
+        }
+        rows.push(row);
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Collections');
+    XLSX.writeFile(wb, 'Collections_' + monthName + '_' + year + '.xlsx');
 }
 
 window.openIncomeModalForCollection = async function(flatNo, flatType, month, year, amount) {
