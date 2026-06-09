@@ -750,15 +750,15 @@ function exportCollectionsPDF(month, year, monthName) {
     doc.setTextColor(30, 30, 30);
     let rowIdx = 0;
     visible.forEach(tr => {
-        checkPage(5);
-        if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 4.5, 'F'); }
+        checkPage(6);
+        if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 5.5, 'F'); }
         const tds = tr.querySelectorAll('td');
         x = margin + 1;
         for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
-            doc.text(_pdfText(tds[i].textContent).substring(0, 40), x + 1, y + 3, { maxWidth: colW[i] - 2 });
+            doc.text(_pdfText(tds[i].textContent).substring(0, 40), x + 1, y + 3.5, { maxWidth: colW[i] - 2 });
             x += colW[i];
         }
-        y += 4.5;
+        y += 5.5;
         rowIdx++;
     });
 
@@ -845,15 +845,15 @@ function exportFlatwisePDF(flatNo) {
     doc.setTextColor(30, 30, 30);
     let rowIdx = 0;
     visible.forEach(tr => {
-        checkPage(5);
-        if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 4.5, 'F'); }
+        checkPage(6);
+        if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 5.5, 'F'); }
         const tds = tr.querySelectorAll('td');
         x = margin + 1;
         for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
-            doc.text(_pdfText(tds[i].textContent), x + 1, y + 3, { maxWidth: colW[i] - 2 });
+            doc.text(_pdfText(tds[i].textContent), x + 1, y + 3.5, { maxWidth: colW[i] - 2 });
             x += colW[i];
         }
-        y += 4.5;
+        y += 5.5;
         rowIdx++;
     });
 
