@@ -59,7 +59,7 @@ window.openMaintenanceModal = async function() {
     // Show/hide pending approvals tab based on permission
     const pendingTab = document.querySelector('#maintenance-tabs .pill[data-mt="pending"]');
     if (pendingTab) {
-        pendingTab.style.display = window.hasPermission('income:approve') ? '' : 'none';
+        pendingTab.style.display = (window.hasPermission('income:approve') || window.hasPermission('income:create')) ? '' : 'none';
     }
     await loadOwnersForMaintenance();
     await renderMaintenanceTab('collections');
@@ -1543,7 +1543,7 @@ async function renderPendingApprovalsTab(container, toolbar) {
     toolbar.innerHTML = '';
     container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
 
-    if (!hasPermission('income:approve')) {
+    if (!hasPermission('income:approve') && !hasPermission('income:create')) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-lock"></i><br>Access Denied</div>';
         return;
     }
