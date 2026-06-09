@@ -715,7 +715,7 @@ async function renderCollectionsData(container, month, year) {
 }
 
 function _pdfText(str) {
-    return String(str).replace(/₹/g, 'Rs.').replace(/—/g, '-').replace(/[^\x20-\x7E\s]/g, '');
+    return String(str).replace(/₹/g, 'Rs.').replace(/—/g, '-').replace(/[^\x20-\x7E\s]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 function exportCollectionsPDF(month, year, monthName) {
@@ -755,7 +755,7 @@ function exportCollectionsPDF(month, year, monthName) {
         const tds = tr.querySelectorAll('td');
         x = margin + 1;
         for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
-            doc.text(_pdfText(tds[i].textContent), x + 1, y + 3, { maxWidth: colW[i] - 2 });
+            doc.text(_pdfText(tds[i].textContent).substring(0, 40), x + 1, y + 3, { maxWidth: colW[i] - 2 });
             x += colW[i];
         }
         y += 4.5;
