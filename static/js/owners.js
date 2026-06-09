@@ -891,7 +891,7 @@ window.generateReceipt = async function(entryId) {
             doc.text("Payment Mode:", 120, 76);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(15, 23, 42);
-            doc.text(data.payment_mode + (data.ref_number ? ' (' + data.ref_number + ')' : ''), 138, 76);
+            doc.text(data.payment_mode + (data.ref_number ? ' (' + data.ref_number + ')' : ''), 148, 76);
         }
         
         // Approval info on right side
