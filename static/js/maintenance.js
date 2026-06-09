@@ -296,11 +296,37 @@ async function renderCollectionsTab(container, toolbar) {
     controls.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1;';
     toolbar.appendChild(controls);
 
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    let currentFlatNo = '';
+
     function highlightMode(mode) {
         monthBtn.style.background = mode === 'month' ? 'var(--color-indigo)' : 'var(--bg-card)';
         monthBtn.style.color = mode === 'month' ? '#fff' : 'var(--text-primary)';
         flatBtn.style.background = mode === 'flat' ? 'var(--color-indigo)' : 'var(--bg-card)';
         flatBtn.style.color = mode === 'flat' ? '#fff' : 'var(--text-primary)';
+    }
+
+    function makeExportGroup(mode) {
+        const g = document.createElement('div');
+        g.style.cssText = 'display:flex;gap:4px;';
+        const pdf = document.createElement('button');
+        pdf.className = 'btn btn-sm btn-slate';
+        pdf.innerHTML = '<i class="fa-solid fa-file-pdf"></i> PDF';
+        pdf.style.cssText = 'font-size:0.7rem;padding:4px 8px;';
+        const xls = document.createElement('button');
+        xls.className = 'btn btn-sm btn-slate';
+        xls.innerHTML = '<i class="fa-solid fa-file-excel"></i> Excel';
+        xls.style.cssText = 'font-size:0.7rem;padding:4px 8px;';
+        if (mode === 'month') {
+            pdf.onclick = () => exportCollectionsPDF(selMonth, selYear, monthNames[selMonth - 1]);
+            xls.onclick = () => exportCollectionsExcel(selMonth, selYear, monthNames[selMonth - 1]);
+        } else {
+            pdf.onclick = () => exportFlatwisePDF(currentFlatNo);
+            xls.onclick = () => exportFlatwiseExcel(currentFlatNo);
+        }
+        g.appendChild(pdf);
+        g.appendChild(xls);
+        return g;
     }
 
     // Month-wise controls
@@ -370,6 +396,7 @@ async function renderCollectionsTab(container, toolbar) {
     flatPicker.style.cssText = 'padding:6px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;cursor:pointer;min-width:180px;display:none;';
     flatPicker.onchange = async () => {
         const flatNo = flatPicker.value;
+        currentFlatNo = flatNo;
         if (flatNo) await renderFlatwiseData(container, flatNo);
     };
 
@@ -407,23 +434,9 @@ async function renderCollectionsTab(container, toolbar) {
         controls.appendChild(yearPicker);
         controls.appendChild(searchInput);
         controls.appendChild(statusFilter);
-
-        const exportGroup = document.createElement('div');
-        exportGroup.style.cssText = 'display:flex;gap:4px;margin-left:auto;';
-        const pdfBtn = document.createElement('button');
-        pdfBtn.className = 'btn btn-sm btn-slate';
-        pdfBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i>';
-        pdfBtn.title = 'Export PDF';
-        pdfBtn.onclick = () => exportCollectionsPDF(selMonth, selYear, monthNames[selMonth - 1]);
-        const xlsBtn = document.createElement('button');
-        xlsBtn.className = 'btn btn-sm btn-slate';
-        xlsBtn.innerHTML = '<i class="fa-solid fa-file-excel"></i>';
-        xlsBtn.title = 'Export Excel';
-        xlsBtn.onclick = () => exportCollectionsExcel(selMonth, selYear, monthNames[selMonth - 1]);
-        exportGroup.appendChild(pdfBtn);
-        exportGroup.appendChild(xlsBtn);
-        controls.appendChild(exportGroup);
-
+        const eg = makeExportGroup('month');
+        eg.style.marginLeft = 'auto';
+        controls.appendChild(eg);
         renderCollectionsData(container, selMonth, selYear);
     }
 
@@ -435,7 +448,11 @@ async function renderCollectionsTab(container, toolbar) {
         flatPicker.style.display = '';
         controls.innerHTML = '';
         controls.appendChild(flatPicker);
+        const eg = makeExportGroup('flat');
+        eg.style.marginLeft = '12px';
+        controls.appendChild(eg);
         if (flatPicker.value) {
+            currentFlatNo = flatPicker.value;
             renderFlatwiseData(container, flatPicker.value);
         } else {
             container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-building"></i><br>Select a flat to view payment history.</div>';
@@ -792,6 +809,83 @@ function exportCollectionsExcel(month, year, monthName) {
     const ws = XLSX.utils.aoa_to_sheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, 'Collections');
     XLSX.writeFile(wb, 'Collections_' + monthName + '_' + year + '.xlsx');
+}
+
+function exportFlatwisePDF(flatNo) {
+    const table = document.querySelector('#maintenance-container table.data-table');
+    if (!table) { showToast('No data to export.', 'info'); return; }
+    if (!window.jspdf) { showToast('PDF library not loaded.', 'error'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = 297, pageH = 210, margin = 10;
+    const contentW = pageW - 2 * margin;
+    let y = margin;
+
+    function checkPage(needed) {
+        if (y + needed > pageH - margin) { doc.addPage(); y = margin; }
+    }
+
+    doc.setFontSize(14);
+    doc.text('Payment History - Flat ' + flatNo, pageW / 2, y + 5, { align: 'center' });
+    y += 12;
+
+    const headers = ['Month', 'Rate', 'Paid', 'Status', 'Payment Mode', 'Ref No.', 'Paid On'];
+    const colW = [28, 20, 20, 22, 24, 30, 24];
+    const visible = table.querySelectorAll('tbody tr:not([style*="display:none"]):not([style*="display: none"])');
+    doc.setFontSize(7);
+    doc.setFillColor(15, 23, 42);
+    doc.setTextColor(255, 255, 255);
+    doc.rect(margin, y, contentW, 5, 'F');
+    let x = margin + 1;
+    headers.forEach((h, i) => { doc.text(h, x + 1, y + 3.5); x += colW[i]; });
+    y += 5;
+
+    doc.setTextColor(30, 30, 30);
+    let rowIdx = 0;
+    visible.forEach(tr => {
+        checkPage(5);
+        if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 4.5, 'F'); }
+        const tds = tr.querySelectorAll('td');
+        x = margin + 1;
+        for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
+            doc.text((tds[i].textContent || '').trim().replace(/\s+/g, ' ').substring(0, 40), x + 1, y + 3, { maxWidth: colW[i] - 2 });
+            x += colW[i];
+        }
+        y += 4.5;
+        rowIdx++;
+    });
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) doc.save('PaymentHistory_' + flatNo + '.pdf');
+    else {
+        const uri = doc.output('datauristring');
+        const w = window.open();
+        if (w) w.document.write('<iframe width="100%" height="100%" src="' + uri + '"></iframe>');
+        else doc.save('PaymentHistory_' + flatNo + '.pdf');
+    }
+}
+
+function exportFlatwiseExcel(flatNo) {
+    const table = document.querySelector('#maintenance-container table.data-table');
+    if (!table) { showToast('No data to export.', 'info'); return; }
+    if (typeof XLSX === 'undefined') { showToast('Excel library not loaded.', 'error'); return; }
+
+    const headers = ['Month', 'Rate', 'Paid', 'Status', 'Payment Mode', 'Ref No.', 'Paid On'];
+    const rows = [headers];
+    const visible = table.querySelectorAll('tbody tr:not([style*="display:none"]):not([style*="display: none"])');
+    visible.forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        const row = [];
+        for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
+            row.push((tds[i].textContent || '').trim().replace(/\s+/g, ' '));
+        }
+        rows.push(row);
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'History');
+    XLSX.writeFile(wb, 'PaymentHistory_' + flatNo + '.xlsx');
 }
 
 window.openIncomeModalForCollection = async function(flatNo, flatType, month, year, amount) {
