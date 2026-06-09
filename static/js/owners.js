@@ -862,26 +862,26 @@ window.generateReceipt = async function(entryId) {
         
         doc.setFont("helvetica", "normal");
         doc.setTextColor(15, 23, 42);
-        doc.text(ownerName, 42, 56);
+        doc.text(ownerName.replace(/₹/g,'Rs.').replace(/[^\x20-\x7E\s,.\-:;()/]/g,''), 42, 56);
         doc.text(`${data.month} ${data.year}`, 42, 66);
-        
+
         // Right side of details box
         doc.setFont("helvetica", "bold");
         doc.setTextColor(51, 65, 85);
         doc.text("Flat No:", 120, 56);
         doc.text("Purpose:", 120, 66);
-        
+
         doc.setFont("helvetica", "normal");
         doc.setTextColor(15, 23, 42);
         doc.text(data.flat_no, 138, 56);
-        
+
         let purposeText = "Maintenance Charge Collection";
         if (data.category === "Special Event") {
             purposeText = `${data.event_name} Subscription`;
         } else if (data.category === "Other") {
             purposeText = data.remarks || "Other Collection";
         }
-        doc.text(purposeText, 138, 66);
+        doc.text(purposeText.replace(/₹/g,'Rs.').replace(/[^\x20-\x7E\s,.\-:;()/]/g,''), 138, 66);
         
         // Payment mode on right side
         if (data.payment_mode) {
@@ -891,18 +891,20 @@ window.generateReceipt = async function(entryId) {
             doc.text("Payment Mode:", 120, 76);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(15, 23, 42);
-            doc.text(data.payment_mode + (data.ref_number ? ' (' + data.ref_number + ')' : ''), 148, 76);
+            var pmtText = (data.payment_mode + (data.ref_number ? ' (' + data.ref_number + ')' : '')).replace(/₹/g,'Rs.').replace(/[^\x20-\x7E\s,.\-:;()/]/g,'');
+            doc.text(pmtText, 148, 76);
         }
         
-        // Approval info on right side
+        // Approval info on left side
         if (data.approved_by) {
             doc.setFont("helvetica", "bold");
             doc.setFontSize(7);
             doc.setTextColor(100, 116, 139);
-            doc.text("Approved:", 120, 84);
+            doc.text("Approved:", 12, 80);
             doc.setFont("helvetica", "normal");
-            const apprText = data.approved_by + (data.approved_at ? ' on ' + window.formatDateDisplay(data.approved_at) : '');
-            doc.text(apprText, 138, 84);
+            const apprText = (data.approved_by + (data.approved_at ? ' on ' + window.formatDateDisplay(data.approved_at) : '')).replace(/₹/g,'Rs.').replace(/[^\x20-\x7E\s,.\-:;()/]/g,'');
+            const splitAppr = doc.splitTextToSize(apprText, 170);
+            doc.text(splitAppr, 26, 80);
             doc.setFontSize(8);
         }
         
