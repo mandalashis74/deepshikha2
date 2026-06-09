@@ -1130,7 +1130,14 @@ async function renderFlatwiseData(container, flatNo) {
     const occFrom = flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : new Date(now.getFullYear() - 1, now.getMonth(), 1);
     const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
     function getEndLimit() {
-        return new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const curYm = now.getFullYear() * 12 + now.getMonth() + 2;
+        const maxPaidYm = collData.reduce((max, c) => {
+            const mIdx = monthNames.indexOf(c.month) + 1;
+            const ym = parseInt(c.year) * 12 + mIdx;
+            return Math.max(max, ym);
+        }, 0);
+        const endYm = Math.max(curYm, maxPaidYm);
+        return new Date(Math.floor((endYm - 1) / 12), ((endYm - 1) % 12), 1);
     }
 
     const nameDisplay = window.displayStructured(flat.owner_name, 'name') || flat.owner_name || '—';
@@ -1197,6 +1204,8 @@ async function renderFlatwiseData(container, flatNo) {
     let sortCol = '_sortKey';
     let sortDir = -1;
     let searchTerm = '';
+    let fwPage = 1;
+    const FW_PAGE_SIZE = 12;
     let rows = generateRows();
 
     function buildTable() {
@@ -1227,6 +1236,12 @@ async function renderFlatwiseData(container, flatNo) {
             return 0;
         });
 
+        // Pagination
+        const totalPages = Math.max(1, Math.ceil(sorted.length / FW_PAGE_SIZE));
+        if (fwPage > totalPages) fwPage = totalPages;
+        const pageStart = (fwPage - 1) * FW_PAGE_SIZE;
+        const pageRows = sorted.slice(pageStart, pageStart + FW_PAGE_SIZE);
+
         const header = (label, colKey) => {
             const active = sortCol === colKey;
             const arrow = active ? (sortDir === 1 ? ' &#9650;' : ' &#9660;') : '';
@@ -1238,7 +1253,7 @@ async function renderFlatwiseData(container, flatNo) {
             <span style="font-size:0.85rem;color:var(--text-secondary);">${escapeHtml(flat.flat_type || '—')}</span>
             <span style="font-size:0.85rem;">${nameDisplay}</span>
             <input type="text" id="fw-search" placeholder="Search..." oninput="window._fwSearch(this.value)"
-                style="padding:4px 10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;width:200px;">
+                style="padding:4px 10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;width:200px;margin-left:auto;">
         </div>`;
         html += '<table class="data-table"><thead><tr>';
         html += header('Month', '_sortKey');
@@ -1251,7 +1266,7 @@ async function renderFlatwiseData(container, flatNo) {
         html += '<th></th>';
         html += '</tr></thead><tbody>';
 
-        for (const r of sorted) {
+        for (const r of pageRows) {
             html += `<tr style="${r.exempt ? 'opacity:0.5;' : ''}">
                 <td>${r.month} ${r.year}</td>
                 <td>${r.rateAmt > 0 ? formatCurrency(r.rateAmt) : '—'}</td>
@@ -1282,17 +1297,33 @@ async function renderFlatwiseData(container, flatNo) {
             <td style="color:var(--color-emerald);">${formatCurrency(sumPaid)}</td>
             <td colspan="5"></td>
         </tr></tbody></table>`;
+
+        // Pagination controls
+        if (totalPages > 1) {
+            html += `<div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;font-size:0.85rem;">`;
+            html += `<button class="btn btn-sm" style="padding:4px 10px;" onclick="window._fwPage(${fwPage - 1})" ${fwPage <= 1 ? 'disabled' : ''}>&#9664; Prev</button>`;
+            html += `<span>Page ${fwPage} of ${totalPages}</span>`;
+            html += `<button class="btn btn-sm" style="padding:4px 10px;" onclick="window._fwPage(${fwPage + 1})" ${fwPage >= totalPages ? 'disabled' : ''}>Next &#9654;</button>`;
+            html += `</div>`;
+        }
+
         container.innerHTML = html;
     }
 
-    // Expose sort/search handlers on window for this instance
+    // Expose sort/search/page handlers on window for this instance
     window._fwSort = function(colKey) {
         if (sortCol === colKey) sortDir = -sortDir;
         else { sortCol = colKey; sortDir = 1; }
+        fwPage = 1;
         buildTable();
     };
     window._fwSearch = function(val) {
         searchTerm = val;
+        fwPage = 1;
+        buildTable();
+    };
+    window._fwPage = function(p) {
+        fwPage = p;
         buildTable();
     };
     buildTable();
@@ -1371,15 +1402,17 @@ window.approvePayment = async function(id) {
     if (!apr) return;
     try {
         const approver = window.currentUserName || window.currentUserEmail || 'System';
-        const { error } = await sbClient.from('income')
+        const { data: updated, error } = await sbClient.from('income')
             .update({
                 status: 'approved',
                 collected_by: approver,
                 approved_by: approver,
                 approved_at: new Date().toISOString()
             })
-            .eq('id', id);
+            .eq('id', id)
+            .select();
         if (error) throw error;
+        if (!updated || updated.length === 0) throw new Error('No rows updated. You may not have permission to approve this payment.');
         showToast('Payment approved.', 'success');
         const container = document.getElementById('maintenance-container');
         const toolbar = document.getElementById('maintenance-toolbar');
@@ -1393,14 +1426,16 @@ window.rejectPayment = async function(id) {
     const { isConfirmed: rej } = await Swal.fire({ title: 'Confirm', text: 'Reject this payment?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'Reject', cancelButtonText: 'Cancel' });
     if (!rej) return;
     try {
-        const { error } = await sbClient.from('income')
+        const { data: updated, error } = await sbClient.from('income')
             .update({
                 status: 'rejected',
                 approved_by: window.currentUserName || window.currentUserEmail || null,
                 approved_at: new Date().toISOString()
             })
-            .eq('id', id);
+            .eq('id', id)
+            .select();
         if (error) throw error;
+        if (!updated || updated.length === 0) throw new Error('No rows updated. You may not have permission to reject this payment.');
         showToast('Payment rejected.', 'success');
         const container = document.getElementById('maintenance-container');
         const toolbar = document.getElementById('maintenance-toolbar');
