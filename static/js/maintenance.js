@@ -714,6 +714,10 @@ async function renderCollectionsData(container, month, year) {
     container.innerHTML = html;
 }
 
+function _pdfText(str) {
+    return String(str).replace(/₹/g, 'Rs.').replace(/—/g, '-').replace(/[^\x20-\x7E\s]/g, '');
+}
+
 function exportCollectionsPDF(month, year, monthName) {
     const table = document.querySelector('#maintenance-container table.data-table');
     if (!table) { showToast('No data to export.', 'info'); return; }
@@ -729,7 +733,7 @@ function exportCollectionsPDF(month, year, monthName) {
     }
 
     doc.setFontSize(14);
-    doc.text('Maintenance Collections - ' + monthName + ' ' + year, pageW / 2, y + 5, { align: 'center' });
+    doc.text(_pdfText('Maintenance Collections - ' + monthName + ' ' + year), pageW / 2, y + 5, { align: 'center' });
     y += 12;
 
     const headers = ['Flat', 'Type', 'Owner', 'Rate', 'Paid', 'Pending', 'Status', 'Deposit', 'Last Paid'];
@@ -751,8 +755,7 @@ function exportCollectionsPDF(month, year, monthName) {
         const tds = tr.querySelectorAll('td');
         x = margin + 1;
         for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
-            const txt = tds[i].textContent.trim().replace(/\s+/g, ' ').substring(0, 40);
-            doc.text(txt, x + 1, y + 3, { maxWidth: colW[i] - 2 });
+            doc.text(_pdfText(tds[i].textContent), x + 1, y + 3, { maxWidth: colW[i] - 2 });
             x += colW[i];
         }
         y += 4.5;
@@ -770,8 +773,7 @@ function exportCollectionsPDF(month, year, monthName) {
         const tds = lastTr.querySelectorAll('td');
         x = margin + 1;
         for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
-            const txt = tds[i].textContent.trim().replace(/\s+/g, ' ');
-            doc.text(txt, x + 1, y + 3, { maxWidth: colW[i] - 2 });
+            doc.text(_pdfText(tds[i].textContent), x + 1, y + 3, { maxWidth: colW[i] - 2 });
             x += colW[i];
         }
     }
@@ -826,7 +828,7 @@ function exportFlatwisePDF(flatNo) {
     }
 
     doc.setFontSize(14);
-    doc.text('Payment History - Flat ' + flatNo, pageW / 2, y + 5, { align: 'center' });
+    doc.text(_pdfText('Payment History - Flat ' + flatNo), pageW / 2, y + 5, { align: 'center' });
     y += 12;
 
     const headers = ['Month', 'Rate', 'Paid', 'Status', 'Payment Mode', 'Ref No.', 'Paid On'];
@@ -848,7 +850,7 @@ function exportFlatwisePDF(flatNo) {
         const tds = tr.querySelectorAll('td');
         x = margin + 1;
         for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
-            doc.text((tds[i].textContent || '').trim().replace(/\s+/g, ' ').substring(0, 40), x + 1, y + 3, { maxWidth: colW[i] - 2 });
+            doc.text(_pdfText(tds[i].textContent), x + 1, y + 3, { maxWidth: colW[i] - 2 });
             x += colW[i];
         }
         y += 4.5;
