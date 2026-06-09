@@ -1415,7 +1415,7 @@ async function renderFlatwiseData(container, flatNo) {
     let sortDir = -1;
     let searchTerm = '';
     let fwPage = 1;
-    const FW_PAGE_SIZE = 12;
+    let FW_PAGE_SIZE = 12;
     let rows = generateRows();
 
     function buildTable() {
@@ -1509,13 +1509,21 @@ async function renderFlatwiseData(container, flatNo) {
         </tr></tbody></table>`;
 
         // Pagination controls
+        html += `<div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;font-size:0.85rem;flex-wrap:wrap;">`;
+        html += `<span style="color:var(--text-secondary);">Rows:</span>`;
+        html += `<select onchange="window._fwSetPageSize(this.value)" style="padding:4px 6px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;">`;
+        [12, 24, 36, 50, 0].forEach(n => {
+            const label = n === 0 ? 'All' : String(n);
+            const selected = FW_PAGE_SIZE === n || (n === 0 && FW_PAGE_SIZE >= 9999) ? 'selected' : '';
+            html += `<option value="${n}" ${selected}>${label}</option>`;
+        });
+        html += `</select>`;
         if (totalPages > 1) {
-            html += `<div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;font-size:0.85rem;">`;
             html += `<button class="btn btn-sm" style="padding:4px 10px;" onclick="window._fwPage(${fwPage - 1})" ${fwPage <= 1 ? 'disabled' : ''}>&#9664; Prev</button>`;
             html += `<span>Page ${fwPage} of ${totalPages}</span>`;
             html += `<button class="btn btn-sm" style="padding:4px 10px;" onclick="window._fwPage(${fwPage + 1})" ${fwPage >= totalPages ? 'disabled' : ''}>Next &#9654;</button>`;
-            html += `</div>`;
         }
+        html += `</div>`;
 
         container.innerHTML = html;
     }
@@ -1534,6 +1542,11 @@ async function renderFlatwiseData(container, flatNo) {
     };
     window._fwPage = function(p) {
         fwPage = p;
+        buildTable();
+    };
+    window._fwSetPageSize = function(val) {
+        FW_PAGE_SIZE = parseInt(val) || 9999;
+        fwPage = 1;
         buildTable();
     };
     buildTable();
