@@ -90,7 +90,9 @@ window.printActiveReport = function() {
 
 window.formatDateDisplay = function(dateStr) {
     if (!dateStr) return "";
-    const parts = dateStr.split('-');
+    // Handle ISO timestamp: extract only YYYY-MM-DD before T
+    const clean = dateStr.split('T')[0];
+    const parts = clean.split('-');
     if (parts.length === 3) {
         return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
