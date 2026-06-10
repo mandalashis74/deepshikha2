@@ -1620,14 +1620,15 @@ async function renderFYStatementTab(container, toolbar) {
         }
 
         const fyMonths = data.fyMonths;
+        const monthLabels = data.monthLabels;
         let html = `<div style="overflow-x:auto;max-width:100%;">
             <table class="data-table" style="font-size:0.75rem;white-space:nowrap;">
             <thead><tr>
                 <th style="position:sticky;left:0;z-index:2;background:var(--bg-card);">Flat No</th>
                 <th style="min-width:160px;">Name</th>
                 <th style="color:var(--color-rose);">Opening<br>Balance</th>`;
-        fyMonths.forEach(m => {
-            html += `<th style="min-width:48px;">${m.substring(0, 3).toUpperCase()}</th>`;
+        monthLabels.forEach(label => {
+            html += `<th style="min-width:48px;">${label}</th>`;
         });
         html += `<th style="color:var(--color-emerald);">TOTAL<br>OF FY</th>`;
         html += `<th style="color:var(--color-blue);">CUMULATIVE<br>TOTAL</th>`;
@@ -1759,7 +1760,12 @@ async function getFYStatementData(fy) {
         });
     }
 
-    return { rows, grandOpening, grandFYTotal, grandCumulative, grandMonths, fyMonths };
+    const monthLabels = fyMonths.map((m, i) => {
+        const y = i < 9 ? String(fy).slice(-2) : String(fy + 1).slice(-2);
+        return m.substring(0, 3).toUpperCase() + ' ' + y;
+    });
+
+    return { rows, grandOpening, grandFYTotal, grandCumulative, grandMonths, fyMonths, monthLabels };
 }
 
 window.exportFYStatementExcel = async function(fy) {
@@ -1768,7 +1774,7 @@ window.exportFYStatementExcel = async function(fy) {
     if (!data || data.rows.length === 0) { showToast('No data to export.', 'info'); return; }
 
     const headers = ['Flat No', 'Name', 'Opening Balance'];
-    data.fyMonths.forEach(m => headers.push(m.substring(0, 3).toUpperCase()));
+    data.monthLabels.forEach(l => headers.push(l));
     headers.push('TOTAL OF FY', 'CUMULATIVE TOTAL');
 
     const rows = [headers];
@@ -1822,8 +1828,7 @@ window.exportFYStatementPDF = async function(fy) {
     y += 12;
 
     const headers = ['Flat No', 'Name', 'Opening'];
-    const shortMonths = data.fyMonths.map(m => m.substring(0, 3).toUpperCase());
-    shortMonths.forEach(m => headers.push(m));
+    data.monthLabels.forEach(l => headers.push(l));
     headers.push('FY Total', 'Cumulative');
 
     // Column widths: flat=14, name=36, ob=16, 12 months * 14=168, fy=18, cum=18
