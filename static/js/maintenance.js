@@ -65,6 +65,19 @@ window.openMaintenanceModal = async function() {
     await renderMaintenanceTab('collections');
 };
 
+window.openFYStatementModal = async function() {
+    if (!hasMaintenancePermission('maintenance:view')) {
+        showToast('Access Denied.', 'error'); return;
+    }
+    openModal('maintenanceModal');
+    const pendingTab = document.querySelector('#maintenance-tabs .pill[data-mt="pending"]');
+    if (pendingTab) {
+        pendingTab.style.display = (window.hasPermission('income:approve') || window.hasPermission('income:create')) ? '' : 'none';
+    }
+    await loadOwnersForMaintenance();
+    await renderMaintenanceTab('fy-statement');
+};
+
 window.switchMaintenanceTab = async function(tab) {
     await renderMaintenanceTab(tab);
 };
@@ -84,6 +97,8 @@ async function renderMaintenanceTab(tab) {
         await renderCollectionsTab(container, toolbar);
     } else if (tab === 'pending') {
         await renderPendingApprovalsTab(container, toolbar);
+    } else if (tab === 'fy-statement') {
+        await renderFYStatementTab(container, toolbar);
     }
 }
 
@@ -1551,6 +1566,334 @@ async function renderFlatwiseData(container, flatNo) {
     };
     buildTable();
 }
+
+// ─── FY STATEMENT TAB ────────────────────────────────────────────────────
+
+const FY_MONTHS = ['April','May','June','July','August','September','October','November','December','January','February','March'];
+
+async function renderFYStatementTab(container, toolbar) {
+    toolbar.innerHTML = '';
+    container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+
+    // Determine current FY
+    const now = new Date();
+    const curMonth = now.getMonth() + 1;
+    let fyStartYear = now.getFullYear();
+    if (curMonth < 4) fyStartYear--; // If before April, previous year is FY start
+    const fyLabel = fyStartYear + '-' + String(fyStartYear + 1).slice(-2);
+
+    // FY selector
+    const sel = document.createElement('select');
+    sel.id = 'fy-select';
+    sel.style.cssText = 'padding:6px 12px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;';
+    for (let y = 2024; y <= now.getFullYear(); y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y + '-' + String(y + 1).slice(-2);
+        if (y === fyStartYear) opt.selected = true;
+        sel.appendChild(opt);
+    }
+    sel.onchange = () => buildStatement();
+    toolbar.appendChild(sel);
+
+    // Export buttons
+    const pdfBtn = document.createElement('button');
+    pdfBtn.className = 'btn btn-sm';
+    pdfBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> PDF';
+    pdfBtn.onclick = () => exportFYStatementPDF(parseInt(sel.value));
+    toolbar.appendChild(pdfBtn);
+
+    const xlsBtn = document.createElement('button');
+    xlsBtn.className = 'btn btn-sm';
+    xlsBtn.innerHTML = '<i class="fa-solid fa-file-excel"></i> Excel';
+    xlsBtn.onclick = () => exportFYStatementExcel(parseInt(sel.value));
+    toolbar.appendChild(xlsBtn);
+
+    async function buildStatement() {
+        const fy = parseInt(sel.value);
+        container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+
+        const data = await getFYStatementData(fy);
+        if (!data || data.rows.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-building"></i><br>No data found.</div>';
+            return;
+        }
+
+        const fyMonths = data.fyMonths;
+        let html = `<div style="overflow-x:auto;max-width:100%;">
+            <table class="data-table" style="font-size:0.75rem;white-space:nowrap;">
+            <thead><tr>
+                <th style="position:sticky;left:0;z-index:2;background:var(--bg-card);">Flat No</th>
+                <th style="min-width:160px;">Name</th>
+                <th style="color:var(--color-rose);">Opening<br>Balance</th>`;
+        fyMonths.forEach(m => {
+            html += `<th style="min-width:48px;">${m.substring(0, 3).toUpperCase()}</th>`;
+        });
+        html += `<th style="color:var(--color-emerald);">TOTAL<br>OF FY</th>`;
+        html += `<th style="color:var(--color-blue);">CUMULATIVE<br>TOTAL</th>`;
+        html += `</tr></thead><tbody>`;
+
+        for (const r of data.rows) {
+            html += `<tr>
+                <td style="position:sticky;left:0;z-index:1;background:var(--bg-card);font-weight:700;">${escapeHtml(r.flat_no)}</td>
+                <td>${escapeHtml(r.name)}</td>
+                <td style="font-weight:700;color:var(--color-rose);">${formatCurrency(r.ob)}</td>`;
+            fyMonths.forEach(m => {
+                html += `<td>${r.monthlyPaid[m] > 0 ? formatCurrency(r.monthlyPaid[m]) : '—'}</td>`;
+            });
+            html += `<td style="font-weight:700;color:var(--color-emerald);">${formatCurrency(r.fyTotal)}</td>`;
+            html += `<td style="font-weight:700;color:var(--color-blue);">${formatCurrency(r.cumulative)}</td>`;
+            html += `</tr>`;
+        }
+
+        html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
+            <td style="position:sticky;left:0;z-index:1;background:var(--bg-card);">TOTAL</td>
+            <td></td>
+            <td style="color:var(--color-rose);">${formatCurrency(data.grandOpening)}</td>`;
+        fyMonths.forEach(m => {
+            html += `<td>${data.grandMonths[m] > 0 ? formatCurrency(data.grandMonths[m]) : '—'}</td>`;
+        });
+        html += `<td style="color:var(--color-emerald);">${formatCurrency(data.grandFYTotal)}</td>`;
+        html += `<td style="color:var(--color-blue);">${formatCurrency(data.grandCumulative)}</td>`;
+        html += `</tr></tbody></table></div>`;
+
+        html += `<div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted);">
+            FY: ${fy}-${String(fy+1).slice(-2)} | ${data.rows.length} flats | Opening Balance: ${formatCurrency(data.grandOpening)} | FY Total: ${formatCurrency(data.grandFYTotal)} | Cumulative: ${formatCurrency(data.grandCumulative)}
+        </div>`;
+
+        container.innerHTML = html;
+    }
+
+    await buildStatement();
+}
+
+async function getFYStatementData(fy) {
+    const fyMonths = FY_MONTHS;
+    const fyYears = {};
+    fyMonths.forEach((m, i) => {
+        fyYears[m] = i < 9 ? fy : fy + 1;
+    });
+
+    // Fetch FY income
+    const { data: allIncome } = await sbClient.from('income')
+        .select('flat_no, month, year, amount, status')
+        .eq('category', 'Monthly Maintenance')
+        .in('month', fyMonths)
+        .in('year', [...new Set(Object.values(fyYears))].map(String));
+
+    const flatMonthPaid = {};
+    for (const inc of (allIncome || [])) {
+        if (!inc.flat_no) continue;
+        const st = inc.status || 'approved';
+        if (st === 'pending' || st === 'rejected') continue;
+        if (!flatMonthPaid[inc.flat_no]) flatMonthPaid[inc.flat_no] = {};
+        flatMonthPaid[inc.flat_no][inc.month] = (flatMonthPaid[inc.flat_no][inc.month] || 0) + parseFloat(inc.amount);
+    }
+
+    // Fetch flats
+    const { data: allFlats } = await sbClient.from('owners')
+        .select('flat_no, flat_type, owner_name')
+        .order('flat_no');
+
+    if (!allFlats || allFlats.length === 0) return null;
+
+    // Fetch older income for opening balance
+    const { data: older } = await sbClient.from('income')
+        .select('flat_no, month, year, amount, status')
+        .eq('category', 'Monthly Maintenance')
+        .or('year.lt.' + String(fy) + ',year.eq.' + String(fy) + '.and.month.lt.April');
+
+    const olderPaidMap = {};
+    for (const inc of (older || [])) {
+        if (!inc.flat_no) continue;
+        const st = inc.status || 'approved';
+        if (st === 'pending' || st === 'rejected') continue;
+        if (!olderPaidMap[inc.flat_no]) olderPaidMap[inc.flat_no] = {};
+        olderPaidMap[inc.flat_no][inc.month + '-' + inc.year] = (olderPaidMap[inc.flat_no][inc.month + '-' + inc.year] || 0) + parseFloat(inc.amount);
+    }
+
+    const rates = await loadRates();
+    const getRate = (ft, m, y) => {
+        const ds = y + '-' + String(fyMonths.indexOf(m) + 1).padStart(2, '0') + '-01';
+        const r = getRateOnDate(ft, rates, ds);
+        return r ? parseFloat(r.amount) : 0;
+    };
+
+    // Calculate opening balances (pending before fy)
+    const allMonthsBefore = [];
+    for (let y = 2024; y < fy; y++) {
+        for (const m of fyMonths) allMonthsBefore.push({ month: m, year: y });
+    }
+    const openingBalances = {};
+    for (const flat of allFlats) {
+        let pending = 0;
+        for (const pm of allMonthsBefore) {
+            const key = pm.month + '-' + pm.year;
+            const paid = (olderPaidMap[flat.flat_no] && olderPaidMap[flat.flat_no][key]) || 0;
+            const rate = getRate(flat.flat_type, pm.month, pm.year);
+            if (rate > 0 && paid < rate) pending += rate - paid;
+        }
+        openingBalances[flat.flat_no] = pending;
+    }
+
+    // Build rows
+    const rows = [];
+    let grandOpening = 0, grandFYTotal = 0, grandCumulative = 0;
+    const grandMonths = {};
+    fyMonths.forEach(m => grandMonths[m] = 0);
+
+    for (const flat of allFlats) {
+        const ob = openingBalances[flat.flat_no] || 0;
+        const monthlyPaid = {};
+        let fyTotal = 0;
+        fyMonths.forEach(m => {
+            const amt = (flatMonthPaid[flat.flat_no] && flatMonthPaid[flat.flat_no][m]) || 0;
+            monthlyPaid[m] = amt; fyTotal += amt; grandMonths[m] += amt;
+        });
+        const cumulative = ob + fyTotal;
+        grandOpening += ob; grandFYTotal += fyTotal; grandCumulative += cumulative;
+        rows.push({
+            flat_no: flat.flat_no,
+            name: window.displayStructured(flat.owner_name, 'name') || flat.owner_name || '—',
+            ob, monthlyPaid, fyTotal, cumulative
+        });
+    }
+
+    return { rows, grandOpening, grandFYTotal, grandCumulative, grandMonths, fyMonths };
+}
+
+window.exportFYStatementExcel = async function(fy) {
+    if (typeof XLSX === 'undefined') { showToast('Excel library not loaded.', 'error'); return; }
+    const data = await getFYStatementData(fy);
+    if (!data || data.rows.length === 0) { showToast('No data to export.', 'info'); return; }
+
+    const headers = ['Flat No', 'Name', 'Opening Balance'];
+    data.fyMonths.forEach(m => headers.push(m.substring(0, 3).toUpperCase()));
+    headers.push('TOTAL OF FY', 'CUMULATIVE TOTAL');
+
+    const rows = [headers];
+    for (const r of data.rows) {
+        const row = [r.flat_no, r.name, r.ob];
+        data.fyMonths.forEach(m => row.push(r.monthlyPaid[m] || 0));
+        row.push(r.fyTotal, r.cumulative);
+        rows.push(row);
+    }
+
+    // Grand total row
+    const totalRow = ['TOTAL', '', data.grandOpening];
+    data.fyMonths.forEach(m => totalRow.push(data.grandMonths[m] || 0));
+    totalRow.push(data.grandFYTotal, data.grandCumulative);
+    rows.push(totalRow);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    // Format currency columns
+    const colRange = XLSX.utils.decode_range(ws['!ref']);
+    for (let c = 2; c <= colRange.e.c; c++) {
+        for (let r = 1; r <= colRange.e.r; r++) {
+            const addr = XLSX.utils.encode_cell({ r, c });
+            if (ws[addr] && typeof ws[addr].v === 'number') {
+                ws[addr].z = '#,##0.00';
+            }
+        }
+    }
+    XLSX.utils.book_append_sheet(wb, ws, 'FY Statement');
+    XLSX.writeFile(wb, 'FY_Statement_' + fy + '-' + String(fy + 1).slice(-2) + '.xlsx');
+};
+
+window.exportFYStatementPDF = async function(fy) {
+    if (!window.jspdf) { showToast('PDF library not loaded.', 'error'); return; }
+    const data = await getFYStatementData(fy);
+    if (!data || data.rows.length === 0) { showToast('No data to export.', 'info'); return; }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+    const pageW = 420, pageH = 297, margin = 8;
+    const contentW = pageW - 2 * margin;
+    let y = margin;
+
+    function checkPage(needed) {
+        if (y + needed > pageH - margin) { doc.addPage(); y = margin; }
+    }
+
+    doc.setFontSize(11);
+    const title = 'FY Statement - ' + fy + '-' + String(fy + 1).slice(-2);
+    doc.text(title, pageW / 2, y + 6, { align: 'center' });
+    y += 12;
+
+    const headers = ['Flat No', 'Name', 'Opening'];
+    const shortMonths = data.fyMonths.map(m => m.substring(0, 3).toUpperCase());
+    shortMonths.forEach(m => headers.push(m));
+    headers.push('FY Total', 'Cumulative');
+
+    // Column widths: flat=14, name=36, ob=16, 12 months * 14=168, fy=18, cum=18
+    const colW = [14, 36, 16];
+    data.fyMonths.forEach(() => colW.push(14));
+    colW.push(18, 18);
+    const sumColW = colW.reduce((s, w) => s + w, 0);
+    // Scale if needed
+    const availW = contentW;
+    const scale = sumColW > availW ? availW / sumColW : 1;
+    const scaledW = colW.map(w => w * scale);
+
+    doc.setFontSize(6);
+    doc.setFillColor(15, 23, 42);
+    doc.setTextColor(255, 255, 255);
+    doc.rect(margin, y, contentW, 5, 'F');
+    let x = margin + 1;
+    headers.forEach((h, i) => {
+        const lines = doc.splitTextToSize(h, scaledW[i] - 1);
+        doc.text(lines, x + 0.5, y + 2.5);
+        x += scaledW[i];
+    });
+    y += 5;
+
+    doc.setTextColor(30, 30, 30);
+    let rowIdx = 0;
+    for (const r of data.rows) {
+        checkPage(5);
+        if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 4.5, 'F'); }
+        x = margin + 1;
+        const vals = [
+            String(r.flat_no), r.name, formatCurrency(r.ob),
+            ...data.fyMonths.map(m => r.monthlyPaid[m] ? formatCurrency(r.monthlyPaid[m]) : '—'),
+            formatCurrency(r.fyTotal), formatCurrency(r.cumulative)
+        ];
+        vals.forEach((v, i) => {
+            doc.text(v, x + 0.5, y + 3, { maxWidth: scaledW[i] - 1 });
+            x += scaledW[i];
+        });
+        y += 4.5;
+        rowIdx++;
+    }
+
+    // Total row
+    checkPage(5);
+    doc.setDrawColor(15, 23, 42);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageW - margin, y);
+    y += 1;
+    x = margin + 1;
+    const totalVals = [
+        'TOTAL', '', formatCurrency(data.grandOpening),
+        ...data.fyMonths.map(m => data.grandMonths[m] ? formatCurrency(data.grandMonths[m]) : '—'),
+        formatCurrency(data.grandFYTotal), formatCurrency(data.grandCumulative)
+    ];
+    totalVals.forEach((v, i) => {
+        doc.text(v, x + 0.5, y + 3, { maxWidth: scaledW[i] - 1 });
+        x += scaledW[i];
+    });
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const fname = 'FY_Statement_' + fy + '-' + String(fy + 1).slice(-2) + '.pdf';
+    if (isMobile) doc.save(fname);
+    else {
+        const uri = doc.output('datauristring');
+        const w = window.open();
+        if (w) w.document.write('<iframe width="100%" height="100%" src="' + uri + '"></iframe>');
+        else doc.save(fname);
+    }
+};
 
 // ─── PENDING APPROVALS TAB ────────────────────────────────────────────────
 

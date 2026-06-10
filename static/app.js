@@ -771,6 +771,7 @@ window.applyRbacRestrictions = function(role) {
     setNav("side-parking", window.hasPermission('parking:view'));
     setNav("side-handover", window.hasPermission('handover:view'));
     setNav("side-analytics", window.hasPermission('analytics:view'));
+    setNav("side-fy-statement", window.hasPermission('maintenance:view'));
     
     const updateGroupVisibility = (groupId, labelId) => {
         const group = document.getElementById(groupId);
