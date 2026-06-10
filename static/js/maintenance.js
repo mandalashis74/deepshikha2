@@ -1569,34 +1569,28 @@ async function renderFlatwiseData(container, flatNo) {
 
 // ─── FY STATEMENT TAB ────────────────────────────────────────────────────
 
-const FY_MONTHS = ['April','May','June','July','August','September','October','November','December','January','February','March'];
+const CAL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 async function renderFYStatementTab(container, toolbar) {
     toolbar.innerHTML = '';
     container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
 
-    // Determine current FY
     const now = new Date();
-    const curMonth = now.getMonth() + 1;
-    let fyStartYear = now.getFullYear();
-    if (curMonth < 4) fyStartYear--;
-    const defaultFY = fyStartYear - 1; // Default to last completed FY
+    const defaultYear = now.getFullYear() - 1;
 
-    // FY selector
     const sel = document.createElement('select');
     sel.id = 'fy-select';
     sel.style.cssText = 'padding:6px 12px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;';
     for (let y = 2024; y <= now.getFullYear(); y++) {
         const opt = document.createElement('option');
         opt.value = y;
-        opt.textContent = y + '-' + String(y + 1).slice(-2);
-        if (y === defaultFY) opt.selected = true;
+        opt.textContent = String(y);
+        if (y === defaultYear) opt.selected = true;
         sel.appendChild(opt);
     }
     sel.onchange = () => buildStatement();
     toolbar.appendChild(sel);
 
-    // Export buttons
     const pdfBtn = document.createElement('button');
     pdfBtn.className = 'btn btn-sm';
     pdfBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> PDF';
@@ -1610,57 +1604,51 @@ async function renderFYStatementTab(container, toolbar) {
     toolbar.appendChild(xlsBtn);
 
     async function buildStatement() {
-        const fy = parseInt(sel.value);
+        const year = parseInt(sel.value);
         container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
 
-        const data = await getFYStatementData(fy);
+        const data = await getCalYearStatementData(year);
         if (!data || data.rows.length === 0) {
             container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-building"></i><br>No data found.</div>';
             return;
         }
 
-        const fyMonths = data.fyMonths;
-        const monthLabels = data.monthLabels;
-        let html = `<div style="overflow-x:auto;max-width:100%;">
-            <table class="data-table" style="font-size:0.75rem;white-space:nowrap;">
-            <thead><tr>
-                <th style="position:sticky;left:0;z-index:2;background:var(--bg-card);">Flat No</th>
-                <th style="min-width:160px;">Name</th>
-                <th style="color:var(--color-rose);">Opening<br>Balance</th>`;
-        monthLabels.forEach(label => {
-            html += `<th style="min-width:48px;">${label}</th>`;
+        const calMonths = data.calMonths;
+        let html = '<div style="overflow-x:auto;max-width:100%;"><table class="data-table" style="font-size:0.75rem;white-space:nowrap;"><thead><tr>';
+        html += '<th style="position:sticky;left:0;z-index:2;background:var(--bg-card);">Flat No</th>';
+        html += '<th style="min-width:160px;">Name</th>';
+        html += '<th style="color:var(--color-rose);">Brought<br>Forward</th>';
+        calMonths.forEach(m => {
+            html += '<th style="min-width:42px;">' + m.substring(0, 3).toUpperCase() + '</th>';
         });
-        html += `<th style="color:var(--color-emerald);">TOTAL<br>OF FY</th>`;
-        html += `<th style="color:var(--color-blue);">CUMULATIVE<br>TOTAL</th>`;
-        html += `</tr></thead><tbody>`;
+        html += '<th style="color:var(--color-emerald);">TOTAL<br>OF YEAR</th>';
+        html += '<th style="color:var(--color-blue);">CUMULATIVE<br>TOTAL</th>';
+        html += '</tr></thead><tbody>';
 
         for (const r of data.rows) {
-            html += `<tr>
-                <td style="position:sticky;left:0;z-index:1;background:var(--bg-card);font-weight:700;">${escapeHtml(r.flat_no)}</td>
-                <td>${escapeHtml(r.name)}</td>
-                <td style="font-weight:700;color:var(--color-rose);">${formatCurrency(r.ob)}</td>`;
-            fyMonths.forEach(m => {
-                html += `<td>${r.monthlyPaid[m] > 0 ? formatCurrency(r.monthlyPaid[m]) : '—'}</td>`;
+            html += '<tr>';
+            html += '<td style="position:sticky;left:0;z-index:1;background:var(--bg-card);font-weight:700;">' + escapeHtml(r.flat_no) + '</td>';
+            html += '<td>' + escapeHtml(r.name) + '</td>';
+            html += '<td style="font-weight:700;color:var(--color-rose);">' + formatCurrency(r.bf) + '</td>';
+            calMonths.forEach(m => {
+                html += '<td>' + (r.monthlyPaid[m] > 0 ? formatCurrency(r.monthlyPaid[m]) : '—') + '</td>';
             });
-            html += `<td style="font-weight:700;color:var(--color-emerald);">${formatCurrency(r.fyTotal)}</td>`;
-            html += `<td style="font-weight:700;color:var(--color-blue);">${formatCurrency(r.cumulative)}</td>`;
-            html += `</tr>`;
+            html += '<td style="font-weight:700;color:var(--color-emerald);">' + formatCurrency(r.yearTotal) + '</td>';
+            html += '<td style="font-weight:700;color:var(--color-blue);">' + formatCurrency(r.cumulative) + '</td>';
+            html += '</tr>';
         }
 
-        html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
-            <td style="position:sticky;left:0;z-index:1;background:var(--bg-card);">TOTAL</td>
-            <td></td>
-            <td style="color:var(--color-rose);">${formatCurrency(data.grandOpening)}</td>`;
-        fyMonths.forEach(m => {
-            html += `<td>${data.grandMonths[m] > 0 ? formatCurrency(data.grandMonths[m]) : '—'}</td>`;
+        html += '<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">';
+        html += '<td style="position:sticky;left:0;z-index:1;background:var(--bg-card);">TOTAL</td><td></td>';
+        html += '<td style="color:var(--color-rose);">' + formatCurrency(data.grandBroughtForward) + '</td>';
+        calMonths.forEach(m => {
+            html += '<td>' + (data.grandMonths[m] > 0 ? formatCurrency(data.grandMonths[m]) : '—') + '</td>';
         });
-        html += `<td style="color:var(--color-emerald);">${formatCurrency(data.grandFYTotal)}</td>`;
-        html += `<td style="color:var(--color-blue);">${formatCurrency(data.grandCumulative)}</td>`;
-        html += `</tr></tbody></table></div>`;
+        html += '<td style="color:var(--color-emerald);">' + formatCurrency(data.grandYearTotal) + '</td>';
+        html += '<td style="color:var(--color-blue);">' + formatCurrency(data.grandCumulative) + '</td>';
+        html += '</tr></tbody></table></div>';
 
-        html += `<div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted);">
-            FY: ${fy}-${String(fy+1).slice(-2)} | ${data.rows.length} flats | Opening Balance: ${formatCurrency(data.grandOpening)} | FY Total: ${formatCurrency(data.grandFYTotal)} | Cumulative: ${formatCurrency(data.grandCumulative)}
-        </div>`;
+        html += '<div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted);">Year: ' + year + ' | ' + data.rows.length + ' flats | Brought Forward: ' + formatCurrency(data.grandBroughtForward) + ' | Year Total: ' + formatCurrency(data.grandYearTotal) + ' | Cumulative: ' + formatCurrency(data.grandCumulative) + '</div>';
 
         container.innerHTML = html;
     }
@@ -1668,42 +1656,33 @@ async function renderFYStatementTab(container, toolbar) {
     await buildStatement();
 }
 
-async function getFYStatementData(fy) {
-    const fyMonths = FY_MONTHS;
-    const fyYears = {};
-    fyMonths.forEach((m, i) => {
-        fyYears[m] = i < 9 ? fy : fy + 1;
-    });
+async function getCalYearStatementData(year) {
+    const calMonths = CAL_MONTHS;
 
-    // Fetch FY income
     const { data: allIncome } = await sbClient.from('income')
         .select('flat_no, month, year, amount, status')
         .eq('category', 'Monthly Maintenance')
-        .in('year', [...new Set(Object.values(fyYears))].map(String));
+        .eq('year', String(year));
 
     const flatMonthPaid = {};
     for (const inc of (allIncome || [])) {
         if (!inc.flat_no) continue;
         const st = inc.status || 'approved';
         if (st === 'pending' || st === 'rejected') continue;
-        // Only include records whose month-year matches the FY definition
-        if (String(fyYears[inc.month]) !== String(inc.year)) continue;
         if (!flatMonthPaid[inc.flat_no]) flatMonthPaid[inc.flat_no] = {};
         flatMonthPaid[inc.flat_no][inc.month] = (flatMonthPaid[inc.flat_no][inc.month] || 0) + parseFloat(inc.amount);
     }
 
-    // Fetch flats
     const { data: allFlats } = await sbClient.from('owners')
         .select('flat_no, flat_type, owner_name')
         .order('flat_no');
 
     if (!allFlats || allFlats.length === 0) return null;
 
-    // Fetch older income for opening balance
     const { data: older } = await sbClient.from('income')
         .select('flat_no, month, year, amount, status')
         .eq('category', 'Monthly Maintenance')
-        .or('year.lt.' + String(fy) + ',year.eq.' + String(fy) + '.and.month.lt.April');
+        .lt('year', String(year));
 
     const olderPaidMap = {};
     for (const inc of (older || [])) {
@@ -1715,93 +1694,80 @@ async function getFYStatementData(fy) {
     }
 
     const rates = await loadRates();
-    const getRate = (ft, m, y) => {
-        const ds = y + '-' + String(fyMonths.indexOf(m) + 1).padStart(2, '0') + '-01';
+    const allMonthsBefore = [];
+    for (let y = 2024; y < year; y++) {
+        for (let i = 0; i < 12; i++) {
+            allMonthsBefore.push({ month: calMonths[i], year: y });
+        }
+    }
+
+    const broughtForward = {};
+    const calcRate = (ft, m, y) => {
+        const ds = y + '-' + String(calMonths.indexOf(m) + 1).padStart(2, '0') + '-01';
         const r = getRateOnDate(ft, rates, ds);
         return r ? parseFloat(r.amount) : 0;
     };
 
-    // Calculate opening balances (pending before fy)
-    const allMonthsBefore = [];
-    for (let y = 2024; y < fy; y++) {
-        // Apr-Dec use calendar year y
-        for (let i = 0; i < 9; i++) {
-            allMonthsBefore.push({ month: fyMonths[i], year: y });
-        }
-        // Jan-Mar use calendar year y + 1
-        for (let i = 9; i < 12; i++) {
-            allMonthsBefore.push({ month: fyMonths[i], year: y + 1 });
-        }
-    }
-    const openingBalances = {};
     for (const flat of allFlats) {
         let pending = 0;
         for (const pm of allMonthsBefore) {
             const key = pm.month + '-' + pm.year;
             const paid = (olderPaidMap[flat.flat_no] && olderPaidMap[flat.flat_no][key]) || 0;
-            const rate = getRate(flat.flat_type, pm.month, pm.year);
+            const rate = calcRate(flat.flat_type, pm.month, pm.year);
             if (rate > 0 && paid < rate) pending += rate - paid;
         }
-        openingBalances[flat.flat_no] = pending;
+        broughtForward[flat.flat_no] = pending;
     }
 
-    // Build rows
     const rows = [];
-    let grandOpening = 0, grandFYTotal = 0, grandCumulative = 0;
+    let grandBroughtForward = 0, grandYearTotal = 0, grandCumulative = 0;
     const grandMonths = {};
-    fyMonths.forEach(m => grandMonths[m] = 0);
+    calMonths.forEach(m => grandMonths[m] = 0);
 
     for (const flat of allFlats) {
-        const ob = openingBalances[flat.flat_no] || 0;
+        const bf = broughtForward[flat.flat_no] || 0;
         const monthlyPaid = {};
-        let fyTotal = 0;
-        fyMonths.forEach(m => {
+        let yearTotal = 0;
+        calMonths.forEach(m => {
             const amt = (flatMonthPaid[flat.flat_no] && flatMonthPaid[flat.flat_no][m]) || 0;
-            monthlyPaid[m] = amt; fyTotal += amt; grandMonths[m] += amt;
+            monthlyPaid[m] = amt; yearTotal += amt; grandMonths[m] += amt;
         });
-        const cumulative = ob + fyTotal;
-        grandOpening += ob; grandFYTotal += fyTotal; grandCumulative += cumulative;
+        const cumulative = bf + yearTotal;
+        grandBroughtForward += bf; grandYearTotal += yearTotal; grandCumulative += cumulative;
         rows.push({
             flat_no: flat.flat_no,
             name: window.displayStructured(flat.owner_name, 'name') || flat.owner_name || '—',
-            ob, monthlyPaid, fyTotal, cumulative
+            bf, monthlyPaid, yearTotal, cumulative
         });
     }
 
-    const monthLabels = fyMonths.map((m, i) => {
-        const y = i < 9 ? String(fy).slice(-2) : String(fy + 1).slice(-2);
-        return m.substring(0, 3).toUpperCase() + ' ' + y;
-    });
-
-    return { rows, grandOpening, grandFYTotal, grandCumulative, grandMonths, fyMonths, monthLabels };
+    return { rows, grandBroughtForward, grandYearTotal, grandCumulative, grandMonths, calMonths };
 }
 
-window.exportFYStatementExcel = async function(fy) {
+window.exportFYStatementExcel = async function(year) {
     if (typeof XLSX === 'undefined') { showToast('Excel library not loaded.', 'error'); return; }
-    const data = await getFYStatementData(fy);
+    const data = await getCalYearStatementData(year);
     if (!data || data.rows.length === 0) { showToast('No data to export.', 'info'); return; }
 
-    const headers = ['Flat No', 'Name', 'Opening Balance'];
-    data.monthLabels.forEach(l => headers.push(l));
-    headers.push('TOTAL OF FY', 'CUMULATIVE TOTAL');
+    const headers = ['Flat No', 'Name', 'Brought Forward'];
+    data.calMonths.forEach(m => headers.push(m.substring(0, 3).toUpperCase()));
+    headers.push('TOTAL OF YEAR', 'CUMULATIVE TOTAL');
 
     const rows = [headers];
     for (const r of data.rows) {
-        const row = [r.flat_no, r.name, r.ob];
-        data.fyMonths.forEach(m => row.push(r.monthlyPaid[m] || 0));
-        row.push(r.fyTotal, r.cumulative);
+        const row = [r.flat_no, r.name, r.bf];
+        data.calMonths.forEach(m => row.push(r.monthlyPaid[m] || 0));
+        row.push(r.yearTotal, r.cumulative);
         rows.push(row);
     }
 
-    // Grand total row
-    const totalRow = ['TOTAL', '', data.grandOpening];
-    data.fyMonths.forEach(m => totalRow.push(data.grandMonths[m] || 0));
-    totalRow.push(data.grandFYTotal, data.grandCumulative);
+    const totalRow = ['TOTAL', '', data.grandBroughtForward];
+    data.calMonths.forEach(m => totalRow.push(data.grandMonths[m] || 0));
+    totalRow.push(data.grandYearTotal, data.grandCumulative);
     rows.push(totalRow);
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    // Format currency columns
     const colRange = XLSX.utils.decode_range(ws['!ref']);
     for (let c = 2; c <= colRange.e.c; c++) {
         for (let r = 1; r <= colRange.e.r; r++) {
@@ -1811,13 +1777,13 @@ window.exportFYStatementExcel = async function(fy) {
             }
         }
     }
-    XLSX.utils.book_append_sheet(wb, ws, 'FY Statement');
-    XLSX.writeFile(wb, 'FY_Statement_' + fy + '-' + String(fy + 1).slice(-2) + '.xlsx');
+    XLSX.utils.book_append_sheet(wb, ws, 'Year Statement');
+    XLSX.writeFile(wb, 'Year_Statement_' + year + '.xlsx');
 };
 
-window.exportFYStatementPDF = async function(fy) {
+window.exportFYStatementPDF = async function(year) {
     if (!window.jspdf) { showToast('PDF library not loaded.', 'error'); return; }
-    const data = await getFYStatementData(fy);
+    const data = await getCalYearStatementData(year);
     if (!data || data.rows.length === 0) { showToast('No data to export.', 'info'); return; }
 
     const { jsPDF } = window.jspdf;
@@ -1831,22 +1797,18 @@ window.exportFYStatementPDF = async function(fy) {
     }
 
     doc.setFontSize(11);
-    const title = 'FY Statement - ' + fy + '-' + String(fy + 1).slice(-2);
-    doc.text(title, pageW / 2, y + 6, { align: 'center' });
+    doc.text('Year Statement - ' + year, pageW / 2, y + 6, { align: 'center' });
     y += 12;
 
-    const headers = ['Flat No', 'Name', 'Opening'];
-    data.monthLabels.forEach(l => headers.push(l));
-    headers.push('FY Total', 'Cumulative');
+    const headers = ['Flat No', 'Name', 'B/F'];
+    data.calMonths.forEach(m => headers.push(m.substring(0, 3).toUpperCase()));
+    headers.push('Total', 'Cumulative');
 
-    // Column widths: flat=14, name=36, ob=16, 12 months * 14=168, fy=18, cum=18
     const colW = [14, 36, 16];
-    data.fyMonths.forEach(() => colW.push(14));
+    data.calMonths.forEach(() => colW.push(12));
     colW.push(18, 18);
     const sumColW = colW.reduce((s, w) => s + w, 0);
-    // Scale if needed
-    const availW = contentW;
-    const scale = sumColW > availW ? availW / sumColW : 1;
+    const scale = sumColW > contentW ? contentW / sumColW : 1;
     const scaledW = colW.map(w => w * scale);
 
     doc.setFontSize(6);
@@ -1855,8 +1817,7 @@ window.exportFYStatementPDF = async function(fy) {
     doc.rect(margin, y, contentW, 5, 'F');
     let x = margin + 1;
     headers.forEach((h, i) => {
-        const lines = doc.splitTextToSize(h, scaledW[i] - 1);
-        doc.text(lines, x + 0.5, y + 2.5);
+        doc.text(doc.splitTextToSize(h, scaledW[i] - 1), x + 0.5, y + 2.5);
         x += scaledW[i];
     });
     y += 5;
@@ -1868,9 +1829,9 @@ window.exportFYStatementPDF = async function(fy) {
         if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 4.5, 'F'); }
         x = margin + 1;
         const vals = [
-            String(r.flat_no), r.name, formatCurrency(r.ob),
-            ...data.fyMonths.map(m => r.monthlyPaid[m] ? formatCurrency(r.monthlyPaid[m]) : '—'),
-            formatCurrency(r.fyTotal), formatCurrency(r.cumulative)
+            String(r.flat_no), r.name, formatCurrency(r.bf),
+            ...data.calMonths.map(m => r.monthlyPaid[m] ? formatCurrency(r.monthlyPaid[m]) : '—'),
+            formatCurrency(r.yearTotal), formatCurrency(r.cumulative)
         ];
         vals.forEach((v, i) => {
             doc.text(v, x + 0.5, y + 3, { maxWidth: scaledW[i] - 1 });
@@ -1880,7 +1841,6 @@ window.exportFYStatementPDF = async function(fy) {
         rowIdx++;
     }
 
-    // Total row
     checkPage(5);
     doc.setDrawColor(15, 23, 42);
     doc.setLineWidth(0.3);
@@ -1888,17 +1848,17 @@ window.exportFYStatementPDF = async function(fy) {
     y += 1;
     x = margin + 1;
     const totalVals = [
-        'TOTAL', '', formatCurrency(data.grandOpening),
-        ...data.fyMonths.map(m => data.grandMonths[m] ? formatCurrency(data.grandMonths[m]) : '—'),
-        formatCurrency(data.grandFYTotal), formatCurrency(data.grandCumulative)
+        'TOTAL', '', formatCurrency(data.grandBroughtForward),
+        ...data.calMonths.map(m => data.grandMonths[m] ? formatCurrency(data.grandMonths[m]) : '—'),
+        formatCurrency(data.grandYearTotal), formatCurrency(data.grandCumulative)
     ];
     totalVals.forEach((v, i) => {
         doc.text(v, x + 0.5, y + 3, { maxWidth: scaledW[i] - 1 });
         x += scaledW[i];
     });
 
+    const fname = 'Year_Statement_' + year + '.pdf';
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const fname = 'FY_Statement_' + fy + '-' + String(fy + 1).slice(-2) + '.pdf';
     if (isMobile) doc.save(fname);
     else {
         const uri = doc.output('datauristring');
