@@ -1787,6 +1787,7 @@ window.exportFYStatementPDF = async function(year) {
     function checkPage(needed) {
         if (y + needed > pageH - margin) { doc.addPage(); y = margin; }
     }
+    const fmt = v => v ? Math.round(v).toLocaleString('en-IN') : '—';
 
     doc.setFontSize(11);
     doc.text(_pdfText('Year Statement - ' + year), pageW / 2, y + 6, { align: 'center' });
@@ -1796,9 +1797,9 @@ window.exportFYStatementPDF = async function(year) {
     data.calMonths.forEach(m => headers.push(m.substring(0, 3).toUpperCase()));
     headers.push('Total', 'Cumulative');
 
-    const colW = [14, 36, 16];
-    data.calMonths.forEach(() => colW.push(12));
-    colW.push(18, 18);
+    const colW = [18, 44, 20];
+    data.calMonths.forEach(() => colW.push(18));
+    colW.push(22, 22);
     const sumColW = colW.reduce((s, w) => s + w, 0);
     const scale = sumColW > contentW ? contentW / sumColW : 1;
     const scaledW = colW.map(w => w * scale);
@@ -1821,9 +1822,9 @@ window.exportFYStatementPDF = async function(year) {
         if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 4.5, 'F'); }
         x = margin + 1;
         const vals = [
-            String(r.flat_no), r.name, _pdfText(formatCurrency(r.bf)),
-            ...data.calMonths.map(m => r.monthlyPaid[m] ? _pdfText(formatCurrency(r.monthlyPaid[m])) : '—'),
-            _pdfText(formatCurrency(r.yearTotal)), _pdfText(formatCurrency(r.cumulative))
+            String(r.flat_no), r.name, fmt(r.bf),
+            ...data.calMonths.map(m => fmt(r.monthlyPaid[m])),
+            fmt(r.yearTotal), fmt(r.cumulative)
         ];
         vals.forEach((v, i) => {
             doc.text(v, x + 0.5, y + 3, { maxWidth: scaledW[i] - 1 });
@@ -1840,9 +1841,9 @@ window.exportFYStatementPDF = async function(year) {
     y += 1;
     x = margin + 1;
     const totalVals = [
-        'TOTAL', '', _pdfText(formatCurrency(data.grandBroughtForward)),
-        ...data.calMonths.map(m => data.grandMonths[m] ? _pdfText(formatCurrency(data.grandMonths[m])) : '—'),
-        _pdfText(formatCurrency(data.grandYearTotal)), _pdfText(formatCurrency(data.grandCumulative))
+        'TOTAL', '', fmt(data.grandBroughtForward),
+        ...data.calMonths.map(m => fmt(data.grandMonths[m])),
+        fmt(data.grandYearTotal), fmt(data.grandCumulative)
     ];
     totalVals.forEach((v, i) => {
         doc.text(v, x + 0.5, y + 3, { maxWidth: scaledW[i] - 1 });
