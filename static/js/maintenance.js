@@ -1679,7 +1679,6 @@ async function getFYStatementData(fy) {
     const { data: allIncome } = await sbClient.from('income')
         .select('flat_no, month, year, amount, status')
         .eq('category', 'Monthly Maintenance')
-        .in('month', fyMonths)
         .in('year', [...new Set(Object.values(fyYears))].map(String));
 
     const flatMonthPaid = {};
@@ -1687,6 +1686,8 @@ async function getFYStatementData(fy) {
         if (!inc.flat_no) continue;
         const st = inc.status || 'approved';
         if (st === 'pending' || st === 'rejected') continue;
+        // Only include records whose month-year matches the FY definition
+        if (String(fyYears[inc.month]) !== String(inc.year)) continue;
         if (!flatMonthPaid[inc.flat_no]) flatMonthPaid[inc.flat_no] = {};
         flatMonthPaid[inc.flat_no][inc.month] = (flatMonthPaid[inc.flat_no][inc.month] || 0) + parseFloat(inc.amount);
     }
