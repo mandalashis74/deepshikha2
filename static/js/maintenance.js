@@ -1724,7 +1724,14 @@ async function getFYStatementData(fy) {
     // Calculate opening balances (pending before fy)
     const allMonthsBefore = [];
     for (let y = 2024; y < fy; y++) {
-        for (const m of fyMonths) allMonthsBefore.push({ month: m, year: y });
+        // Apr-Dec use calendar year y
+        for (let i = 0; i < 9; i++) {
+            allMonthsBefore.push({ month: fyMonths[i], year: y });
+        }
+        // Jan-Mar use calendar year y + 1
+        for (let i = 9; i < 12; i++) {
+            allMonthsBefore.push({ month: fyMonths[i], year: y + 1 });
+        }
     }
     const openingBalances = {};
     for (const flat of allFlats) {
