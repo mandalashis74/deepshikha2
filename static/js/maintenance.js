@@ -1579,8 +1579,8 @@ async function renderFYStatementTab(container, toolbar) {
     const now = new Date();
     const curMonth = now.getMonth() + 1;
     let fyStartYear = now.getFullYear();
-    if (curMonth < 4) fyStartYear--; // If before April, previous year is FY start
-    const fyLabel = fyStartYear + '-' + String(fyStartYear + 1).slice(-2);
+    if (curMonth < 4) fyStartYear--;
+    const defaultFY = fyStartYear - 1; // Default to last completed FY
 
     // FY selector
     const sel = document.createElement('select');
@@ -1590,7 +1590,7 @@ async function renderFYStatementTab(container, toolbar) {
         const opt = document.createElement('option');
         opt.value = y;
         opt.textContent = y + '-' + String(y + 1).slice(-2);
-        if (y === fyStartYear) opt.selected = true;
+        if (y === defaultFY) opt.selected = true;
         sel.appendChild(opt);
     }
     sel.onchange = () => buildStatement();
