@@ -1674,7 +1674,7 @@ async function getCalYearStatementData(year) {
     }
 
     const { data: allFlats } = await sbClient.from('owners')
-        .select('flat_no, flat_type, owner_name')
+        .select('flat_no, flat_type, owner_name, occupancy_status, occupancy_from, occupancy_to')
         .order('flat_no');
 
     if (!allFlats || allFlats.length === 0) return null;
@@ -1710,7 +1710,14 @@ async function getCalYearStatementData(year) {
 
     for (const flat of allFlats) {
         let pending = 0;
+        const occFrom = flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : null;
+        const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
+        const isVacant = flat.occupancy_status === 'vacant' || (occTo && occTo <= new Date(year - 1, 11, 31));
+        if (isVacant) { broughtForward[flat.flat_no] = 0; continue; }
         for (const pm of allMonthsBefore) {
+            const pmDate = new Date(pm.year, calMonths.indexOf(pm.month), 1);
+            if (occFrom && pmDate < occFrom) continue;
+            if (occTo && pmDate > occTo) continue;
             const key = pm.month + '-' + pm.year;
             const paid = (olderPaidMap[flat.flat_no] && olderPaidMap[flat.flat_no][key]) || 0;
             const rate = calcRate(flat.flat_type, pm.month, pm.year);
