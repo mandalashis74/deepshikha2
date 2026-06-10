@@ -333,11 +333,24 @@ async function renderCollectionsTab(container, toolbar) {
         xls.innerHTML = '<i class="fa-solid fa-file-excel"></i> Excel';
         xls.style.cssText = 'font-size:0.7rem;padding:4px 8px;';
         if (mode === 'month') {
-            pdf.onclick = () => exportCollectionsPDF(selMonth, selYear, monthNames[selMonth - 1]);
-            xls.onclick = () => exportCollectionsExcel(selMonth, selYear, monthNames[selMonth - 1]);
+            const monthLabel = selMonth > 0 ? monthNames[selMonth - 1] : 'All Months';
+            pdf.onclick = () => exportCollectionsPDF(selMonth, selYear, monthLabel);
+            xls.onclick = () => exportCollectionsExcel(selMonth, selYear, monthLabel);
         } else {
-            pdf.onclick = () => exportFlatwisePDF(currentFlatNo);
-            xls.onclick = () => exportFlatwiseExcel(currentFlatNo);
+            pdf.onclick = () => {
+                if (currentFlatNo === 'all') {
+                    exportCollectionsPDF(0, new Date().getFullYear(), 'All Flats');
+                } else {
+                    exportFlatwisePDF(currentFlatNo);
+                }
+            };
+            xls.onclick = () => {
+                if (currentFlatNo === 'all') {
+                    exportCollectionsExcel(0, new Date().getFullYear(), 'All Flats');
+                } else {
+                    exportFlatwiseExcel(currentFlatNo);
+                }
+            };
         }
         g.appendChild(pdf);
         g.appendChild(xls);
@@ -349,6 +362,10 @@ async function renderCollectionsTab(container, toolbar) {
     monthPicker.className = 'modern-select';
     monthPicker.style.cssText = 'padding:6px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;cursor:pointer;';
     const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const allOpt = document.createElement('option');
+    allOpt.value = '0'; allOpt.textContent = 'All Months';
+    if (selMonth === 0) allOpt.selected = true;
+    monthPicker.appendChild(allOpt);
     for (let i = 0; i < 12; i++) {
         const opt = document.createElement('option');
         opt.value = i + 1; opt.textContent = months[i];
@@ -412,7 +429,14 @@ async function renderCollectionsTab(container, toolbar) {
     flatPicker.onchange = async () => {
         const flatNo = flatPicker.value;
         currentFlatNo = flatNo;
-        if (flatNo) await renderFlatwiseData(container, flatNo);
+        if (flatNo === 'all') {
+            currentMode = 'flat';
+            highlightMode('flat');
+            const year = new Date().getFullYear();
+            await renderCollectionsData(container, 0, year);
+        } else if (flatNo) {
+            await renderFlatwiseData(container, flatNo);
+        }
     };
 
     // Populate flat picker
@@ -421,6 +445,9 @@ async function renderCollectionsTab(container, toolbar) {
     try {
         const { data: flats } = await sbClient.from('owners').select('flat_no, owner_name').order('flat_no');
         if (flats) {
+            const allOpt = document.createElement('option');
+            allOpt.value = 'all'; allOpt.textContent = 'All Flats';
+            flatPicker.appendChild(allOpt);
             const filtered = isSoftLoginMode ? flats.filter(f => f.flat_no === softLoginFlatNo) : flats;
             filtered.forEach(f => {
                 const opt = document.createElement('option');
@@ -466,7 +493,11 @@ async function renderCollectionsTab(container, toolbar) {
         const eg = makeExportGroup('flat');
         eg.style.marginLeft = '12px';
         controls.appendChild(eg);
-        if (flatPicker.value) {
+        if (flatPicker.value === 'all') {
+            const year = new Date().getFullYear();
+            currentFlatNo = 'all';
+            renderCollectionsData(container, 0, year);
+        } else if (flatPicker.value) {
             currentFlatNo = flatPicker.value;
             renderFlatwiseData(container, flatPicker.value);
         } else {
@@ -488,6 +519,7 @@ async function renderCollectionsData(container, month, year) {
     container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
 
     const rates = await loadRates();
+    const isAllMonths = !month || month === 0;
     
     // Fetch ALL maintenance collections (all months) for cumulative pending calc
     let allCollections = [];
@@ -501,8 +533,8 @@ async function renderCollectionsData(container, month, year) {
     
     // Build paid map: flat_no -> { key: totalCollectedAmount }
     const paidMap = {};
-    const currentCollectedMap = {}; // for the selected month only
-    const currentStatusMap = {}; // flat_no -> best status for selected month
+    const currentCollectedMap = {}; // for the selected month/year only
+    const currentStatusMap = {}; // flat_no -> best status for selected period
     const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const selMonthStr = monthNames[month - 1];
     const statusPriority = { rejected: 0, pending: 1, approved: 2 };
@@ -513,7 +545,10 @@ async function renderCollectionsData(container, month, year) {
         if (st !== 'pending' && st !== 'rejected') {
             paidMap[c.flat_no][key] = (paidMap[c.flat_no][key] || 0) + parseFloat(c.amount);
         }
-        if (c.month === selMonthStr && String(c.year) === String(year)) {
+        const matchesPeriod = isAllMonths
+            ? String(c.year) === String(year)
+            : c.month === selMonthStr && String(c.year) === String(year);
+        if (matchesPeriod) {
             if (st !== 'pending' && st !== 'rejected') {
                 if (!currentCollectedMap[c.flat_no]) {
                     currentCollectedMap[c.flat_no] = { ...c, amount: parseFloat(c.amount) };
@@ -521,7 +556,7 @@ async function renderCollectionsData(container, month, year) {
                     currentCollectedMap[c.flat_no].amount += parseFloat(c.amount);
                 }
             }
-            // Track best status for display (Processing / Rejected / Paid badges)
+            // Track best status for display
             const existingSt = currentStatusMap[c.flat_no] || 'rejected';
             if ((statusPriority[st] || 0) > (statusPriority[existingSt] || 0)) {
                 currentStatusMap[c.flat_no] = st;
@@ -613,13 +648,16 @@ async function renderCollectionsData(container, month, year) {
         const rateAmount = activeRate ? parseFloat(activeRate.amount) : 0;
         totalRateSum += rateAmount;
         if (currentCol) totalCollectedAmt += parseFloat(currentCol.amount || 0);
-        const { totalPending } = calcFlatPending(flat, month, year, paidMap, rates);
+        const effectiveMonth = isAllMonths ? 12 : month;
+        const { totalPending } = calcFlatPending(flat, effectiveMonth, year, paidMap, rates);
         totalCumulativePending += totalPending;
     }
 
     const today = new Date().toISOString().split('T')[0];
+    const periodLabel = isAllMonths ? 'this year' : 'this month';
+    const now = new Date();
     let html = `<div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-secondary);display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-        <span>${allFlats.length} flats · ${allFlats.filter(f => currentCollectedMap[f.flat_no]).length} collected this month · ${formatCurrency(totalCollectedAmt)} total collected · <span style="color:var(--color-rose);font-weight:600;">${formatCurrency(totalCumulativePending)} cumulative pending</span></span>
+        <span>${allFlats.length} flats · ${allFlats.filter(f => currentCollectedMap[f.flat_no]).length} collected ${periodLabel} · ${formatCurrency(totalCollectedAmt)} total collected · <span style="color:var(--color-rose);font-weight:600;">${formatCurrency(totalCumulativePending)} cumulative pending</span></span>
         ${isSoftLogin ? `<button class="btn btn-sm" style="font-size:0.7rem;padding:2px 10px;margin-left:auto;" onclick="toggleMaintShowAllFlats()"><i class="fa-solid fa-${showAllFlats ? 'user' : 'building'}"></i> ${showAllFlats ? 'My Flat Only' : 'Show All Flats'}</button>` : ''}
     </div>`;
     html += '<table class="data-table"><thead><tr><th>Flat</th><th>Type</th><th>Owner</th><th>Rate</th><th>Paid</th><th>Cumul. Pending</th><th>Status</th><th>Deposit</th><th>Last Paid</th><th></th></tr></thead><tbody>';
@@ -631,8 +669,8 @@ async function renderCollectionsData(container, month, year) {
         const paidThisMonthAmt = collectedThisMonth ? parseFloat(currentCol.amount) : 0;
         const occFrom = flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : null;
         const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
-        const firstOfMonth = new Date(year, month - 1, 1);
-        const inOccupancy = (!occFrom || firstOfMonth >= occFrom) && (!occTo || firstOfMonth <= occTo);
+        const refDate = new Date(year, isAllMonths ? 11 : month - 1, 1);
+        const inOccupancy = (!occFrom || refDate >= occFrom) && (!occTo || refDate <= occTo);
         const isVacant = flat.occupancy_status === 'vacant' || (flat.occupancy_to && flat.occupancy_to <= today);
         const effectiveInOccupancy = isVacant ? false : inOccupancy;
         
@@ -671,6 +709,7 @@ async function renderCollectionsData(container, month, year) {
         else if (isApproved) rowStatus = 'paid';
         else if (isVacant || !effectiveInOccupancy) rowStatus = 'exempt';
 
+        const buttonMonth = isAllMonths ? (now.getMonth() + 1) : month;
         const searchStr = (flat.flat_no + ' ' + (flat.owner_name ? (window.displayStructured(flat.owner_name, 'name') || flat.owner_name) : '')).toLowerCase();
         html += `<tr data-status="${rowStatus}" data-search="${escapeHtml(searchStr)}" style="${isVacant || !effectiveInOccupancy ? 'opacity:0.5;background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,0.015) 8px,rgba(255,255,255,0.015) 16px);' : ''}">
             <td><strong>${escapeHtml(flat.flat_no)}</strong>${isVacant ? ' <span style="font-size:0.65rem;color:var(--text-muted);font-weight:400;">(vacant)</span>' : ''}</td>
@@ -702,17 +741,17 @@ async function renderCollectionsData(container, month, year) {
                 ? '<span style="font-size:0.75rem;color:var(--color-orange);"><i class="fa-solid fa-hourglass-half"></i> Awaiting approval</span>'
                 : isRejected
                     ? (isOwnFlat
-                        ? `<button class="btn btn-sm" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}",${month},${year},${rateAmount})'><i class="fa-solid fa-rotate"></i> Pay Again</button>`
+                        ? `<button class="btn btn-sm" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}",${buttonMonth},${year},${rateAmount})'><i class="fa-solid fa-rotate"></i> Pay Again</button>`
                         : hasMaintenancePermission('maintenance:collect') && rateAmount > 0
-                            ? `<button class="btn btn-sm" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}",${month},${year},${rateAmount})'><i class="fa-solid fa-hand-holding-dollar"></i> Collect</button>`
+                            ? `<button class="btn btn-sm" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}",${buttonMonth},${year},${rateAmount})'><i class="fa-solid fa-hand-holding-dollar"></i> Collect</button>`
                             : '')
                     : isOwnFlat && !isApproved && effectiveInOccupancy && rateAmount > 0
-                        ? `<button class="btn btn-sm" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}",${month},${year},${rateAmount})'><i class="fa-solid fa-hand-holding-dollar"></i> Pay Now</button>`
+                        ? `<button class="btn btn-sm" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}",${buttonMonth},${year},${rateAmount})'><i class="fa-solid fa-hand-holding-dollar"></i> Pay Now</button>`
                         : (!isApproved || (isApproved && parseFloat(paidThisMonthAmt) < parseFloat(rateAmount))) && effectiveInOccupancy && hasMaintenancePermission('maintenance:collect') && rateAmount > 0
-                            ? `<button class="btn btn-sm" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}",${month},${year},${rateAmount})'><i class="fa-solid fa-hand-holding-dollar"></i> Collect</button>`
-                            : isApproved && isOwnFlat && !showAllFlats
+                            ? `<button class="btn btn-sm" onclick='openIncomeModalForCollection("${flat.flat_no}","${flat.flat_type}",${buttonMonth},${year},${rateAmount})'><i class="fa-solid fa-hand-holding-dollar"></i> Collect</button>`
+                            : isApproved && isOwnFlat && !showAllFlats && !isAllMonths
                                 ? `<button class="btn btn-sm" style="font-size:0.7rem;" onclick='generateReceipt("${(allCollections.filter(c => c.flat_no === flat.flat_no && c.month === selMonthStr && String(c.year) === String(year) && c.status === 'approved').pop() || {}).id || ""}")' title="View Receipt"><i class="fa-solid fa-file-pdf"></i></button>`
-                                : isApproved && hasMaintenancePermission('maintenance:collect') && !showAllFlats
+                                : isApproved && hasMaintenancePermission('maintenance:collect') && !showAllFlats && !isAllMonths
                                     ? `<button class="btn btn-sm" style="font-size:0.7rem;" onclick='generateReceipt("${(allCollections.filter(c => c.flat_no === flat.flat_no && c.month === selMonthStr && String(c.year) === String(year) && c.status === 'approved').pop() || {}).id || ""}")' title="View Receipt"><i class="fa-solid fa-file-pdf"></i></button>`
                                     : ''
             }</td>
@@ -1673,11 +1712,19 @@ async function getCalYearStatementData(year) {
         flatMonthPaid[inc.flat_no][inc.month] = (flatMonthPaid[inc.flat_no][inc.month] || 0) + parseFloat(inc.amount);
     }
 
-    const { data: allFlats } = await sbClient.from('owners')
+    let { data: allFlats } = await sbClient.from('owners')
         .select('flat_no, flat_type, owner_name, occupancy_status, occupancy_from, occupancy_to')
         .order('flat_no');
 
     if (!allFlats || allFlats.length === 0) return null;
+
+    // Soft login: only show the user's own flat
+    const isSoftLogin = localStorage.getItem('isSoftLogin') === 'true';
+    if (isSoftLogin) {
+        const myFlat = localStorage.getItem('currentFlatNo') || '';
+        allFlats = allFlats.filter(f => f.flat_no === myFlat);
+        if (allFlats.length === 0) return null;
+    }
 
     const { data: older } = await sbClient.from('income')
         .select('flat_no, month, year, amount, status')
@@ -1779,8 +1826,8 @@ window.exportFYStatementPDF = async function(year) {
     if (!data || data.rows.length === 0) { showToast('No data to export.', 'info'); return; }
 
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
-    const pageW = 420, pageH = 297, margin = 8;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = 297, pageH = 210, margin = 8;
     const contentW = pageW - 2 * margin;
     let y = margin;
 
@@ -1789,52 +1836,52 @@ window.exportFYStatementPDF = async function(year) {
     }
     const fmt = v => v ? Math.round(v).toLocaleString('en-IN') : '—';
 
-    doc.setFontSize(11);
-    doc.text(_pdfText('Year Statement - ' + year), pageW / 2, y + 6, { align: 'center' });
-    y += 12;
+    doc.setFontSize(10);
+    doc.text(_pdfText('Year Statement - ' + year), pageW / 2, y + 5, { align: 'center' });
+    y += 10;
 
-    const headers = ['Flat No', 'Name', 'B/F'];
+    const headers = ['Sr', 'Flat No', 'Name', 'B/F'];
     data.calMonths.forEach(m => headers.push(m.substring(0, 3).toUpperCase()));
-    headers.push('Total', 'Cumulative');
+    headers.push('Total', 'Cum');
 
-    const colW = [18, 44, 20];
-    data.calMonths.forEach(() => colW.push(18));
-    colW.push(22, 22);
+    const colW = [8, 14, 28, 14];
+    data.calMonths.forEach(() => colW.push(12));
+    colW.push(16, 16);
     const sumColW = colW.reduce((s, w) => s + w, 0);
     const scale = sumColW > contentW ? contentW / sumColW : 1;
     const scaledW = colW.map(w => w * scale);
 
-    doc.setFontSize(6);
+    doc.setFontSize(5.5);
     doc.setFillColor(15, 23, 42);
     doc.setTextColor(255, 255, 255);
-    doc.rect(margin, y, contentW, 5, 'F');
+    doc.rect(margin, y, contentW, 4.5, 'F');
     let x = margin + 1;
     headers.forEach((h, i) => {
-        const align = i >= 2 ? 'right' : 'left';
+        const align = i >= 3 ? 'right' : 'left';
         const px = align === 'right' ? x + scaledW[i] - 0.5 : x + 0.5;
-        doc.text(doc.splitTextToSize(h, scaledW[i] - 1), px, y + 2.5, { align: align });
+        doc.text(doc.splitTextToSize(h, scaledW[i] - 1), px, y + 2.2, { align: align });
         x += scaledW[i];
     });
-    y += 5;
+    y += 4.5;
 
     doc.setTextColor(30, 30, 30);
     let rowIdx = 0;
     for (const r of data.rows) {
         checkPage(5);
-        if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 4.5, 'F'); }
+        if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 4, 'F'); }
         x = margin + 1;
         const vals = [
-            String(r.flat_no), r.name, fmt(r.bf),
+            String(rowIdx + 1), String(r.flat_no), r.name, fmt(r.bf),
             ...data.calMonths.map(m => fmt(r.monthlyPaid[m])),
             fmt(r.yearTotal), fmt(r.cumulative)
         ];
         vals.forEach((v, i) => {
-            const align = i >= 2 ? 'right' : 'left';
+            const align = i >= 3 ? 'right' : 'left';
             const px = align === 'right' ? x + scaledW[i] - 0.5 : x + 0.5;
-            doc.text(v, px, y + 3, { align: align, maxWidth: scaledW[i] - 1 });
+            doc.text(v, px, y + 2.7, { align: align, maxWidth: scaledW[i] - 1 });
             x += scaledW[i];
         });
-        y += 4.5;
+        y += 4;
         rowIdx++;
     }
 
@@ -1842,17 +1889,17 @@ window.exportFYStatementPDF = async function(year) {
     doc.setDrawColor(15, 23, 42);
     doc.setLineWidth(0.3);
     doc.line(margin, y, pageW - margin, y);
-    y += 1;
+    y += 0.5;
     x = margin + 1;
     const totalVals = [
-        'TOTAL', '', fmt(data.grandBroughtForward),
+        '', 'TOTAL', '', fmt(data.grandBroughtForward),
         ...data.calMonths.map(m => fmt(data.grandMonths[m])),
         fmt(data.grandYearTotal), fmt(data.grandCumulative)
     ];
     totalVals.forEach((v, i) => {
-        const align = i >= 2 ? 'right' : 'left';
+        const align = i >= 3 ? 'right' : 'left';
         const px = align === 'right' ? x + scaledW[i] - 0.5 : x + 0.5;
-        doc.text(v, px, y + 3, { align: align, maxWidth: scaledW[i] - 1 });
+        doc.text(v, px, y + 2.7, { align: align, maxWidth: scaledW[i] - 1 });
         x += scaledW[i];
     });
 
