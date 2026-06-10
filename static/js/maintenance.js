@@ -1702,28 +1702,14 @@ async function getCalYearStatementData(year) {
     }
 
     const broughtForward = {};
-    const calcRate = (ft, m, y) => {
-        const ds = y + '-' + String(calMonths.indexOf(m) + 1).padStart(2, '0') + '-01';
-        const r = getRateOnDate(ft, rates, ds);
-        return r ? parseFloat(r.amount) : 0;
-    };
-
     for (const flat of allFlats) {
-        let pending = 0;
-        const occFrom = flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : null;
-        const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
-        const isVacant = flat.occupancy_status === 'vacant' || (occTo && occTo <= new Date(year - 1, 11, 31));
-        if (isVacant) { broughtForward[flat.flat_no] = 0; continue; }
+        let totalCollected = 0;
         for (const pm of allMonthsBefore) {
-            const pmDate = new Date(pm.year, calMonths.indexOf(pm.month), 1);
-            if (occFrom && pmDate < occFrom) continue;
-            if (occTo && pmDate > occTo) continue;
             const key = pm.month + '-' + pm.year;
             const paid = (olderPaidMap[flat.flat_no] && olderPaidMap[flat.flat_no][key]) || 0;
-            const rate = calcRate(flat.flat_type, pm.month, pm.year);
-            if (rate > 0 && paid < rate) pending += rate - paid;
+            totalCollected += paid;
         }
-        broughtForward[flat.flat_no] = pending;
+        broughtForward[flat.flat_no] = totalCollected;
     }
 
     const rows = [];
