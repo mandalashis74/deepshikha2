@@ -1810,7 +1810,9 @@ window.exportFYStatementPDF = async function(year) {
     doc.rect(margin, y, contentW, 5, 'F');
     let x = margin + 1;
     headers.forEach((h, i) => {
-        doc.text(doc.splitTextToSize(h, scaledW[i] - 1), x + 0.5, y + 2.5);
+        const align = i >= 2 ? 'right' : 'left';
+        const px = align === 'right' ? x + scaledW[i] - 0.5 : x + 0.5;
+        doc.text(doc.splitTextToSize(h, scaledW[i] - 1), px, y + 2.5, { align: align });
         x += scaledW[i];
     });
     y += 5;
@@ -1827,7 +1829,9 @@ window.exportFYStatementPDF = async function(year) {
             fmt(r.yearTotal), fmt(r.cumulative)
         ];
         vals.forEach((v, i) => {
-            doc.text(v, x + 0.5, y + 3, { maxWidth: scaledW[i] - 1 });
+            const align = i >= 2 ? 'right' : 'left';
+            const px = align === 'right' ? x + scaledW[i] - 0.5 : x + 0.5;
+            doc.text(v, px, y + 3, { align: align, maxWidth: scaledW[i] - 1 });
             x += scaledW[i];
         });
         y += 4.5;
@@ -1846,7 +1850,9 @@ window.exportFYStatementPDF = async function(year) {
         fmt(data.grandYearTotal), fmt(data.grandCumulative)
     ];
     totalVals.forEach((v, i) => {
-        doc.text(v, x + 0.5, y + 3, { maxWidth: scaledW[i] - 1 });
+        const align = i >= 2 ? 'right' : 'left';
+        const px = align === 'right' ? x + scaledW[i] - 0.5 : x + 0.5;
+        doc.text(v, px, y + 3, { align: align, maxWidth: scaledW[i] - 1 });
         x += scaledW[i];
     });
 
