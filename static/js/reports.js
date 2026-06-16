@@ -128,7 +128,7 @@ async function getCashbookDatewise(startDate, endDate) {
     const ownersMap = {};
     if (owners) {
         owners.forEach(o => {
-            ownersMap[o.flat_no] = o.owner_name;
+            ownersMap[o.flat_no] = window.displayStructured(o.owner_name, 'name') || o.owner_name;
         });
     }
     
@@ -290,7 +290,7 @@ async function getIncomeExpenditure(year) {
     const ownersMap = {};
     if (owners) {
         owners.forEach(o => {
-            ownersMap[o.flat_no] = o.owner_name;
+            ownersMap[o.flat_no] = window.displayStructured(o.owner_name, 'name') || o.owner_name;
         });
     }
     
