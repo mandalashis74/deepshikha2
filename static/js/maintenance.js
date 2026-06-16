@@ -51,6 +51,51 @@ function getRateOnDate(flatType, rates, dateStr) {
     return matching.length > 0 ? matching.reduce((a, b) => a.effective_from > b.effective_from ? a : b) : null;
 }
 
+// Occupancy history helpers
+let _allOccupancyHistory = null;
+let _histByFlat = {};
+async function loadAllOccupancyHistory() {
+    if (_allOccupancyHistory) return { history: _allOccupancyHistory, byFlat: _histByFlat };
+    try {
+        const { data } = await sbClient.from('occupancy_history').select('*').order('occupancy_from');
+        _allOccupancyHistory = data || [];
+        _histByFlat = {};
+        for (const h of _allOccupancyHistory) {
+            if (!_histByFlat[h.flat_no]) _histByFlat[h.flat_no] = [];
+            _histByFlat[h.flat_no].push(h);
+        }
+    } catch { _allOccupancyHistory = []; _histByFlat = {}; }
+    return { history: _allOccupancyHistory, byFlat: _histByFlat };
+}
+
+function clearOccupancyHistoryCache() { _allOccupancyHistory = null; _histByFlat = {}; }
+
+function getPeriodsForFlat(flat, histByFlat) {
+    const hist = histByFlat[flat.flat_no];
+    if (hist && hist.length > 0) return hist;
+    // Fall back to flat's occupancy fields
+    if (flat.occupancy_from || flat.occupancy_to) {
+        return [{
+            occupancy_from: flat.occupancy_from,
+            occupancy_to: flat.occupancy_to,
+            occupancy_type: flat.occupancy_status === 'tenant-occupied' ? 'tenant' : 'owner'
+        }];
+    }
+    return [];
+}
+
+function isMonthInPeriods(month, year, periods) {
+    for (const p of periods) {
+        const fromDate = p.occupancy_from ? new Date(p.occupancy_from + 'T00:00:00') : null;
+        const toDate = p.occupancy_to ? new Date(p.occupancy_to + 'T00:00:00') : null;
+        const checkDate = new Date(year, month - 1, 1);
+        if (fromDate && checkDate < fromDate) continue;
+        if (toDate && checkDate > toDate) continue;
+        return true;
+    }
+    return false;
+}
+
 window.openMaintenanceModal = async function() {
     if (!hasMaintenancePermission('maintenance:view')) {
         showToast('Access Denied.', 'error'); return;
@@ -518,6 +563,7 @@ async function renderCollectionsTab(container, toolbar) {
 async function renderCollectionsData(container, month, year) {
     container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
 
+    const { byFlat: histByFlat } = await loadAllOccupancyHistory();
     const rates = await loadRates();
     const isAllMonths = !month || month === 0;
     
@@ -595,15 +641,29 @@ async function renderCollectionsData(container, month, year) {
     }
 
     // Helper: calculate total pending amount for a flat considering partial payments
-    function calcFlatPending(flat, upToMonth, upToYear, collMap, ratesList) {
-        const occFrom = flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : null;
-        const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
+    function calcFlatPending(flat, upToMonth, upToYear, collMap, ratesList, periods) {
+        periods = periods || getPeriodsForFlat(flat, histByFlat);
+        if (periods.length === 0 && !flat.occupancy_from && !flat.occupancy_to) return { totalPending: 0, unpaidCount: 0 };
         const mNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
         
+        let totalPending = 0;
+        let unpaidCount = 0;
+        // Determine date range to scan: from min period start (or 12mo ago) to upToMonth
+        let earliestFrom = null;
+        for (const p of periods) {
+            if (p.occupancy_from) {
+                const d = new Date(p.occupancy_from + 'T00:00:00');
+                if (!earliestFrom || d < earliestFrom) earliestFrom = d;
+            }
+        }
         let startM, startY;
-        if (occFrom) {
-            startM = occFrom.getMonth() + 1;
-            startY = occFrom.getFullYear();
+        if (earliestFrom) {
+            startM = earliestFrom.getMonth() + 1;
+            startY = earliestFrom.getFullYear();
+        } else if (flat.occupancy_from) {
+            const d = new Date(flat.occupancy_from + 'T00:00:00');
+            startM = d.getMonth() + 1;
+            startY = d.getFullYear();
         } else {
             const d = new Date(upToYear, upToMonth - 1);
             d.setMonth(d.getMonth() - 12);
@@ -612,18 +672,35 @@ async function renderCollectionsData(container, month, year) {
         }
         
         let endM = upToMonth, endY = upToYear;
-        if (occTo && occTo <= new Date(upToYear, upToMonth - 1, 1)) {
-            endM = occTo.getMonth() + 1;
-            endY = occTo.getFullYear();
+        // Also cap at the latest period's occupancy_to if it ended before selected month
+        for (const p of periods) {
+            if (p.occupancy_to) {
+                const d = new Date(p.occupancy_to + 'T00:00:00');
+                const dm = d.getMonth() + 1;
+                const dy = d.getFullYear();
+                if (dy < endY || (dy === endY && dm < endM)) {
+                    endM = dm; endY = dy;
+                }
+            }
+        }
+        if (flat.occupancy_to) {
+            const d = new Date(flat.occupancy_to + 'T00:00:00');
+            const dm = d.getMonth() + 1;
+            const dy = d.getFullYear();
+            if (dy < endY || (dy === endY && dm < endM)) {
+                endM = dm; endY = dy;
+            }
         }
         
-        let totalPending = 0;
-        let unpaidCount = 0;
         let ym = startY * 12 + startM;
         const endYm = endY * 12 + endM;
         while (ym <= endYm) {
             const m = ((ym - 1) % 12) + 1;
             const y = Math.floor((ym - 1) / 12);
+            // Skip months not in any occupancy period
+            if (!isMonthInPeriods(m, y, periods) && !(periods.length === 0 && flat.occupancy_from)) {
+                ym++; continue;
+            }
             const key = mNames[m - 1] + '-' + y;
             const dateStr = y + '-' + String(m).padStart(2, '0') + '-01';
             const rate = getRateOnDate(flat.flat_type, ratesList, dateStr);
@@ -1038,6 +1115,7 @@ function showMultiMonthPlaceholder() {
 
 window.buildMultiMonthGrid = async function(flatNo, flatType, rates) {
     if (!rates) rates = await loadRates();
+    const { byFlat: histByFlat } = await loadAllOccupancyHistory();
     
     // Fetch flat info
     let flatInfo = null;
@@ -1065,6 +1143,7 @@ window.buildMultiMonthGrid = async function(flatNo, flatType, rates) {
         collAmounts[key] = (collAmounts[key] || 0) + parseFloat(c.amount);
     }
 
+    const periods = flatInfo ? getPeriodsForFlat(flatInfo, histByFlat) : [];
     const occFrom = flatInfo?.occupancy_from ? new Date(flatInfo.occupancy_from + 'T00:00:00') : null;
     const occTo = flatInfo?.occupancy_to ? new Date(flatInfo.occupancy_to + 'T00:00:00') : null;
     const now = new Date();
@@ -1101,7 +1180,7 @@ window.buildMultiMonthGrid = async function(flatNo, flatType, rates) {
         const isPartial = totalPaid > 0 && totalPaid < rateAmt;
         // Skip fully paid months entirely
         if (isFullyPaid) { ym++; continue; }
-        const isOccupied = (!occFrom || new Date(y, m - 1, 1) >= occFrom) && (!occTo || new Date(y, m - 1, 1) <= occTo);
+        const isOccupied = periods.length > 0 ? isMonthInPeriods(m, y, periods) : ((!occFrom || new Date(y, m - 1, 1) >= occFrom) && (!occTo || new Date(y, m - 1, 1) <= occTo));
         const isFuture = ym > currentYm;
         const hasRate = rateAmt > 0;
         const remaining = rateAmt - totalPaid;
@@ -1268,6 +1347,7 @@ window.closeModal = function(modalId) {
 };
 
 async function renderArrearsTab(container, toolbar) {
+    const { byFlat: histByFlat } = await loadAllOccupancyHistory();
     const rates = await loadRates();
     let allFlats = [];
     try {
@@ -1315,12 +1395,9 @@ async function renderArrearsTab(container, toolbar) {
         let pendingAmount = 0;
         let pendingCount = 0;
         let lastPaid = null;
-        const occFrom = flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : null;
-        const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
+        const periods = getPeriodsForFlat(flat, histByFlat);
         for (const pm of pendingMonths) {
-            const pmDate = new Date(pm.year, pm.month - 1, 1);
-            if (occFrom && pmDate < occFrom) continue;
-            if (occTo && pmDate > occTo) continue;
+            if (!isMonthInPeriods(pm.month, pm.year, periods) && !(periods.length === 0 && flat.occupancy_from)) continue;
             const key = flat.flat_no + '|' + pm.month + '|' + pm.year;
             if (!collectionSet.has(key)) {
                 const rate = getRateOnDate(flat.flat_type, rates, `${pm.year}-${String(pm.month).padStart(2,'0')}-01`);
@@ -1369,6 +1446,8 @@ async function renderArrearsTab(container, toolbar) {
 async function renderFlatwiseData(container, flatNo) {
     container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
 
+    const { byFlat: histByFlat } = await loadAllOccupancyHistory();
+
     const [flatRes, rates, collections] = await Promise.all([
         sbClient.from('owners').select('*').eq('flat_no', flatNo).maybeSingle(),
         loadRates(),
@@ -1381,6 +1460,7 @@ async function renderFlatwiseData(container, flatNo) {
         return;
     }
 
+    const periods = getPeriodsForFlat(flat, histByFlat);
     const collData = collections.data || [];
     const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -1391,7 +1471,15 @@ async function renderFlatwiseData(container, flatNo) {
     }
 
     const now = new Date();
-    const occFrom = flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : new Date(now.getFullYear() - 1, now.getMonth(), 1);
+    // Determine date range from periods (or fallback)
+    let earliestFrom = null;
+    for (const p of periods) {
+        if (p.occupancy_from) {
+            const d = new Date(p.occupancy_from + 'T00:00:00');
+            if (!earliestFrom || d < earliestFrom) earliestFrom = d;
+        }
+    }
+    const occFrom = earliestFrom || (flat.occupancy_from ? new Date(flat.occupancy_from + 'T00:00:00') : new Date(now.getFullYear() - 1, now.getMonth(), 1));
     const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
     function getEndLimit() {
         const curYm = now.getFullYear() * 12 + now.getMonth() + 2;
@@ -1427,7 +1515,7 @@ async function renderFlatwiseData(container, flatNo) {
 
         const col = collMap[key];
         const isVacant = flat.occupancy_status === 'vacant';
-        const inOccupancy = (!occFrom || new Date(dateStr) >= occFrom) && (!occTo || new Date(dateStr) <= occTo);
+        const inOccupancy = isMonthInPeriods(m, y, periods) || (!periods.length && (!occFrom || new Date(dateStr) >= occFrom) && (!occTo || new Date(dateStr) <= occTo));
         const exempt = isVacant || !inOccupancy;
 
         let paidAmt = 0, statusText = '', statusColor = '';

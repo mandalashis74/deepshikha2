@@ -455,6 +455,18 @@ window.selectFlatForEdit = function(flatNo) {
                     </div>
                 </div>
 
+                <div class="input-field" style="margin-top:16px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.06);">
+                    <details>
+                        <summary style="cursor:pointer; font-weight:600; font-size:0.8rem; color:var(--text-muted);">
+                            <i class="fa-regular fa-clock"></i> Occupancy History
+                        </summary>
+                        <div id="occupancy-history-list-${item.flat_no}" style="margin-top:8px; font-size:0.75rem;">
+                            <span style="color:var(--text-muted);">Loading...</span>
+                        </div>
+                        ${canEdit ? `<button type="button" class="btn btn-slate" onclick="addOccupancyPeriod('${item.flat_no}')" style="margin-top:6px; font-size:0.75rem; padding:4px 10px;"><i class="fa-solid fa-plus"></i> Add Period</button>` : ''}
+                    </details>
+                </div>
+
                 <div class="input-field">
                     <label><i class="fa-solid fa-layer-group" style="color:var(--color-violet);width:16px;margin-right:6px;"></i> Flat Type</label>
                     <span class="field-display" id="display-flat-type">${escapeHtml(item.flat_type || '—')}</span>
@@ -511,6 +523,8 @@ window.selectFlatForEdit = function(flatNo) {
             </form>
         </div>
     `;
+    // Load occupancy history
+    loadOccupancyHistory(flatNo);
 };
 
 window.togglePasscodeVisibility = function() {
@@ -650,6 +664,105 @@ window.saveOwnerProfile = async function(e) {
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Profile';
         }
+    }
+};
+
+// Occupancy History Management
+window.loadOccupancyHistory = async function(flatNo) {
+    const container = document.getElementById(`occupancy-history-list-${flatNo}`);
+    if (!container) return;
+    try {
+        const { data: periods } = await sbClient.from('occupancy_history').select('*').eq('flat_no', flatNo).order('occupancy_from', { ascending: false });
+        if (!periods || periods.length === 0) {
+            container.innerHTML = '<span style="color:var(--text-muted);">No history — using flat occupancy dates.</span>';
+            return;
+        }
+        container.innerHTML = periods.map(p => {
+            const label = p.occupancy_type === 'owner' ? 'Owner' : 'Tenant';
+            const name = p.owner_name ? JSON.parse(p.owner_name)?.[0]?.name || p.owner_name : '';
+            const fromDate = p.occupancy_from || '?';
+            const toDate = p.occupancy_to || 'Present';
+            return `<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+                <span><strong>${label}</strong> ${escapeHtml(name)} — ${fromDate} to ${toDate}</span>
+                <button type="button" class="btn btn-rose" style="padding:2px 8px; font-size:0.65rem;" onclick="deleteOccupancyPeriod('${p.id}', '${flatNo}')"><i class="fa-solid fa-trash-can"></i></button>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        console.warn("loadOccupancyHistory error:", e);
+        container.innerHTML = '<span style="color:var(--color-rose);">Could not load history.</span>';
+    }
+};
+
+window.addOccupancyPeriod = async function(flatNo) {
+    const item = allOwnersData.find(o => o.flat_no === flatNo);
+    if (!item) return;
+    // Show a simple inline prompt form
+    const html = `
+        <div id="add-period-form-${flatNo}" style="background:rgba(255,255,255,0.04); border-radius:8px; padding:10px; margin-top:8px; display:flex; flex-direction:column; gap:6px;">
+            <select id="add-period-type-${flatNo}" style="padding:4px 8px; border-radius:4px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-primary);">
+                <option value="owner">Owner</option>
+                <option value="tenant">Tenant</option>
+            </select>
+            <input id="add-period-name-${flatNo}" type="text" placeholder="Name" value="" style="padding:4px 8px; border-radius:4px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-primary);">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                <input id="add-period-from-${flatNo}" type="date" style="padding:4px 8px; border-radius:4px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-primary);">
+                <input id="add-period-to-${flatNo}" type="date" placeholder="To (optional)" style="padding:4px 8px; border-radius:4px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-primary);">
+            </div>
+            <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-emerald" style="flex:1; padding:4px;" onclick="saveOccupancyPeriod('${flatNo}')"><i class="fa-solid fa-check"></i> Save</button>
+                <button type="button" class="btn btn-slate" style="flex:1; padding:4px;" onclick="cancelAddOccupancyPeriod('${flatNo}')"><i class="fa-solid fa-xmark"></i> Cancel</button>
+            </div>
+        </div>
+    `;
+    const container = document.getElementById(`occupancy-history-list-${flatNo}`);
+    if (container) container.insertAdjacentHTML('afterend', html);
+};
+
+window.cancelAddOccupancyPeriod = function(flatNo) {
+    const form = document.getElementById(`add-period-form-${flatNo}`);
+    if (form) form.remove();
+};
+
+window.saveOccupancyPeriod = async function(flatNo) {
+    const type = document.getElementById(`add-period-type-${flatNo}`)?.value;
+    const name = document.getElementById(`add-period-name-${flatNo}`)?.value.trim();
+    const fromDate = document.getElementById(`add-period-from-${flatNo}`)?.value;
+    const toDate = document.getElementById(`add-period-to-${flatNo}`)?.value || null;
+    if (!type || !fromDate) {
+        showToast("Please select type and from-date.", "error");
+        return;
+    }
+    try {
+        const ownerName = name ? JSON.stringify([{ name }]) : '';
+        const { error } = await sbClient.from('occupancy_history').insert({
+            flat_no: flatNo,
+            owner_name: ownerName,
+            occupancy_type: type,
+            occupancy_from: fromDate,
+            occupancy_to: toDate
+        });
+        if (error) throw error;
+        showToast("Occupancy period added.", "success");
+        cancelAddOccupancyPeriod(flatNo);
+        if (window.clearOccupancyHistoryCache) window.clearOccupancyHistoryCache();
+        loadOccupancyHistory(flatNo);
+    } catch (e) {
+        console.error("saveOccupancyPeriod error:", e);
+        showToast(e.message, "error");
+    }
+};
+
+window.deleteOccupancyPeriod = async function(id, flatNo) {
+    if (!confirm("Delete this occupancy period?")) return;
+    try {
+        const { error } = await sbClient.from('occupancy_history').delete().eq('id', id);
+        if (error) throw error;
+        showToast("Occupancy period deleted.", "success");
+        if (window.clearOccupancyHistoryCache) window.clearOccupancyHistoryCache();
+        loadOccupancyHistory(flatNo);
+    } catch (e) {
+        console.error("deleteOccupancyPeriod error:", e);
+        showToast(e.message, "error");
     }
 };
 
