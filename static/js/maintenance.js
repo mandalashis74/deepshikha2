@@ -870,8 +870,8 @@ function exportCollectionsPDF(month, year, monthName) {
     doc.text(_pdfText('Maintenance Collections - ' + monthName + ' ' + year), pageW / 2, y + 5, { align: 'center' });
     y += 12;
 
-    const headers = ['Flat', 'Type', 'Owner', 'Rate', 'Paid', 'Pending', 'Status', 'Last Paid'];
-    const colW = [14, 12, 48, 18, 18, 20, 18, 38];
+    const headers = ['Sr', 'Flat', 'Type', 'Owner', 'Rate', 'Paid', 'Pending', 'Status', 'Last Paid'];
+    const colW = [8, 14, 12, 48, 18, 18, 20, 18, 38];
     const visible = table.querySelectorAll('tbody tr:not([style*="display:none"]):not([style*="display: none"])');
     doc.setFontSize(7);
     doc.setFillColor(15, 23, 42);
@@ -890,10 +890,14 @@ function exportCollectionsPDF(month, year, monthName) {
         if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 7, 'F'); }
         const tds = tr.querySelectorAll('td');
         x = margin + 1;
-        for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
-            doc.text(_pdfText(tds[i].textContent).substring(0, 40), x + 1, y + 4, { maxWidth: colW[i] - 2 });
-            x += colW[i];
+        const vals = [String(rowIdx + 1)];
+        for (let i = 0; i < Math.min(tds.length, headers.length - 1); i++) {
+            vals.push(_pdfText(tds[i].textContent).substring(0, 40));
         }
+        vals.forEach((v, i) => {
+            doc.text(v, x + 1, y + 4, { maxWidth: colW[i] - 2 });
+            x += colW[i];
+        });
         y += 7;
         rowIdx++;
     });
@@ -908,8 +912,8 @@ function exportCollectionsPDF(month, year, monthName) {
     if (lastTr) {
         const tds = lastTr.querySelectorAll('td');
         // HTML total row: td[0]="Total"(colspan3), td[1]=Rate, td[2]=Paid, td[3]=Pending, td[4]=""(colspan4)
-        // PDF cols: Flat, Type, Owner, Rate, Paid, Pending, Status, Last Paid
-        const vals = [_pdfText(tds[0].textContent), '', '',
+        // PDF cols: Sr, Flat, Type, Owner, Rate, Paid, Pending, Status, Last Paid
+        const vals = ['', _pdfText(tds[0].textContent), '', '',
             _pdfText(tds[1].textContent || ''),
             _pdfText(tds[2].textContent || ''),
             _pdfText(tds[3].textContent || ''),
