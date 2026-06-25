@@ -618,6 +618,9 @@ async function renderCollectionsData(container, month, year) {
         if (data) allFlats = data;
     } catch { allFlats = []; }
 
+    // Exclude unsold flats from maintenance charges
+    allFlats = allFlats.filter(f => f.occupancy_status !== 'unsold');
+
     if (allFlats.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-building"></i><br>No flats found. Import owners first.</div>';
         return;
@@ -720,7 +723,6 @@ async function renderCollectionsData(container, month, year) {
     let totalCollectedAmt = 0;
     let totalRateSum = 0;
     for (const flat of allFlats) {
-        if (flat.occupancy_status === 'unsold') continue;
         const currentCol = currentCollectedMap[flat.flat_no];
         const activeRate = getActiveRate(flat.flat_type, rates);
         const rateAmount = activeRate ? parseFloat(activeRate.amount) : 0;
@@ -1355,6 +1357,9 @@ async function renderArrearsTab(container, toolbar) {
         const { data } = await sbClient.from('owners').select('flat_no, flat_type, owner_name, occupancy_status, occupancy_from, occupancy_to').order('flat_no');
         if (data) allFlats = data;
     } catch { allFlats = []; }
+
+    // Exclude unsold flats
+    allFlats = allFlats.filter(f => f.occupancy_status !== 'unsold');
 
     if (allFlats.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-building"></i><br>No flats found.</div>';
