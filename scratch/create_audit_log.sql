@@ -19,14 +19,15 @@ ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if any
 DROP POLICY IF EXISTS "Super admin can read audit log" ON audit_log;
+DROP POLICY IF EXISTS "Admin can read audit log" ON audit_log;
 DROP POLICY IF EXISTS "Authenticated can insert audit log" ON audit_log;
 
--- Only super_admin can read
-CREATE POLICY "Super admin can read audit log" ON audit_log
+-- Only super_admin and admin can read
+CREATE POLICY "Admin can read audit log" ON audit_log
     FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM profiles
-            WHERE id = auth.uid() AND role = 'super_admin'
+            WHERE id = auth.uid() AND (role = 'super_admin' OR role = 'admin')
         )
     );
 

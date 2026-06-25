@@ -803,7 +803,7 @@ window.applyRbacRestrictions = function(role) {
     setBlock("side-admin-label", hasAdminAccess);
     setBlock("side-admin-nav", hasAdminAccess);
     setNav("side-manage-committee", window.hasPermission('committee:manage'));
-    setNav("side-audit-trail", window.currentUserRole === 'super_admin');
+    setNav("side-audit-trail", window.currentUserRole === 'super_admin' || window.currentUserRole === 'admin');
     
     setBlock("workspace", canViewDashboard);
     
@@ -1401,6 +1401,17 @@ window.logAudit = async function(action, details) {
 window.openAuditTrailModal = async function() {
     openModal('auditTrailModal');
     document.getElementById('audit-table-body').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; color:var(--text-muted);">Loading...</td></tr>';
+
+    // Load superadmin config for exclusion
+    try {
+        const { data: cfg } = await sbClient.from('building_config').select('super_admin_email').single();
+        if (cfg?.super_admin_email) {
+            window._hiddenSuperAdminEmails = cfg.super_admin_email.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+        } else {
+            window._hiddenSuperAdminEmails = [];
+        }
+    } catch { window._hiddenSuperAdminEmails = []; }
+
     // Populate filter dropdown
     const filter = document.getElementById('audit-filter');
     filter.innerHTML = '<option value="">All Actions</option>';
@@ -1431,6 +1442,11 @@ window.renderAuditTrail = async function() {
             return;
         }
         let rows = data;
+        // Exclude superadmin activities configured in building setup
+        const hidden = window._hiddenSuperAdminEmails || [];
+        if (hidden.length > 0) {
+            rows = rows.filter(r => !hidden.includes((r.user_email || '').toLowerCase()));
+        }
         if (search) {
             rows = data.filter(r =>
                 (r.action || '').toLowerCase().includes(search) ||
