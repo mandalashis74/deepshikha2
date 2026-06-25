@@ -883,7 +883,9 @@ function exportCollectionsPDF(month, year, monthName) {
 
     doc.setTextColor(30, 30, 30);
     let rowIdx = 0;
-    visible.forEach(tr => {
+    const rowCount = visible.length - 1; // exclude the HTML total row
+    visible.forEach((tr, idx) => {
+        if (idx === rowCount) return; // skip the HTML total row
         checkPage(7);
         if (rowIdx % 2 === 1) { doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 7, 'F'); }
         const tds = tr.querySelectorAll('td');
@@ -905,11 +907,18 @@ function exportCollectionsPDF(month, year, monthName) {
     const lastTr = table.querySelector('tbody tr:last-child');
     if (lastTr) {
         const tds = lastTr.querySelectorAll('td');
+        // HTML total row: td[0]="Total"(colspan3), td[1]=Rate, td[2]=Paid, td[3]=Pending, td[4]=""(colspan4)
+        // PDF cols: Flat, Type, Owner, Rate, Paid, Pending, Status, Last Paid
+        const vals = [_pdfText(tds[0].textContent), '', '',
+            _pdfText(tds[1].textContent || ''),
+            _pdfText(tds[2].textContent || ''),
+            _pdfText(tds[3].textContent || ''),
+            '', ''];
         x = margin + 1;
-        for (let i = 0; i < Math.min(tds.length, headers.length); i++) {
-            doc.text(_pdfText(tds[i].textContent), x + 1, y + 3, { maxWidth: colW[i] - 2 });
+        vals.forEach((v, i) => {
+            doc.text(v, x + 1, y + 4, { maxWidth: colW[i] - 2 });
             x += colW[i];
-        }
+        });
     }
 
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
