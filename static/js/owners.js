@@ -137,6 +137,9 @@ function renderOwnersGrid(data, filterText = "", floorText = "") {
         } else if (item.occupancy_status === 'vacant') {
             statusText = "Vacant";
             badgeClass = "badge-expense";
+        } else if (item.occupancy_status === 'unsold') {
+            statusText = "Unsold";
+            badgeClass = "badge-expense";
         }
         
         // Soft login: highlight own flat, dim others
@@ -360,13 +363,14 @@ window.selectFlatForEdit = function(flatNo) {
     const isOwnFlat = localStorage.getItem("isSoftLogin") === "true" && localStorage.getItem("currentFlatNo") === flatNo;
     const canEdit = canEditAny || (hasPermission('owners:edit_own') && isOwnFlat);
     
-    const statusColor = item.occupancy_status === 'vacant' ? 'var(--color-rose)' : item.occupancy_status === 'tenant-occupied' ? 'var(--color-orange)' : 'var(--color-emerald)';
-    const statusIcon = item.occupancy_status === 'vacant' ? 'fa-door-closed' : item.occupancy_status === 'tenant-occupied' ? 'fa-user-tie' : 'fa-house-chimney-user';
+    const statusColor = item.occupancy_status === 'vacant' || item.occupancy_status === 'unsold' ? 'var(--color-rose)' : item.occupancy_status === 'tenant-occupied' ? 'var(--color-orange)' : 'var(--color-emerald)';
+    const statusIcon = item.occupancy_status === 'vacant' ? 'fa-door-closed' : item.occupancy_status === 'unsold' ? 'fa-building' : item.occupancy_status === 'tenant-occupied' ? 'fa-user-tie' : 'fa-house-chimney-user';
     
     const statusOptions = [
         { value: 'owner-occupied', label: 'Owner Occupied' },
         { value: 'tenant-occupied', label: 'Tenant Occupied' },
-        { value: 'vacant', label: 'Vacant' }
+        { value: 'vacant', label: 'Vacant' },
+        { value: 'unsold', label: 'Unsold' }
     ];
     
     let selectHTML = `<select id="edit-status" onchange="autoFillOccupancyTo()" disabled>`;

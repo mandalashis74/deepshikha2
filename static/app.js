@@ -156,10 +156,10 @@ window.loadDashStats = async function() {
     });
     const owners = ownersResult || [];
     const totalFlats = owners.length;
-    const occupied = owners.filter(o => o.occupancy_status && o.occupancy_status !== 'vacant').length;
+    const occupied = owners.filter(o => o.occupancy_status && o.occupancy_status !== 'vacant' && o.occupancy_status !== 'unsold').length;
     const ownerOcc = owners.filter(o => o.occupancy_status === 'owner-occupied').length;
     const tenantOcc = owners.filter(o => o.occupancy_status === 'tenant-occupied').length;
-    const vacant = owners.filter(o => !o.occupancy_status || o.occupancy_status === 'vacant').length;
+    const vacant = owners.filter(o => !o.occupancy_status || o.occupancy_status === 'vacant' || o.occupancy_status === 'unsold').length;
     
     document.getElementById('dash-total-flats').textContent = totalFlats;
     document.getElementById('dash-occupied-flats').textContent = occupied;
@@ -167,7 +167,8 @@ window.loadDashStats = async function() {
     // Status line in hero
     const statusEl = document.getElementById('dash-status-line');
     if (statusEl) {
-        statusEl.innerHTML = `<i class="fa-solid fa-building" style="opacity:0.6;"></i> ${occupied} occupied &middot; ${vacant} vacant &middot; <i class="fa-solid fa-users" style="opacity:0.6;"></i> ${ownerOcc} owner &middot; ${tenantOcc} tenant`;
+        const unsold = owners.filter(o => o.occupancy_status === 'unsold').length;
+        statusEl.innerHTML = `<i class="fa-solid fa-building" style="opacity:0.6;"></i> ${occupied} occupied &middot; ${vacant} vacant${unsold ? ' &middot; ' + unsold + ' unsold' : ''} &middot; <i class="fa-solid fa-users" style="opacity:0.6;"></i> ${ownerOcc} owner &middot; ${tenantOcc} tenant`;
     }
     
     // Occupancy donut chart in hero

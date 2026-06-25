@@ -720,6 +720,7 @@ async function renderCollectionsData(container, month, year) {
     let totalCollectedAmt = 0;
     let totalRateSum = 0;
     for (const flat of allFlats) {
+        if (flat.occupancy_status === 'unsold') continue;
         const currentCol = currentCollectedMap[flat.flat_no];
         const activeRate = getActiveRate(flat.flat_type, rates);
         const rateAmount = activeRate ? parseFloat(activeRate.amount) : 0;
@@ -748,7 +749,7 @@ async function renderCollectionsData(container, month, year) {
         const occTo = flat.occupancy_to ? new Date(flat.occupancy_to + 'T00:00:00') : null;
         const refDate = new Date(year, isAllMonths ? 11 : month - 1, 1);
         const inOccupancy = (!occFrom || refDate >= occFrom) && (!occTo || refDate <= occTo);
-        const isVacant = flat.occupancy_status === 'vacant' || (flat.occupancy_to && flat.occupancy_to <= today);
+        const isVacant = flat.occupancy_status === 'vacant' || flat.occupancy_status === 'unsold' || (flat.occupancy_to && flat.occupancy_to <= today);
         const effectiveInOccupancy = isVacant ? false : inOccupancy;
         
         // Cumulative pending across all months
@@ -1514,7 +1515,7 @@ async function renderFlatwiseData(container, flatNo) {
         totalRate += rateAmt;
 
         const col = collMap[key];
-        const isVacant = flat.occupancy_status === 'vacant';
+        const isVacant = flat.occupancy_status === 'vacant' || flat.occupancy_status === 'unsold';
         const inOccupancy = isMonthInPeriods(m, y, periods) || (!periods.length && (!occFrom || new Date(dateStr) >= occFrom) && (!occTo || new Date(dateStr) <= occTo));
         const exempt = isVacant || !inOccupancy;
 
@@ -1814,6 +1815,10 @@ async function getCalYearStatementData(year) {
         if (allFlats.length === 0) return null;
     }
 
+    // Exclude unsold flats from statement data
+    allFlats = allFlats.filter(f => f.occupancy_status !== 'unsold');
+    if (allFlats.length === 0) return null;
+
     const { data: older } = await sbClient.from('income')
         .select('flat_no, month, year, amount, status')
         .eq('category', 'Monthly Maintenance')
@@ -2015,12 +2020,14 @@ async function renderPendingApprovalsTab(container, toolbar) {
 
     let pendings = [];
     let ownerMap = {};
+    let unsoldFlats = new Set();
     try {
-        const { data: owners } = await sbClient.from('owners').select('flat_no, owner_name');
+        const { data: owners } = await sbClient.from('owners').select('flat_no, owner_name, occupancy_status');
         if (owners) {
             owners.forEach(o => {
                 const name = window.displayStructured(o.owner_name, 'name') || o.owner_name || '';
                 ownerMap[o.flat_no] = name;
+                if (o.occupancy_status === 'unsold') unsoldFlats.add(o.flat_no);
             });
         }
     } catch {}
@@ -2041,6 +2048,9 @@ async function renderPendingApprovalsTab(container, toolbar) {
             if (data) pendings = data.filter(r => r.status === 'pending');
         } catch { pendings = []; }
     }
+
+    // Exclude pending requests from unsold flats
+    pendings = pendings.filter(p => !unsoldFlats.has(p.flat_no));
 
     if (pendings.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-circle-check" style="font-size:2rem;color:var(--color-emerald);"></i><br><br><strong>All caught up!</strong><br>No pending payment requests.</div>';

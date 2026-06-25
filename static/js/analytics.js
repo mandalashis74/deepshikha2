@@ -79,8 +79,9 @@ async function loadAnalytics() {
         const pendingTickets = tickets.filter(t => t.status === 'open' || t.status === 'pending').length;
         const upcomingCompliance = compliance.filter(c => c.status === 'pending' && c.due_date).length;
         const overdueCompliance = compliance.filter(c => c.status === 'overdue').length;
-        const occupiedUnits = owners.filter(o => o.occupancy_status === 'occupied' || !o.occupancy_status).length;
+        const occupiedUnits = owners.filter(o => o.occupancy_status === 'occupied' || o.occupancy_status === 'owner-occupied' || o.occupancy_status === 'tenant-occupied' || !o.occupancy_status).length;
         const vacantUnits = owners.filter(o => o.occupancy_status === 'vacant').length;
+        const unsoldUnits = owners.filter(o => o.occupancy_status === 'unsold').length;
         const totalOwners = owners.length;
 
         // Build HTML
