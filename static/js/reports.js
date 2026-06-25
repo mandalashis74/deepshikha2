@@ -101,7 +101,9 @@ window.formatDateDisplay = function(dateStr) {
 
 // Generate Date-Wise Cash Book calculation via Supabase client
 async function getCashbookDatewise(startDate, endDate) {
-    const { data: incData, error: incErr } = await sbClient.from('income').select('amount').or('status.eq.approved,status.is.null').lt('date_received', startDate);
+    const { data: incData, error: incErr } = await sbClient.from('income')
+        .select('amount')
+        .or(`and(status.eq.approved,date_received.lt.${startDate}),and(status.is.null,date_received.lt.${startDate})`);
     if (incErr) throw incErr;
     const incBefore = incData.reduce((sum, item) => sum + parseFloat(item.amount), 0.0);
     
@@ -113,9 +115,7 @@ async function getCashbookDatewise(startDate, endDate) {
     
     const { data: incomes, error: incRangeErr } = await sbClient.from('income')
         .select('id, flat_no, year, amount, date_received, category, event_name, remarks')
-        .or('status.eq.approved,status.is.null')
-        .gte('date_received', startDate)
-        .lte('date_received', endDate);
+        .or(`and(status.eq.approved,date_received.gte.${startDate},date_received.lte.${endDate}),and(status.is.null,date_received.gte.${startDate},date_received.lte.${endDate})`);
     if (incRangeErr) throw incRangeErr;
     
     const { data: expenses, error: expRangeErr } = await sbClient.from('expenses')
@@ -200,7 +200,7 @@ async function getCashbookDatewise(startDate, endDate) {
 async function getCashbookMonthwise(year) {
     const startOfYear = `${year}-01-01`;
     
-    const { data: incData, error: incErr } = await sbClient.from('income').select('amount').or('status.eq.approved,status.is.null').lt('date_received', startOfYear);
+    const { data: incData, error: incErr } = await sbClient.from('income').select('amount').or(`and(status.eq.approved,date_received.lt.${startOfYear}),and(status.is.null,date_received.lt.${startOfYear})`);
     if (incErr) throw incErr;
     const incBefore = incData.reduce((sum, item) => sum + parseFloat(item.amount), 0.0);
     
@@ -210,7 +210,7 @@ async function getCashbookMonthwise(year) {
     
     const openingBalance = incBefore - expBefore;
     
-    const { data: incomes, error: incRangeErr } = await sbClient.from('income').select('amount, month').or('status.eq.approved,status.is.null').eq('year', year);
+    const { data: incomes, error: incRangeErr } = await sbClient.from('income').select('amount, month').or(`and(status.eq.approved,year.eq.${year}),and(status.is.null,year.eq.${year})`);
     if (incRangeErr) throw incRangeErr;
     
     const { data: expenses, error: expRangeErr } = await sbClient.from('expenses').select('amount, month').eq('year', year);
@@ -260,7 +260,7 @@ async function getCashbookMonthwise(year) {
 
 // Generate Income and Expenditure report calculation via Supabase client
 async function getIncomeExpenditure(year) {
-    const { data: incomes, error: incErr } = await sbClient.from('income').select('flat_no, amount, category, event_name').or('status.eq.approved,status.is.null').eq('year', year);
+    const { data: incomes, error: incErr } = await sbClient.from('income').select('flat_no, amount, category, event_name').or(`and(status.eq.approved,year.eq.${year}),and(status.is.null,year.eq.${year})`);
     if (incErr) throw incErr;
     
     const { data: expenses, error: expErr } = await sbClient.from('expenses').select('expense_head, amount').eq('year', year);
