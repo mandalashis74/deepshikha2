@@ -870,8 +870,8 @@ function exportCollectionsPDF(month, year, monthName) {
     doc.text(_pdfText('Maintenance Collections - ' + monthName + ' ' + year), pageW / 2, y + 5, { align: 'center' });
     y += 12;
 
-    const headers = ['Flat', 'Type', 'Owner', 'Rate', 'Paid', 'Pending', 'Status', 'Deposit', 'Last Paid'];
-    const colW = [14, 12, 36, 18, 18, 20, 18, 24, 26];
+    const headers = ['Flat', 'Type', 'Owner', 'Rate', 'Paid', 'Pending', 'Status', 'Last Paid'];
+    const colW = [14, 12, 48, 18, 18, 20, 18, 38];
     const visible = table.querySelectorAll('tbody tr:not([style*="display:none"]):not([style*="display: none"])');
     doc.setFontSize(7);
     doc.setFillColor(15, 23, 42);
