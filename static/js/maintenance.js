@@ -2233,11 +2233,7 @@ window.markDeposited = async function(id) {
         // Refresh the current view
         const container = document.getElementById('maintenance-container');
         const toolbar = document.getElementById('maintenance-toolbar');
-        if (container && toolbar) {
-            const selMonth = parseInt(document.querySelector('#maintenance-toolbar select.modern-select')?.value) || new Date().getMonth() + 1;
-            const selYear = parseInt(document.querySelector('#maintenance-toolbar input[type=number]')?.value) || new Date().getFullYear();
-            await renderCollectionsData(container, selMonth, selYear);
-        }
+        if (container && toolbar) await renderPendingApprovalsTab(container, toolbar);
     } catch (err) {
         showToast('Error marking deposit: ' + err.message, 'error');
     }
@@ -2373,16 +2369,32 @@ window.showFloorManagerReport = async function(container, toolbar) {
     const actMonths = [...new Set(allData.map(r => r._actDate).filter(Boolean).map(d => monthOrder[new Date(d).getMonth()]))].sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
     const actYears = [...new Set(allData.map(r => r._actDate).filter(Boolean).map(d => new Date(d).getFullYear().toString()))].sort();
 
+    const isSuper = window.currentUserRole === 'super_admin' || window.currentUserRole === 'admin';
+    let defaultMgr = '';
+    if (!isSuper) {
+        const curName = (window.currentUserName || window.currentUserEmail || '').toLowerCase().trim();
+        const match = managers.find(m => m.toLowerCase().trim() === curName);
+        if (match) defaultMgr = match;
+    }
+
     function buildFilters() {
+        const now = new Date();
+        const curMonth = CAL_MONTHS[now.getMonth()];
+        const curYear = now.getFullYear().toString();
         let fhtml = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Floor Manager<br><select id="fm-filter-mgr" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._fmGenerateReport()"><option value="">All Managers</option>';
-        managers.forEach(m => { fhtml += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`; });
-        fhtml += '</select></label>';
+        if (isSuper) {
+            fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Floor Manager<br><select id="fm-filter-mgr" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._fmGenerateReport()"><option value="">All Managers</option>';
+            managers.forEach(m => { fhtml += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`; });
+            fhtml += '</select></label>';
+        } else {
+            fhtml += `<div style="font-size:0.85rem;color:var(--text-primary);font-weight:600;padding:4px 0;"><i class="fa-solid fa-user"></i> ${escapeHtml(defaultMgr)}</div>`;
+            fhtml += `<input type="hidden" id="fm-filter-mgr" value="${escapeHtml(defaultMgr)}">`;
+        }
         fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Activity Month<br><select id="fm-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._fmGenerateReport()"><option value="">All Months</option>';
-        actMonths.forEach(m => { fhtml += `<option value="${m}">${m}</option>`; });
+        actMonths.forEach(m => { fhtml += `<option value="${m}"${m === curMonth ? ' selected' : ''}>${m}</option>`; });
         fhtml += '</select></label>';
         fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Activity Year<br><select id="fm-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._fmGenerateReport()"><option value="">All Years</option>';
-        actYears.forEach(y => { fhtml += `<option value="${y}">${y}</option>`; });
+        actYears.forEach(y => { fhtml += `<option value="${y}"${y === curYear ? ' selected' : ''}>${y}</option>`; });
         fhtml += '</select></label>';
         fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Status<br><select id="fm-filter-dstatus" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._fmGenerateReport()"><option value="">All</option><option value="deposited">Deposited</option><option value="pending">Pending Deposit</option><option value="unapproved">Unapproved</option></select></label>';
         fhtml += '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'pending\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
@@ -2450,12 +2462,14 @@ window.showFloorManagerReport = async function(container, toolbar) {
             return;
         }
 
-        // Group by person
+        // Group by person → activity month
         const groups = {};
         for (const r of filtered) {
-            const key = r._person;
-            if (!groups[key]) groups[key] = [];
-            groups[key].push(r);
+            const person = r._person;
+            if (!groups[person]) groups[person] = {};
+            const actKey = r._actDate ? (monthOrder[new Date(r._actDate).getMonth()] + ' ' + new Date(r._actDate).getFullYear()) : 'Unknown';
+            if (!groups[person][actKey]) groups[person][actKey] = { label: actKey, items: [] };
+            groups[person][actKey].items.push(r);
         }
 
         let html = '';
@@ -2464,43 +2478,61 @@ window.showFloorManagerReport = async function(container, toolbar) {
         const mgrKeys = Object.keys(groups).sort();
 
         for (const mgr of mgrKeys) {
-            const items = groups[mgr];
+            const actKeys = Object.keys(groups[mgr]).sort((a, b) => {
+                const [ma, ya] = a.split(' ');
+                const [mb, yb] = b.split(' ');
+                if (ya !== yb) return parseInt(ya) - parseInt(yb);
+                return monthOrder.indexOf(ma) - monthOrder.indexOf(mb);
+            });
             let mgrTotal = 0;
-            html += `<div style="margin:20px 0 6px;font-weight:700;font-size:1rem;color:var(--text-primary);">
-                <i class="fa-solid fa-user"></i> ${escapeHtml(mgr)}
-            </div>`;
-            html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th>Fee Month</th><th style="text-align:right;">Amount</th><th>Status</th><th>Activity Date</th></tr></thead><tbody>';
-            let srNo = 0;
-            for (const r of items) {
-                srNo++; grandSrNo++;
-                const amt = parseFloat(r.amount) || 0;
-                mgrTotal += amt;
-                const isApproved = r.status === 'approved';
-                const depositOk = r.deposit_status === 'deposited';
-                let statusHtml;
-                if (!isApproved) {
-                    statusHtml = '<span style="color:var(--color-orange);font-weight:600;"><i class="fa-solid fa-clock"></i> Awaiting Approval</span>';
-                } else if (depositOk) {
-                    statusHtml = '<span style="color:var(--color-emerald);font-weight:600;"><i class="fa-solid fa-check-circle"></i> Deposited</span>';
-                } else {
-                    statusHtml = '<span style="color:var(--color-orange);font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Pending Deposit</span>';
+            let mgrCount = 0;
+
+            for (const ak of actKeys) {
+                const g = groups[mgr][ak];
+                const items = g.items;
+                let grpTotal = 0;
+                html += `<div style="margin:20px 0 4px;font-weight:700;font-size:1rem;color:var(--text-primary);">
+                    <i class="fa-solid fa-user"></i> ${escapeHtml(mgr)}
+                </div>`;
+                html += `<div style="margin:0 0 8px;font-size:0.85rem;color:var(--text-secondary);font-weight:600;"><i class="fa-solid fa-calendar"></i> Activity: ${ak}</div>`;
+                html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th>Fee Month</th><th style="text-align:right;">Amount</th><th>Status</th><th>Activity Date</th></tr></thead><tbody>';
+                let srNo = 0;
+                for (const r of items) {
+                    srNo++; grandSrNo++;
+                    const amt = parseFloat(r.amount) || 0;
+                    grpTotal += amt;
+                    const isApproved = r.status === 'approved';
+                    const depositOk = r.deposit_status === 'deposited';
+                    let statusHtml;
+                    if (!isApproved) {
+                        statusHtml = '<span style="color:var(--color-orange);font-weight:600;"><i class="fa-solid fa-clock"></i> Awaiting Approval</span>';
+                    } else if (depositOk) {
+                        statusHtml = '<span style="color:var(--color-emerald);font-weight:600;"><i class="fa-solid fa-check-circle"></i> Deposited</span>';
+                    } else {
+                        statusHtml = '<span style="color:var(--color-orange);font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Pending Deposit</span>';
+                    }
+                    const actDate = r._actDate ? new Date(r._actDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                    html += `<tr>
+                        <td style="text-align:center;">${srNo}</td>
+                        <td><strong>${escapeHtml(r.flat_no)}</strong></td>
+                        <td style="font-size:0.85rem;">${escapeHtml(r.month)} ${escapeHtml(r.year)}</td>
+                        <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
+                        <td style="font-size:0.75rem;">${statusHtml}</td>
+                        <td style="font-size:0.8rem;">${actDate}</td>
+                    </tr>`;
                 }
-                const actDate = r._actDate ? new Date(r._actDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                html += `<tr>
-                    <td style="text-align:center;">${srNo}</td>
-                    <td><strong>${escapeHtml(r.flat_no)}</strong></td>
-                    <td style="font-size:0.85rem;">${escapeHtml(r.month)} ${escapeHtml(r.year)}</td>
-                    <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
-                    <td style="font-size:0.75rem;">${statusHtml}</td>
-                    <td style="font-size:0.8rem;">${actDate}</td>
-                </tr>`;
+                mgrTotal += grpTotal;
+                mgrCount += items.length;
+                html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
+                    <td colspan="3" style="text-align:right;">Total for ${ak}</td>
+                    <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(grpTotal)}</td>
+                    <td colspan="2"></td>
+                </tr></tbody></table>`;
             }
             grandTotalAmt += mgrTotal;
-            html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
-                <td colspan="3" style="text-align:right;">Total for ${escapeHtml(mgr)}</td>
-                <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(mgrTotal)}</td>
-                <td colspan="2"></td>
-            </tr></tbody></table>`;
+            html += `<div style="margin:8px 0 16px;padding:8px 12px;background:var(--bg-card);border:1px solid var(--color-indigo);border-radius:6px;font-size:0.9rem;font-weight:700;text-align:center;color:var(--color-indigo);">
+                ${escapeHtml(mgr)} Total: ${formatCurrency(mgrTotal)} (${mgrCount} transactions)
+            </div>`;
         }
 
         html += `<div style="margin:20px 0;padding:14px;background:var(--bg-card);border:2px solid var(--color-indigo);border-radius:8px;text-align:center;">
@@ -2548,9 +2580,8 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
     if (!data || !data.length) { showToast('No data to export.', 'error'); return; }
 
     const { jsPDF } = window.jspdf || window;
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const pageW = 297, margin = 8;
-    const colW = [8, 20, 24, 28, 24, 30, 30, 50, 25, 25];
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const margin = 8;
 
     function _pdfText(v) { return String(v).replace(/₹/g, 'Rs.').replace(/—/g, '-').replace(/[^\x20-\x7E\s]/g, '').substring(0, 40); }
 
@@ -2577,7 +2608,7 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
     for (const mgr of mgrs) {
         const items = group[mgr];
         const needH = headerH + items.length * lineH + lineH + 6;
-        if (y + needH > 200) { doc.addPage(); y = 15; }
+        if (y + needH > 260) { doc.addPage(); y = 15; }
 
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
@@ -2617,7 +2648,7 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
             vals.forEach((v, i) => {
                 doc.rect(x, y, colW2[i] * 0.75, lineH);
                 doc.text(v, x + 1, y + 4);
-                x += colW[i] * 0.75;
+                x += colW2[i] * 0.75;
             });
             y += lineH;
         });
@@ -2629,15 +2660,15 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
         doc.setFont(undefined, 'bold');
         doc.setFontSize(7);
         doc.rect(x, y, (colW2[0] + colW2[1] + colW2[2]) * 0.75, lineH);
-        doc.text('Total for ' + _pdfText(mgr), x + 1, y + 4);
+        doc.text('Total', x + 1, y + 4);
         x += (colW2[0] + colW2[1] + colW2[2]) * 0.75;
         for (let i = 3; i < colW2.length; i++) {
             const v = i === 3 ? 'Rs.' + Math.round(grpTotal).toLocaleString('en-IN') : '';
-            doc.rect(x, y, colW[i] * 0.75, lineH);
+            doc.rect(x, y, colW2[i] * 0.75, lineH);
             doc.text(v, x + 1, y + 4);
-            x += colW[i] * 0.75;
+            x += colW2[i] * 0.75;
         }
-        y += lineH + 2;
+        y += lineH + 6;
     }
 
     // Grand total
@@ -2686,23 +2717,44 @@ window.showTreasurerReport = async function(container, toolbar) {
         return monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month);
     });
 
-    const treasurers = [...new Set(ackData.map(r => r.acknowledged_by && r.acknowledged_by.trim() ? r.acknowledged_by : 'Unknown'))].sort();
+    for (const r of ackData) {
+        r._person = r.acknowledged_by && r.acknowledged_by.trim() ? r.acknowledged_by : 'Unknown';
+        r._actDate = r.acknowledged_at || null;
+    }
+
+    const treasurers = [...new Set(ackData.map(r => r._person))].sort();
     // Activity dates (acknowledged_at) for month/year filter on acknowledgments
-    const ackMonths = [...new Set(ackData.map(r => r.acknowledged_at).filter(Boolean).map(d => monthOrder[new Date(d).getMonth()]))].sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
-    const ackYears = [...new Set(ackData.map(r => r.acknowledged_at).filter(Boolean).map(d => new Date(d).getFullYear().toString()))].sort();
+    const ackMonths = [...new Set(ackData.map(r => r._actDate).filter(Boolean).map(d => monthOrder[new Date(d).getMonth()]))].sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+    const ackYears = [...new Set(ackData.map(r => r._actDate).filter(Boolean).map(d => new Date(d).getFullYear().toString()))].sort();
+
+    const isSuper = window.currentUserRole === 'super_admin' || window.currentUserRole === 'admin';
+    let defaultTreas = '';
+    if (!isSuper) {
+        const curName = (window.currentUserName || window.currentUserEmail || '').toLowerCase().trim();
+        const match = treasurers.find(m => m.toLowerCase().trim() === curName);
+        if (match) defaultTreas = match;
+    }
     // Fee months/years for expenditure filter
     const expYears = [...new Set(expData.map(r => r.year).filter(Boolean))].sort();
 
     function buildFilters() {
+        const now = new Date();
+        const curMonth = CAL_MONTHS[now.getMonth()];
+        const curYear = now.getFullYear().toString();
         let fhtml = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Treasurer<br><select id="tr-filter-treas" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._trGenerateReport()"><option value="">All Treasurers</option>';
-        treasurers.forEach(m => { fhtml += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`; });
-        fhtml += '</select></label>';
+        if (isSuper) {
+            fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Treasurer<br><select id="tr-filter-treas" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._trGenerateReport()"><option value="">All Treasurers</option>';
+            treasurers.forEach(m => { fhtml += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`; });
+            fhtml += '</select></label>';
+        } else {
+            fhtml += `<div style="font-size:0.85rem;color:var(--text-primary);font-weight:600;padding:4px 0;"><i class="fa-solid fa-user"></i> ${escapeHtml(defaultTreas)}</div>`;
+            fhtml += `<input type="hidden" id="tr-filter-treas" value="${escapeHtml(defaultTreas)}">`;
+        }
         fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Acknowledgment Month<br><select id="tr-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._trGenerateReport()"><option value="">All Months</option>';
-        ackMonths.forEach(m => { fhtml += `<option value="${m}">${m}</option>`; });
+        ackMonths.forEach(m => { fhtml += `<option value="${m}"${m === curMonth ? ' selected' : ''}>${m}</option>`; });
         fhtml += '</select></label>';
         fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Acknowledgment Year<br><select id="tr-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._trGenerateReport()"><option value="">All Years</option>';
-        ackYears.forEach(y => { fhtml += `<option value="${y}">${y}</option>`; });
+        ackYears.forEach(y => { fhtml += `<option value="${y}"${y === curYear ? ' selected' : ''}>${y}</option>`; });
         fhtml += '</select></label>';
         fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Deposit Status<br><select id="tr-filter-dstatus" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._trGenerateReport()"><option value="">All</option><option value="deposited">Deposited</option><option value="pending">Pending Deposit</option></select></label>';
         fhtml += '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'acknowledgement\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
@@ -2729,21 +2781,21 @@ window.showTreasurerReport = async function(container, toolbar) {
         let fAck = ackData;
         if (selTreas) {
             if (selTreas === 'Unknown') {
-                fAck = fAck.filter(r => !r.acknowledged_by || !r.acknowledged_by.trim());
+                fAck = fAck.filter(r => r._person === 'Unknown');
             } else {
-                fAck = fAck.filter(r => r.acknowledged_by === selTreas);
+                fAck = fAck.filter(r => r._person === selTreas);
             }
         }
         if (selMonth) {
             fAck = fAck.filter(r => {
-                if (!r.acknowledged_at) return false;
-                return monthOrder[new Date(r.acknowledged_at).getMonth()] === selMonth;
+                if (!r._actDate) return false;
+                return monthOrder[new Date(r._actDate).getMonth()] === selMonth;
             });
         }
         if (selYear) {
             fAck = fAck.filter(r => {
-                if (!r.acknowledged_at) return false;
-                return new Date(r.acknowledged_at).getFullYear().toString() === selYear;
+                if (!r._actDate) return false;
+                return new Date(r._actDate).getFullYear().toString() === selYear;
             });
         }
         if (selDStatus === 'deposited') fAck = fAck.filter(r => r.deposit_status === 'deposited');
