@@ -2359,18 +2359,20 @@ window.showFloorManagerReport = async function(container, toolbar) {
     });
 
     const managers = [...new Set(allData.map(r => r.approved_by).filter(Boolean))].sort();
-    const years = [...new Set(allData.map(r => r.year).filter(Boolean))].sort();
+    // Activity dates (approved_at) for month/year filter
+    const actMonths = [...new Set(allData.map(r => r.approved_at).filter(Boolean).map(d => monthOrder[new Date(d).getMonth()]))].sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+    const actYears = [...new Set(allData.map(r => r.approved_at).filter(Boolean).map(d => new Date(d).getFullYear().toString()))].sort();
 
     function buildFilters() {
         let fhtml = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">';
         fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Floor Manager<br><select id="fm-filter-mgr" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Managers</option>';
         managers.forEach(m => { fhtml += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Month<br><select id="fm-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Months</option>';
-        monthOrder.forEach(m => { fhtml += `<option value="${m}">${m}</option>`; });
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Approval Month<br><select id="fm-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Months</option>';
+        actMonths.forEach(m => { fhtml += `<option value="${m}">${m}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Year<br><select id="fm-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Years</option>';
-        years.forEach(y => { fhtml += `<option value="${y}">${y}</option>`; });
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Approval Year<br><select id="fm-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Years</option>';
+        actYears.forEach(y => { fhtml += `<option value="${y}">${y}</option>`; });
         fhtml += '</select></label>';
         fhtml += '<button class="btn btn-sm" style="background:var(--color-indigo);color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:0.8rem;" onclick="window._fmGenerateReport()"><i class="fa-solid fa-magnifying-glass"></i> Generate</button>';
         fhtml += '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'pending\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
@@ -2392,8 +2394,19 @@ window.showFloorManagerReport = async function(container, toolbar) {
 
         let filtered = allData;
         if (selMgr) filtered = filtered.filter(r => r.approved_by === selMgr);
-        if (selMonth) filtered = filtered.filter(r => r.month === selMonth);
-        if (selYear) filtered = filtered.filter(r => r.year === selYear);
+        // Filter by activity date (approved_at) — entries approved in the selected month/year
+        if (selMonth) {
+            filtered = filtered.filter(r => {
+                if (!r.approved_at) return false;
+                return monthOrder[new Date(r.approved_at).getMonth()] === selMonth;
+            });
+        }
+        if (selYear) {
+            filtered = filtered.filter(r => {
+                if (!r.approved_at) return false;
+                return new Date(r.approved_at).getFullYear().toString() === selYear;
+            });
+        }
 
         _fmReportData = filtered;
 
@@ -2423,7 +2436,7 @@ window.showFloorManagerReport = async function(container, toolbar) {
             return;
         }
 
-        // Group by approved_by → month_year
+        // Group by approved_by → fee month_year
         const groups = {};
         for (const r of filtered) {
             const key = r.approved_by || 'Unknown';
@@ -2450,7 +2463,7 @@ window.showFloorManagerReport = async function(container, toolbar) {
                 const items = g.items;
                 let grpTotal = 0;
                 html += `<div style="margin:20px 0 6px;font-weight:700;font-size:0.95rem;color:var(--text-primary);">
-                    <i class="fa-solid fa-user"></i> ${escapeHtml(mgr)} — ${g.month} ${g.year}
+                    <i class="fa-solid fa-user"></i> ${escapeHtml(mgr)} — Fee Month: ${g.month} ${g.year}
                 </div>`;
                 html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th style="text-align:right;">Amount</th><th>Approved Date</th><th>Deposited Date</th></tr></thead><tbody>';
                 let srNo = 0;
@@ -2663,18 +2676,22 @@ window.showTreasurerReport = async function(container, toolbar) {
     });
 
     const treasurers = [...new Set(ackData.map(r => r.acknowledged_by).filter(Boolean))].sort();
-    const years = [...new Set([...ackData, ...expData].map(r => r.year).filter(Boolean))].sort();
+    // Activity dates (acknowledged_at) for month/year filter on acknowledgments
+    const ackMonths = [...new Set(ackData.map(r => r.acknowledged_at).filter(Boolean).map(d => monthOrder[new Date(d).getMonth()]))].sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+    const ackYears = [...new Set(ackData.map(r => r.acknowledged_at).filter(Boolean).map(d => new Date(d).getFullYear().toString()))].sort();
+    // Fee months/years for expenditure filter
+    const expYears = [...new Set(expData.map(r => r.year).filter(Boolean))].sort();
 
     function buildFilters() {
         let fhtml = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">';
         fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Treasurer<br><select id="tr-filter-treas" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Treasurers</option>';
         treasurers.forEach(m => { fhtml += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Month<br><select id="tr-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Months</option>';
-        monthOrder.forEach(m => { fhtml += `<option value="${m}">${m}</option>`; });
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Acknowledgment Month<br><select id="tr-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Months</option>';
+        ackMonths.forEach(m => { fhtml += `<option value="${m}">${m}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Year<br><select id="tr-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Years</option>';
-        years.forEach(y => { fhtml += `<option value="${y}">${y}</option>`; });
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Acknowledgment Year<br><select id="tr-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Years</option>';
+        ackYears.forEach(y => { fhtml += `<option value="${y}">${y}</option>`; });
         fhtml += '</select></label>';
         fhtml += '<button class="btn btn-sm" style="background:var(--color-emerald);color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:0.8rem;" onclick="window._trGenerateReport()"><i class="fa-solid fa-magnifying-glass"></i> Generate</button>';
         fhtml += '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'acknowledgement\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
@@ -2699,9 +2716,21 @@ window.showTreasurerReport = async function(container, toolbar) {
 
         let fAck = ackData;
         if (selTreas) fAck = fAck.filter(r => r.acknowledged_by === selTreas);
-        if (selMonth) fAck = fAck.filter(r => r.month === selMonth);
-        if (selYear) fAck = fAck.filter(r => r.year === selYear);
+        // Filter acknowledgments by activity date (acknowledged_at)
+        if (selMonth) {
+            fAck = fAck.filter(r => {
+                if (!r.acknowledged_at) return false;
+                return monthOrder[new Date(r.acknowledged_at).getMonth()] === selMonth;
+            });
+        }
+        if (selYear) {
+            fAck = fAck.filter(r => {
+                if (!r.acknowledged_at) return false;
+                return new Date(r.acknowledged_at).getFullYear().toString() === selYear;
+            });
+        }
 
+        // Expenditure filtered by fee month (date_spent) when month/year selected
         let fExp = expData;
         if (selMonth) fExp = fExp.filter(r => r.month === selMonth);
         if (selYear) fExp = fExp.filter(r => r.year === selYear);
@@ -2755,7 +2784,7 @@ window.showTreasurerReport = async function(container, toolbar) {
                     const items = g.items;
                     let grpTotal = 0;
                     html += `<div style="margin:16px 0 4px;font-weight:600;font-size:0.9rem;color:var(--text-primary);">
-                        <i class="fa-solid fa-user"></i> ${escapeHtml(tr)} — ${g.month} ${g.year}
+                        <i class="fa-solid fa-user"></i> ${escapeHtml(tr)} — Fee Month: ${g.month} ${g.year}
                     </div>`;
                     html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th style="text-align:right;">Amount</th><th>Deposited Date</th><th>Acknowledged Date</th></tr></thead><tbody>';
                     let srNo = 0;
