@@ -2048,6 +2048,14 @@ async function renderPendingApprovalsTab(container, toolbar) {
         return;
     }
 
+    const fmBtn = document.createElement('button');
+    fmBtn.className = 'btn btn-sm';
+    fmBtn.innerHTML = '<i class="fa-solid fa-file-alt"></i> Floor Manager Report';
+    fmBtn.style.cssText = 'margin-left:auto;background:var(--color-indigo);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;';
+    fmBtn.onclick = () => window.showFloorManagerReport(container, toolbar);
+    fmBtn.style.marginLeft = 'auto';
+    toolbar.appendChild(fmBtn);
+
     let pendings = [];
     let ownerMap = {};
     let unsoldFlats = new Set();
@@ -2244,6 +2252,13 @@ async function renderAcknowledgementTab(container, toolbar) {
         return;
     }
 
+    const trBtn = document.createElement('button');
+    trBtn.className = 'btn btn-sm';
+    trBtn.innerHTML = '<i class="fa-solid fa-file-alt"></i> Treasurer Report';
+    trBtn.style.cssText = 'margin-left:auto;background:var(--color-emerald);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;';
+    trBtn.onclick = () => window.showTreasurerReport(container, toolbar);
+    toolbar.appendChild(trBtn);
+
     let deposited = [];
     let ownerMap = {};
     try {
@@ -2313,4 +2328,265 @@ window.acknowledgeDeposit = async function(id) {
     } catch (err) {
         showToast('Error acknowledging deposit: ' + err.message, 'error');
     }
+};
+
+// ─── FLOOR MANAGER REPORT ──────────────────────────────────────────────
+
+window.showFloorManagerReport = async function(container, toolbar) {
+    toolbar.innerHTML = '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'pending\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+
+    const monthOrder = CAL_MONTHS;
+
+    let allData = [];
+    try {
+        const { data } = await sbClient.from('income')
+            .select('id, flat_no, month, year, amount, approved_by, approved_at, deposited_by, deposited_at, deposit_status')
+            .eq('category', 'Monthly Maintenance')
+            .eq('status', 'approved')
+            .not('approved_by', 'is', null)
+            .order('year', { ascending: true });
+        if (data) allData = data;
+    } catch { allData = []; }
+
+    // Sort by approved_by, then year, then month index
+    allData.sort((a, b) => {
+        const na = (a.approved_by || '').toLowerCase();
+        const nb = (b.approved_by || '').toLowerCase();
+        if (na !== nb) return na < nb ? -1 : 1;
+        if (a.year !== b.year) return parseInt(a.year) - parseInt(b.year);
+        return monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month);
+    });
+
+    if (!allData.length) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-circle-info" style="font-size:2rem;"></i><br><br>No approved payment records found.</div>';
+        return;
+    }
+
+    // Group by approved_by → month_year
+    const groups = {};
+    for (const r of allData) {
+        const key = r.approved_by || 'Unknown';
+        if (!groups[key]) groups[key] = {};
+        const mk = r.month + ' ' + r.year;
+        if (!groups[key][mk]) groups[key][mk] = { month: r.month, year: r.year, items: [] };
+        groups[key][mk].items.push(r);
+    }
+
+    let html = '';
+    let grandSrNo = 0;
+    let grandTotalAmt = 0;
+    const managers = Object.keys(groups).sort();
+
+    for (const manager of managers) {
+        const months = Object.keys(groups[manager]).sort((a, b) => {
+            const ma = groups[manager][a];
+            const mb = groups[manager][b];
+            if (ma.year !== mb.year) return parseInt(ma.year) - parseInt(mb.year);
+            return monthOrder.indexOf(ma.month) - monthOrder.indexOf(mb.month);
+        });
+
+        for (const mk of months) {
+            const g = groups[manager][mk];
+            const items = g.items;
+            let mgrTotal = 0;
+
+            html += `<div style="margin:24px 0 8px;font-weight:700;font-size:1rem;color:var(--text-primary);">
+                <i class="fa-solid fa-user"></i> ${escapeHtml(manager)} — ${g.month} ${g.year}
+            </div>`;
+            html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th style="text-align:right;">Amount</th><th>Approved Date</th><th>Deposited Date</th></tr></thead><tbody>';
+
+            let srNo = 0;
+            for (const r of items) {
+                srNo++; grandSrNo++;
+                const amt = parseFloat(r.amount) || 0;
+                mgrTotal += amt;
+                const appAt = r.approved_at ? new Date(r.approved_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                const depAt = r.deposited_at && r.deposit_status === 'deposited' ? new Date(r.deposited_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                html += `<tr>
+                    <td style="text-align:center;">${srNo}</td>
+                    <td><strong>${escapeHtml(r.flat_no)}</strong></td>
+                    <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
+                    <td style="font-size:0.8rem;">${appAt}</td>
+                    <td style="font-size:0.8rem;">${depAt}</td>
+                </tr>`;
+            }
+            grandTotalAmt += mgrTotal;
+            html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
+                <td colspan="2" style="text-align:right;">Total for ${g.month} ${g.year}</td>
+                <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(mgrTotal)}</td>
+                <td colspan="2"></td>
+            </tr></tbody></table>`;
+        }
+    }
+
+    html += `<div style="margin:24px 0;padding:16px;background:var(--bg-card);border:2px solid var(--color-indigo);border-radius:8px;text-align:center;">
+        <strong style="font-size:1.1rem;">GRAND TOTAL: ${formatCurrency(grandTotalAmt)} (${grandSrNo} transactions)</strong>
+    </div>`;
+
+    container.innerHTML = html;
+};
+
+// ─── TREASURER REPORT ──────────────────────────────────────────────────
+
+window.showTreasurerReport = async function(container, toolbar) {
+    toolbar.innerHTML = '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'acknowledgement\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+
+    const monthOrder = CAL_MONTHS;
+
+    let ackData = [];
+    let expData = [];
+    try {
+        const [incRes, expRes] = await Promise.all([
+            sbClient.from('income')
+                .select('id, flat_no, month, year, amount, acknowledged_by, acknowledged_at, deposited_by, deposited_at, deposit_status')
+                .eq('category', 'Monthly Maintenance')
+                .eq('acknowledgement_status', 'acknowledged')
+                .not('acknowledged_by', 'is', null)
+                .order('year', { ascending: true }),
+            sbClient.from('expenses')
+                .select('id, month, year, amount, expense_head, description, date_spent, created_by')
+                .order('year', { ascending: true })
+        ]);
+        if (incRes.data) ackData = incRes.data;
+        if (expRes.data) expData = expRes.data;
+    } catch { ackData = []; expData = []; }
+
+    // Sort acknowledged data
+    ackData.sort((a, b) => {
+        const na = (a.acknowledged_by || '').toLowerCase();
+        const nb = (b.acknowledged_by || '').toLowerCase();
+        if (na !== nb) return na < nb ? -1 : 1;
+        if (a.year !== b.year) return parseInt(a.year) - parseInt(b.year);
+        return monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month);
+    });
+
+    let html = '';
+
+    // === Section 1: Acknowledgments ===
+    if (ackData.length) {
+        const groups = {};
+        for (const r of ackData) {
+            const key = r.acknowledged_by || 'Unknown';
+            if (!groups[key]) groups[key] = {};
+            const mk = r.month + ' ' + r.year;
+            if (!groups[key][mk]) groups[key][mk] = { month: r.month, year: r.year, items: [] };
+            groups[key][mk].items.push(r);
+        }
+
+        let grandSrNo = 0;
+        let grandTotalAmt = 0;
+        const treasurers = Object.keys(groups).sort();
+
+        html += `<h4 style="color:var(--text-primary);margin:0 0 16px;"><i class="fa-solid fa-check-double"></i> Acknowledgments by Treasurer</h4>`;
+
+        for (const treasurer of treasurers) {
+            const months = Object.keys(groups[treasurer]).sort((a, b) => {
+                const ma = groups[treasurer][a];
+                const mb = groups[treasurer][b];
+                if (ma.year !== mb.year) return parseInt(ma.year) - parseInt(mb.year);
+                return monthOrder.indexOf(ma.month) - monthOrder.indexOf(mb.month);
+            });
+
+            for (const mk of months) {
+                const g = groups[treasurer][mk];
+                const items = g.items;
+                let grpTotal = 0;
+
+                html += `<div style="margin:20px 0 6px;font-weight:600;font-size:0.95rem;color:var(--text-primary);">
+                    <i class="fa-solid fa-user"></i> ${escapeHtml(treasurer)} — ${g.month} ${g.year}
+                </div>`;
+                html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th style="text-align:right;">Amount</th><th>Deposited Date</th><th>Acknowledged Date</th></tr></thead><tbody>';
+
+                let srNo = 0;
+                for (const r of items) {
+                    srNo++; grandSrNo++;
+                    const amt = parseFloat(r.amount) || 0;
+                    grpTotal += amt;
+                    const depAt = r.deposited_at && r.deposit_status === 'deposited' ? new Date(r.deposited_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                    const ackAt = r.acknowledged_at ? new Date(r.acknowledged_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                    html += `<tr>
+                        <td style="text-align:center;">${srNo}</td>
+                        <td><strong>${escapeHtml(r.flat_no)}</strong></td>
+                        <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
+                        <td style="font-size:0.8rem;">${depAt}</td>
+                        <td style="font-size:0.8rem;">${ackAt}</td>
+                    </tr>`;
+                }
+                grandTotalAmt += grpTotal;
+                html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
+                    <td colspan="2" style="text-align:right;">Total for ${g.month} ${g.year}</td>
+                    <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(grpTotal)}</td>
+                    <td colspan="2"></td>
+                </tr></tbody></table>`;
+            }
+        }
+
+        html += `<div style="margin:20px 0;padding:14px;background:var(--bg-card);border:2px solid var(--color-emerald);border-radius:8px;text-align:center;">
+            <strong>Total Acknowledged: ${formatCurrency(grandTotalAmt)} (${grandSrNo} transactions)</strong>
+        </div>`;
+    } else {
+        html += '<p style="color:var(--text-muted);margin:20px 0;">No acknowledged records found.</p>';
+    }
+
+    // === Section 2: Expenditure ===
+    html += `<h4 style="color:var(--text-primary);margin:28px 0 16px;"><i class="fa-solid fa-arrow-up-from-bracket"></i> Expenditure</h4>`;
+
+    if (expData.length) {
+        // Group by year → month
+        const expByYear = {};
+        for (const r of expData) {
+            const yr = r.year || 'Unknown';
+            if (!expByYear[yr]) expByYear[yr] = {};
+            if (!expByYear[yr][r.month]) expByYear[yr][r.month] = { items: [] };
+            expByYear[yr][r.month].items.push(r);
+        }
+
+        let grandExpTotal = 0;
+        let grandExpCnt = 0;
+        const years = Object.keys(expByYear).sort();
+
+        for (const yr of years) {
+            const months = Object.keys(expByYear[yr]).sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+            for (const m of months) {
+                const items = expByYear[yr][m].items;
+                let monthTotal = 0;
+                html += `<div style="margin:16px 0 6px;font-weight:600;font-size:0.9rem;color:var(--text-primary);">
+                    <i class="fa-solid fa-calendar"></i> ${m} ${yr}
+                </div>`;
+                html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Head</th><th>Description</th><th style="text-align:right;">Amount</th><th>Date Spent</th><th>Created By</th></tr></thead><tbody>';
+                let srNo = 0;
+                for (const r of items) {
+                    srNo++;
+                    const amt = parseFloat(r.amount) || 0;
+                    monthTotal += amt;
+                    const dt = r.date_spent ? new Date(r.date_spent).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                    html += `<tr>
+                        <td style="text-align:center;">${srNo}</td>
+                        <td>${escapeHtml(r.expense_head || '—')}</td>
+                        <td style="font-size:0.8rem;">${escapeHtml(r.description || '—')}</td>
+                        <td style="text-align:right;font-weight:700;color:var(--color-rose);">${formatCurrency(amt)}</td>
+                        <td style="font-size:0.8rem;">${dt}</td>
+                        <td style="font-size:0.75rem;color:var(--text-secondary);">${escapeHtml(r.created_by || '—')}</td>
+                    </tr>`;
+                }
+                grandExpTotal += monthTotal;
+                grandExpCnt += items.length;
+                html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
+                    <td colspan="3" style="text-align:right;">Total for ${m} ${yr}</td>
+                    <td style="text-align:right;color:var(--color-rose);">${formatCurrency(monthTotal)}</td>
+                    <td colspan="2"></td>
+                </tr></tbody></table>`;
+            }
+        }
+
+        html += `<div style="margin:20px 0;padding:14px;background:var(--bg-card);border:2px solid var(--color-rose);border-radius:8px;text-align:center;">
+            <strong>Total Expenditure: ${formatCurrency(grandExpTotal)} (${grandExpCnt} transactions)</strong>
+        </div>`;
+    } else {
+        html += '<p style="color:var(--text-muted);margin:20px 0;">No expenditure records found.</p>';
+    }
+
+    container.innerHTML = html;
 };
