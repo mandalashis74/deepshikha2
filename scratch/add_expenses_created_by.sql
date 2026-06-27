@@ -1,5 +1,6 @@
--- Add created_by column to expenses table for tracking who recorded the expense
+-- Add created_by and created_at columns to expenses table
 ALTER TABLE expenses ADD COLUMN IF NOT EXISTS created_by TEXT;
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Also ensure RLS policies exist (in case add_missing_rls_policies.sql hasn't been run yet)
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;

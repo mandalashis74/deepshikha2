@@ -1759,7 +1759,8 @@ window.handleExpenseSubmit = async function(e) {
             description: desc,
             amount: amtVal,
             date_spent: date,
-            created_by: window.currentUserName || window.currentUserEmail || 'System'
+            created_by: window.currentUserName || window.currentUserEmail || 'System',
+            created_at: new Date().toISOString()
         });
         
         if (error) throw error;
