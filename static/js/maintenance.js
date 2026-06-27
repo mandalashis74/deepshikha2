@@ -2436,14 +2436,12 @@ window.showFloorManagerReport = async function(container, toolbar) {
             return;
         }
 
-        // Group by approved_by → fee month_year
+        // Group by approved_by only (no sub-group by fee month)
         const groups = {};
         for (const r of filtered) {
             const key = r.approved_by || 'Unknown';
-            if (!groups[key]) groups[key] = {};
-            const mk = r.month + ' ' + r.year;
-            if (!groups[key][mk]) groups[key][mk] = { month: r.month, year: r.year, items: [] };
-            groups[key][mk].items.push(r);
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(r);
         }
 
         let html = '';
@@ -2452,42 +2450,34 @@ window.showFloorManagerReport = async function(container, toolbar) {
         const mgrKeys = Object.keys(groups).sort();
 
         for (const mgr of mgrKeys) {
-            const mks = Object.keys(groups[mgr]).sort((a, b) => {
-                const ma = groups[mgr][a];
-                const mb = groups[mgr][b];
-                if (ma.year !== mb.year) return parseInt(ma.year) - parseInt(mb.year);
-                return monthOrder.indexOf(ma.month) - monthOrder.indexOf(mb.month);
-            });
-            for (const mk of mks) {
-                const g = groups[mgr][mk];
-                const items = g.items;
-                let grpTotal = 0;
-                html += `<div style="margin:20px 0 6px;font-weight:700;font-size:0.95rem;color:var(--text-primary);">
-                    <i class="fa-solid fa-user"></i> ${escapeHtml(mgr)} — Fee Month: ${g.month} ${g.year}
-                </div>`;
-                html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th style="text-align:right;">Amount</th><th>Approved Date</th><th>Deposited Date</th></tr></thead><tbody>';
-                let srNo = 0;
-                for (const r of items) {
-                    srNo++; grandSrNo++;
-                    const amt = parseFloat(r.amount) || 0;
-                    grpTotal += amt;
-                    const appAt = r.approved_at ? new Date(r.approved_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                    const depAt = r.deposited_at && r.deposit_status === 'deposited' ? new Date(r.deposited_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                    html += `<tr>
-                        <td style="text-align:center;">${srNo}</td>
-                        <td><strong>${escapeHtml(r.flat_no)}</strong></td>
-                        <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
-                        <td style="font-size:0.8rem;">${appAt}</td>
-                        <td style="font-size:0.8rem;">${depAt}</td>
-                    </tr>`;
-                }
-                grandTotalAmt += grpTotal;
-                html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
-                    <td colspan="2" style="text-align:right;">Total for ${g.month} ${g.year}</td>
-                    <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(grpTotal)}</td>
-                    <td colspan="2"></td>
-                </tr></tbody></table>`;
+            const items = groups[mgr];
+            let mgrTotal = 0;
+            html += `<div style="margin:20px 0 6px;font-weight:700;font-size:1rem;color:var(--text-primary);">
+                <i class="fa-solid fa-user"></i> ${escapeHtml(mgr)}
+            </div>`;
+            html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th>Fee Month</th><th style="text-align:right;">Amount</th><th>Approved Date</th><th>Deposited Date</th></tr></thead><tbody>';
+            let srNo = 0;
+            for (const r of items) {
+                srNo++; grandSrNo++;
+                const amt = parseFloat(r.amount) || 0;
+                mgrTotal += amt;
+                const appAt = r.approved_at ? new Date(r.approved_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                const depAt = r.deposited_at && r.deposit_status === 'deposited' ? new Date(r.deposited_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                html += `<tr>
+                    <td style="text-align:center;">${srNo}</td>
+                    <td><strong>${escapeHtml(r.flat_no)}</strong></td>
+                    <td style="font-size:0.85rem;">${escapeHtml(r.month)} ${escapeHtml(r.year)}</td>
+                    <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
+                    <td style="font-size:0.8rem;">${appAt}</td>
+                    <td style="font-size:0.8rem;">${depAt}</td>
+                </tr>`;
             }
+            grandTotalAmt += mgrTotal;
+            html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
+                <td colspan="3" style="text-align:right;">Total for ${escapeHtml(mgr)}</td>
+                <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(mgrTotal)}</td>
+                <td colspan="2"></td>
+            </tr></tbody></table>`;
         }
 
         html += `<div style="margin:20px 0;padding:14px;background:var(--bg-card);border:2px solid var(--color-indigo);border-radius:8px;text-align:center;">
@@ -2534,10 +2524,8 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
 
     const { jsPDF } = window.jspdf || window;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const pageW = 297, margin = 8, usableW = pageW - margin * 2;
-    const colW = [8, 20, 30, 35, 35, 50, 25, 25];
-    const colTotal = colW.reduce((a, b) => a + b, 0);
-    const colPercent = colW.map(w => w / colTotal);
+    const pageW = 297, margin = 8;
+    const colW = [8, 20, 26, 30, 35, 35, 50, 25, 25];
 
     function _pdfText(v) { return String(v).replace(/₹/g, 'Rs.').replace(/—/g, '-').replace(/[^\x20-\x7E\s]/g, '').substring(0, 40); }
 
@@ -2563,18 +2551,15 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
 
     for (const mgr of mgrs) {
         const items = group[mgr];
-        // Check page space
         const needH = headerH + items.length * lineH + lineH + 6;
         if (y + needH > 200) { doc.addPage(); y = 15; }
 
-        // Section header
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
         doc.text('Floor Manager: ' + _pdfText(mgr), margin, y);
         y += 5;
 
-        // Table header
-        const headers = ['Sr', 'Flat', 'Amount', 'Approved Date', 'Deposited Date', 'Approved By', 'Month', 'Year'];
+        const headers = ['Sr', 'Flat', 'Fee Month', 'Amount', 'Approved Date', 'Deposited Date', 'Approved By', 'Month', 'Year'];
         let x = margin;
         doc.setFontSize(7);
         doc.setFont(undefined, 'bold');
@@ -2585,7 +2570,6 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
         });
         y += headerH;
 
-        // Data rows
         doc.setFont(undefined, 'normal');
         let grpTotal = 0;
         items.forEach((r, idx) => {
@@ -2593,6 +2577,7 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
             const vals = [
                 String(idx + 1),
                 _pdfText(r.flat_no),
+                _pdfText(r.month) + ' ' + r.year,
                 'Rs.' + Math.round(parseFloat(r.amount)).toLocaleString('en-IN'),
                 r.approved_at ? new Date(r.approved_at).toLocaleDateString('en-IN') : '-',
                 (r.deposited_at && r.deposit_status === 'deposited') ? new Date(r.deposited_at).toLocaleDateString('en-IN') : '-',
@@ -2616,11 +2601,10 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
         x = margin;
         doc.setFont(undefined, 'bold');
         doc.setFontSize(7);
-        doc.rect(x, y, (colW[0] + colW[1]) * 0.75, lineH);
-        doc.text('Total for ' + _pdfText(items[0].month) + ' ' + items[0].year, x + 1, y + 4);
-        x += (colW[0] + colW[1]) * 0.75;
-        let csum = 0;
-        for (let i = 2; i < colW.length; i++) {
+        doc.rect(x, y, (colW[0] + colW[1] + colW[2]) * 0.75, lineH);
+        doc.text('Total for ' + _pdfText(mgr), x + 1, y + 4);
+        x += (colW[0] + colW[1] + colW[2]) * 0.75;
+        for (let i = 3; i < colW.length; i++) {
             const v = i === 2 ? 'Rs.' + Math.round(grpTotal).toLocaleString('en-IN') : '';
             doc.rect(x, y, colW[i] * 0.75, lineH);
             doc.text(v, x + 1, y + 4);
@@ -2765,45 +2749,36 @@ window.showTreasurerReport = async function(container, toolbar) {
             const groups = {};
             for (const r of fAck) {
                 const key = r.acknowledged_by || 'Unknown';
-                if (!groups[key]) groups[key] = {};
-                const mk = r.month + ' ' + r.year;
-                if (!groups[key][mk]) groups[key][mk] = { month: r.month, year: r.year, items: [] };
-                groups[key][mk].items.push(r);
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(r);
             }
             let grandSrNo = 0, grandTotalAmt = 0;
             const trKeys = Object.keys(groups).sort();
             html += `<h4 style="color:var(--text-primary);margin:0 0 12px;"><i class="fa-solid fa-check-double"></i> Acknowledgments by Treasurer</h4>`;
             for (const tr of trKeys) {
-                const mks = Object.keys(groups[tr]).sort((a, b) => {
-                    const ma = groups[tr][a], mb = groups[tr][b];
-                    if (ma.year !== mb.year) return parseInt(ma.year) - parseInt(mb.year);
-                    return monthOrder.indexOf(ma.month) - monthOrder.indexOf(mb.month);
-                });
-                for (const mk of mks) {
-                    const g = groups[tr][mk];
-                    const items = g.items;
-                    let grpTotal = 0;
-                    html += `<div style="margin:16px 0 4px;font-weight:600;font-size:0.9rem;color:var(--text-primary);">
-                        <i class="fa-solid fa-user"></i> ${escapeHtml(tr)} — Fee Month: ${g.month} ${g.year}
-                    </div>`;
-                    html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th style="text-align:right;">Amount</th><th>Deposited Date</th><th>Acknowledged Date</th></tr></thead><tbody>';
-                    let srNo = 0;
-                    for (const r of items) {
-                        srNo++; grandSrNo++;
-                        const amt = parseFloat(r.amount) || 0;
-                        grpTotal += amt;
-                        const depAt = r.deposited_at && r.deposit_status === 'deposited' ? new Date(r.deposited_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                        const ackAt = r.acknowledged_at ? new Date(r.acknowledged_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                        html += `<tr><td style="text-align:center;">${srNo}</td><td><strong>${escapeHtml(r.flat_no)}</strong></td>
-                            <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
-                            <td style="font-size:0.8rem;">${depAt}</td><td style="font-size:0.8rem;">${ackAt}</td></tr>`;
-                    }
-                    grandTotalAmt += grpTotal;
-                    html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
-                        <td colspan="2" style="text-align:right;">Total for ${g.month} ${g.year}</td>
-                        <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(grpTotal)}</td>
-                        <td colspan="2"></td></tr></tbody></table>`;
+                const items = groups[tr];
+                let grpTotal = 0;
+                html += `<div style="margin:16px 0 4px;font-weight:600;font-size:0.9rem;color:var(--text-primary);">
+                    <i class="fa-solid fa-user"></i> ${escapeHtml(tr)}
+                </div>`;
+                html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th>Fee Month</th><th style="text-align:right;">Amount</th><th>Deposited Date</th><th>Acknowledged Date</th></tr></thead><tbody>';
+                let srNo = 0;
+                for (const r of items) {
+                    srNo++; grandSrNo++;
+                    const amt = parseFloat(r.amount) || 0;
+                    grpTotal += amt;
+                    const depAt = r.deposited_at && r.deposit_status === 'deposited' ? new Date(r.deposited_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                    const ackAt = r.acknowledged_at ? new Date(r.acknowledged_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                    html += `<tr><td style="text-align:center;">${srNo}</td><td><strong>${escapeHtml(r.flat_no)}</strong></td>
+                        <td style="font-size:0.85rem;">${escapeHtml(r.month)} ${escapeHtml(r.year)}</td>
+                        <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
+                        <td style="font-size:0.8rem;">${depAt}</td><td style="font-size:0.8rem;">${ackAt}</td></tr>`;
                 }
+                grandTotalAmt += grpTotal;
+                html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
+                    <td colspan="3" style="text-align:right;">Total for ${escapeHtml(tr)}</td>
+                    <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(grpTotal)}</td>
+                    <td colspan="2"></td></tr></tbody></table>`;
             }
             html += `<div style="margin:16px 0;padding:12px;background:var(--bg-card);border:2px solid var(--color-emerald);border-radius:8px;text-align:center;">
                 <strong>Total Acknowledged: ${formatCurrency(grandTotalAmt)} (${grandSrNo} transactions)</strong></div>`;
@@ -2932,7 +2907,7 @@ window._exportTRPDF = function(selTreas, selMonth, selYear) {
         }
         const trs = Object.keys(group).sort();
         let grandTotal = 0, grandCount = 0;
-        const colW = [8, 20, 30, 35, 35, 50, 25, 25];
+        const colW = [8, 20, 26, 30, 35, 35, 50, 25, 25];
         if (y > 15) { doc.addPage(); y = 15; }
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
@@ -2946,7 +2921,7 @@ window._exportTRPDF = function(selTreas, selMonth, selYear) {
             doc.setFont(undefined, 'bold');
             doc.text('Treasurer: ' + _pdfText(tr), margin, y);
             y += 5;
-            const headers = ['Sr', 'Flat', 'Amount', 'Deposited Date', 'Ack. Date', 'Ack. By', 'Month', 'Year'];
+            const headers = ['Sr', 'Flat', 'Fee Month', 'Amount', 'Deposited Date', 'Ack. Date', 'Ack. By', 'Month', 'Year'];
             let x = margin;
             doc.setFontSize(7);
             doc.setFont(undefined, 'bold');
@@ -2958,6 +2933,7 @@ window._exportTRPDF = function(selTreas, selMonth, selYear) {
                 x = margin;
                 const vals = [
                     String(idx + 1), _pdfText(r.flat_no),
+                    _pdfText(r.month) + ' ' + r.year,
                     'Rs.' + Math.round(parseFloat(r.amount)).toLocaleString('en-IN'),
                     (r.deposited_at && r.deposit_status === 'deposited') ? new Date(r.deposited_at).toLocaleDateString('en-IN') : '-',
                     r.acknowledged_at ? new Date(r.acknowledged_at).toLocaleDateString('en-IN') : '-',
@@ -2972,10 +2948,10 @@ window._exportTRPDF = function(selTreas, selMonth, selYear) {
             x = margin;
             doc.setFont(undefined, 'bold');
             doc.setFontSize(7);
-            doc.rect(x, y, (colW[0] + colW[1]) * 0.75, lineH);
-            doc.text('Total', x + 1, y + 4);
-            x += (colW[0] + colW[1]) * 0.75;
-            for (let i = 2; i < colW.length; i++) {
+            doc.rect(x, y, (colW[0] + colW[1] + colW[2]) * 0.75, lineH);
+            doc.text('Total for ' + _pdfText(tr), x + 1, y + 4);
+            x += (colW[0] + colW[1] + colW[2]) * 0.75;
+            for (let i = 3; i < colW.length; i++) {
                 const v = i === 2 ? 'Rs.' + Math.round(grpTotal).toLocaleString('en-IN') : '';
                 doc.rect(x, y, colW[i] * 0.75, lineH);
                 doc.text(v, x + 1, y + 4);
