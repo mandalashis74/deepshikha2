@@ -38,12 +38,6 @@ window.switchReportTab = function(tabId) {
     } else if (tabId === 'helpdesk-stats') {
         if (filterDates) filterDates.classList.add('hidden');
         if (filterYear) filterYear.classList.add('hidden');
-    } else if (tabId === 'floor-manager') {
-        if (filterDates) filterDates.classList.add('hidden');
-        if (filterYear) filterYear.classList.remove('hidden');
-    } else if (tabId === 'treasurer') {
-        if (filterDates) filterDates.classList.add('hidden');
-        if (filterYear) filterYear.classList.remove('hidden');
     } else {
         if (filterDates) filterDates.classList.add('hidden');
         if (filterYear) filterYear.classList.remove('hidden');
@@ -83,14 +77,6 @@ window.loadActiveReport = async function() {
             renderIncomeExpenditure(data);
         } else if (window.activeReportTab === 'helpdesk-stats') {
             await renderHelpdeskReport();
-        } else if (window.activeReportTab === 'floor-manager') {
-            const year = document.getElementById("rep-year").value;
-            const data = await getFloorManagerReport(year);
-            renderFloorManagerReport(data);
-        } else if (window.activeReportTab === 'treasurer') {
-            const year = document.getElementById("rep-year").value;
-            const data = await getTreasurerReport(year);
-            renderTreasurerReport(data);
         }
     } catch (err) {
         console.error("Report loader error:", err);
@@ -366,47 +352,84 @@ function renderDateWiseCashbook(data) {
     rowsHTML += `
         <tr class="row-opening">
             <td>${window.formatDateDisplay(data.start_date)}</td>
-            <td>-</td>
-            <td>Opening Balance B/F</td>
             <td class="text-right">-</td>
             <td class="text-right">-</td>
             <td class="text-right rep-bal">${formatCurrency(runningBal)}</td>
         </tr>
     `;
     
-    if (data.transactions.length === 0) {
+    // Group transactions by date and sum DR/CR
+    const dateMap = {};
+    data.transactions.forEach(t => {
+        const d = t.date;
+        if (!dateMap[d]) dateMap[d] = { dr: 0, cr: 0 };
+        dateMap[d].dr += t.debit;
+        dateMap[d].cr += t.credit;
+    });
+    
+    const sortedDates = Object.keys(dateMap).sort();
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    
+    // Group sorted dates by month/year
+    const monthGroups = {};
+    sortedDates.forEach(d => {
+        const dt = new Date(d);
+        const mk = monthNames[dt.getMonth()] + ' ' + dt.getFullYear();
+        if (!monthGroups[mk]) monthGroups[mk] = [];
+        monthGroups[mk].push(d);
+    });
+    const sortedMonths = Object.keys(monthGroups).sort((a, b) => {
+        const [ma, ya] = a.split(' ');
+        const [mb, yb] = b.split(' ');
+        if (ya !== yb) return parseInt(ya) - parseInt(yb);
+        return monthNames.indexOf(ma) - monthNames.indexOf(mb);
+    });
+    
+    if (sortedDates.length === 0) {
         rowsHTML += `
             <tr>
-                <td colspan="6" class="text-center" style="color: #64748b; padding: 20px;">
+                <td colspan="4" class="text-center" style="color: #64748b; padding: 20px;">
                     No transactions recorded during this period.
                 </td>
             </tr>
         `;
     } else {
-        data.transactions.forEach(t => {
-            runningBal = runningBal + t.debit - t.credit;
-            
-            const drText = t.debit > 0 ? formatCurrency(t.debit) : "-";
-            const crText = t.credit > 0 ? formatCurrency(t.credit) : "-";
-            
-            rowsHTML += `
-                <tr>
-                    <td>${window.formatDateDisplay(t.date)}</td>
-                    <td><code>${t.ref_no}</code></td>
-                    <td>${t.particulars}</td>
-                    <td class="text-right ${t.debit > 0 ? 'amt-dr' : ''}">${drText}</td>
-                    <td class="text-right ${t.credit > 0 ? 'amt-cr' : ''}">${crText}</td>
-                    <td class="text-right rep-bal">${formatCurrency(runningBal)}</td>
-                </tr>
-            `;
+        sortedMonths.forEach(mk => {
+            const dates = monthGroups[mk];
+            let monthDr = 0, monthCr = 0;
+            // Month heading row
+            rowsHTML += `<tr class="row-month-heading"><td colspan="4"><strong>${mk}</strong></td></tr>`;
+            dates.forEach(d => {
+                const { dr, cr } = dateMap[d];
+                runningBal = runningBal + dr - cr;
+                monthDr += dr;
+                monthCr += cr;
+                
+                const drText = dr > 0 ? formatCurrency(dr) : "-";
+                const crText = cr > 0 ? formatCurrency(cr) : "-";
+                
+                rowsHTML += `
+                    <tr>
+                        <td>${window.formatDateDisplay(d)}</td>
+                        <td class="text-right ${dr > 0 ? 'amt-dr' : ''}">${drText}</td>
+                        <td class="text-right ${cr > 0 ? 'amt-cr' : ''}">${crText}</td>
+                        <td class="text-right rep-bal">${formatCurrency(runningBal)}</td>
+                    </tr>
+                `;
+            });
+            // Month sub-total
+            rowsHTML += `<tr class="row-subtotal">
+                <td><strong>Total for ${mk}</strong></td>
+                <td class="text-right" style="font-weight:700;color:var(--color-emerald);">${monthDr > 0 ? formatCurrency(monthDr) : '-'}</td>
+                <td class="text-right" style="font-weight:700;color:var(--color-rose);">${monthCr > 0 ? formatCurrency(monthCr) : '-'}</td>
+                <td></td>
+            </tr>`;
         });
     }
     
     rowsHTML += `
         <tr class="row-closing">
             <td>${window.formatDateDisplay(data.end_date)}</td>
-            <td>-</td>
-            <td>Closing Balance C/F</td>
             <td class="text-right">-</td>
             <td class="text-right">-</td>
             <td class="text-right rep-bal">${formatCurrency(data.closing_balance)}</td>
@@ -416,7 +439,7 @@ function renderDateWiseCashbook(data) {
     sheet.innerHTML = `
         <div class="report-header">
             <h2>${getBuildingName().toUpperCase()}${getBlockName() ? ` (${getBlockName().toUpperCase()})` : ''}</h2>
-            <p><strong>DATE-WISE CASH BOOK</strong></p>
+            <p><strong>DATE-WISE CASH BOOK (SUMMARY)</strong></p>
             <p>Period: ${window.formatDateDisplay(data.start_date)} to ${window.formatDateDisplay(data.end_date)}</p>
         </div>
         
@@ -439,8 +462,6 @@ function renderDateWiseCashbook(data) {
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Voucher/Ref No</th>
-                    <th>Particulars</th>
                     <th class="text-right">Receipts (Dr)</th>
                     <th class="text-right">Payments (Cr)</th>
                     <th class="text-right">Balance</th>
@@ -1308,253 +1329,4 @@ window.exportLedgerToExcel = async function() {
         showToast("Could not export ledger.", "error");
     }
 };
-
-// ─── FLOOR MANAGER REPORT ──────────────────────────────────────────────────
-
-async function getFloorManagerReport(year) {
-    const { data: incomes, error } = await sbClient.from('income')
-        .select('id, flat_no, month, amount, collected_by, approved_by, deposited_by, deposit_status, status')
-        .eq('category', 'Monthly Maintenance')
-        .eq('year', String(year));
-    if (error) throw error;
-    if (!incomes) return { year, rows: [], grand: { collectedAmt:0, collectedCount:0, approvedAmt:0, approvedCount:0, depositedAmt:0, depositedCount:0 } };
-
-    const approved = incomes.filter(r => r.status !== 'pending' && r.status !== 'rejected');
-    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-    const personData = {};
-    for (const r of approved) {
-        const m = r.month;
-        if (r.collected_by) {
-            if (!personData[r.collected_by]) personData[r.collected_by] = {};
-            if (!personData[r.collected_by][m]) personData[r.collected_by][m] = { colAmt:0, colCnt:0, aprAmt:0, aprCnt:0, depAmt:0, depCnt:0 };
-            personData[r.collected_by][m].colAmt += parseFloat(r.amount);
-            personData[r.collected_by][m].colCnt++;
-        }
-        if (r.approved_by) {
-            if (!personData[r.approved_by]) personData[r.approved_by] = {};
-            if (!personData[r.approved_by][m]) personData[r.approved_by][m] = { colAmt:0, colCnt:0, aprAmt:0, aprCnt:0, depAmt:0, depCnt:0 };
-            personData[r.approved_by][m].aprAmt += parseFloat(r.amount);
-            personData[r.approved_by][m].aprCnt++;
-        }
-        if (r.deposited_by && r.deposit_status === 'deposited') {
-            if (!personData[r.deposited_by]) personData[r.deposited_by] = {};
-            if (!personData[r.deposited_by][m]) personData[r.deposited_by][m] = { colAmt:0, colCnt:0, aprAmt:0, aprCnt:0, depAmt:0, depCnt:0 };
-            personData[r.deposited_by][m].depAmt += parseFloat(r.amount);
-            personData[r.deposited_by][m].depCnt++;
-        }
-    }
-
-    const people = Object.keys(personData).sort();
-    const rows = [];
-    for (const person of people) {
-        let tCol = 0, tApr = 0, tDep = 0, tColC = 0, tAprC = 0, tDepC = 0;
-        for (const m of monthNames) {
-            const d = personData[person][m] || {};
-            const ca = d.colAmt || 0, cc = d.colCnt || 0;
-            const aa = d.aprAmt || 0, ac = d.aprCnt || 0;
-            const da = d.depAmt || 0, dc = d.depCnt || 0;
-            if (ca || aa || da) rows.push({ person, month: m, ca, cc, aa, ac, da, dc, isT: false });
-            tCol += ca; tApr += aa; tDep += da; tColC += cc; tAprC += ac; tDepC += dc;
-        }
-        rows.push({ person, month: '', ca: tCol, cc: tColC, aa: tApr, ac: tAprC, da: tDep, dc: tDepC, isT: true });
-    }
-
-    const grand = { ca:0, cc:0, aa:0, ac:0, da:0, dc:0 };
-    for (const r of rows) { if (r.isT) { grand.ca += r.ca; grand.cc += r.cc; grand.aa += r.aa; grand.ac += r.ac; grand.da += r.da; grand.dc += r.dc; } }
-    return { year, people, rows, grand };
-}
-
-function renderFloorManagerReport(data) {
-    const sheet = document.getElementById("report-sheet");
-    if (!sheet) return;
-    if (!data.rows.length) { sheet.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">No data found for the selected year.</div>'; return; }
-
-    function fmt(v) { return v ? '₹' + Math.round(v).toLocaleString('en-IN') : ''; }
-    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-    let html = `<div style="margin-bottom:24px;"><h3 style="margin:0 0 4px;color:#0f172a;">Floor Manager Performance Report</h3><p style="margin:0;font-size:0.85rem;color:#64748b;">Calendar Year ${data.year}</p></div>`;
-    html += '<table class="report-table"><thead><tr><th>Floor Manager</th><th>Month</th><th style="text-align:right;">Collections (₹)</th><th style="text-align:center;">#</th><th style="text-align:right;">Approvals (₹)</th><th style="text-align:center;">#</th><th style="text-align:right;">Deposits (₹)</th><th style="text-align:center;">#</th></tr></thead><tbody>';
-
-    let prev = '';
-    for (const r of data.rows) {
-        const isT = r.isT;
-        const sep = !isT && r.person !== prev ? 'border-top:1px solid #cbd5e1;' : '';
-        html += `<tr class="${isT ? 'row-closing' : ''}" style="${sep}">
-            <td style="font-weight:${isT ? 700 : 600};"><span style="${isT ? '' : 'margin-left:' + (r.person === prev ? '0' : '0') + ';'}">${isT ? esc(r.person) + ' Total' : esc(r.person)}</span></td>
-            <td>${isT ? '<strong>Total</strong>' : r.month}</td>
-            <td style="text-align:right;color:#059669;font-weight:600;">${fmt(r.ca)}</td>
-            <td style="text-align:center;font-size:0.8rem;">${r.cc || ''}</td>
-            <td style="text-align:right;color:#2563eb;font-weight:600;">${fmt(r.aa)}</td>
-            <td style="text-align:center;font-size:0.8rem;">${r.ac || ''}</td>
-            <td style="text-align:right;color:#7c3aed;font-weight:600;">${fmt(r.da)}</td>
-            <td style="text-align:center;font-size:0.8rem;">${r.dc || ''}</td>
-        </tr>`;
-        prev = r.person;
-    }
-
-    const g = data.grand;
-    html += `<tr class="row-closing" style="border-top:2px solid #94a3b8;"><td colspan="2" style="font-weight:700;font-size:0.9rem;">GRAND TOTAL</td>
-        <td style="text-align:right;color:#059669;font-weight:700;">${fmt(g.ca)}</td><td style="text-align:center;font-weight:700;">${g.cc}</td>
-        <td style="text-align:right;color:#2563eb;font-weight:700;">${fmt(g.aa)}</td><td style="text-align:center;font-weight:700;">${g.ac}</td>
-        <td style="text-align:right;color:#7c3aed;font-weight:700;">${fmt(g.da)}</td><td style="text-align:center;font-weight:700;">${g.dc}</td>
-    </tr></tbody></table>`;
-    sheet.innerHTML = html;
-}
-
-// ─── TREASURER REPORT ─────────────────────────────────────────────────────
-
-async function getTreasurerReport(year) {
-    const [incRes, expRes] = await Promise.all([
-        sbClient.from('income')
-            .select('id, month, amount, acknowledged_by')
-            .eq('category', 'Monthly Maintenance')
-            .eq('year', String(year))
-            .eq('acknowledgement_status', 'acknowledged'),
-        sbClient.from('expenses')
-            .select('id, month, expense_head, description, amount, date_spent, created_by')
-            .eq('year', String(year))
-    ]);
-    if (incRes.error) throw incRes.error;
-    if (expRes.error) throw expRes.error;
-
-    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-    // Acknowledged: per person per month
-    const ackData = {};
-    for (const r of (incRes.data || [])) {
-        if (!r.acknowledged_by) continue;
-        if (!ackData[r.acknowledged_by]) ackData[r.acknowledged_by] = {};
-        if (!ackData[r.acknowledged_by][r.month]) ackData[r.acknowledged_by][r.month] = { amt: 0, cnt: 0 };
-        ackData[r.acknowledged_by][r.month].amt += parseFloat(r.amount);
-        ackData[r.acknowledged_by][r.month].cnt++;
-    }
-
-    const ackPeople = Object.keys(ackData).sort();
-    const ackRows = [];
-    for (const person of ackPeople) {
-        let tAmt = 0, tCnt = 0;
-        for (const m of monthNames) {
-            const d = ackData[person][m] || {};
-            const a = d.amt || 0, c = d.cnt || 0;
-            if (a) ackRows.push({ person, month: m, amt: a, cnt: c, isT: false });
-            tAmt += a; tCnt += c;
-        }
-        ackRows.push({ person, month: '', amt: tAmt, cnt: tCnt, isT: true });
-    }
-    const ackGrand = { amt: 0, cnt: 0 };
-    for (const r of ackRows) { if (r.isT) { ackGrand.amt += r.amt; ackGrand.cnt += r.cnt; } }
-
-    // Expenditure: month-wise totals + per-person if created_by exists
-    const expMonth = {};
-    const expPerson = {};
-    for (const r of (expRes.data || [])) {
-        const amt = parseFloat(r.amount) || 0;
-        expMonth[r.month] = (expMonth[r.month] || 0) + amt;
-        if (r.created_by) {
-            if (!expPerson[r.created_by]) expPerson[r.created_by] = {};
-            if (!expPerson[r.created_by][r.month]) expPerson[r.created_by][r.month] = { amt: 0, cnt: 0 };
-            expPerson[r.created_by][r.month].amt += amt;
-            expPerson[r.created_by][r.month].cnt++;
-        }
-    }
-
-    const expRows = [];
-    let expTotal = 0;
-    for (const m of monthNames) {
-        const a = expMonth[m] || 0;
-        if (a) { expRows.push({ month: m, amt: a }); expTotal += a; }
-    }
-
-    const expPeople = Object.keys(expPerson).sort();
-    const expPRows = [];
-    for (const person of expPeople) {
-        let tAmt = 0, tCnt = 0;
-        for (const m of monthNames) {
-            const d = expPerson[person][m] || {};
-            const a = d.amt || 0, c = d.cnt || 0;
-            if (a) expPRows.push({ person, month: m, amt: a, cnt: c, isT: false });
-            tAmt += a; tCnt += c;
-        }
-        expPRows.push({ person, month: '', amt: tAmt, cnt: tCnt, isT: true });
-    }
-    const expPGrand = { amt: 0, cnt: 0 };
-    for (const r of expPRows) { if (r.isT) { expPGrand.amt += r.amt; expPGrand.cnt += r.cnt; } }
-
-    return { year, ackRows, ackGrand, expRows, expTotal, expPRows, expPGrand, expPeople };
-}
-
-function renderTreasurerReport(data) {
-    const sheet = document.getElementById("report-sheet");
-    if (!sheet) return;
-
-    function fmt(v) { return v ? '₹' + Math.round(v).toLocaleString('en-IN') : ''; }
-    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-    let html = `<div style="margin-bottom:24px;"><h3 style="margin:0 0 4px;color:#0f172a;">Treasurer Report</h3><p style="margin:0;font-size:0.85rem;color:#64748b;">Calendar Year ${data.year}</p></div>`;
-
-    // === Section 1: Acknowledgments by Treasurer ===
-    if (data.ackRows.length) {
-        html += `<h4 style="color:#0f172a;margin:20px 0 12px;"><i class="fa-solid fa-check-double"></i> Acknowledgments by Treasurer</h4>`;
-        html += '<table class="report-table"><thead><tr><th>Treasurer</th><th>Month</th><th style="text-align:right;">Amount (₹)</th><th style="text-align:center;">#</th></tr></thead><tbody>';
-        let prev = '';
-        for (const r of data.ackRows) {
-            const sep = !r.isT && r.person !== prev ? 'border-top:1px solid #cbd5e1;' : '';
-            html += `<tr class="${r.isT ? 'row-closing' : ''}" style="${sep}">
-                <td style="font-weight:${r.isT ? 700 : 600};">${r.isT ? esc(r.person) + ' Total' : esc(r.person)}</td>
-                <td>${r.isT ? '<strong>Total</strong>' : r.month}</td>
-                <td style="text-align:right;color:#7c3aed;font-weight:600;">${fmt(r.amt)}</td>
-                <td style="text-align:center;font-size:0.8rem;">${r.cnt || ''}</td>
-            </tr>`;
-            prev = r.person;
-        }
-        const ag = data.ackGrand;
-        html += `<tr class="row-closing" style="border-top:2px solid #94a3b8;"><td colspan="2" style="font-weight:700;font-size:0.9rem;">GRAND TOTAL</td>
-            <td style="text-align:right;color:#7c3aed;font-weight:700;">${fmt(ag.amt)}</td><td style="text-align:center;font-weight:700;">${ag.cnt}</td>
-        </tr></tbody></table>`;
-    } else {
-        html += '<p style="color:#64748b;font-size:0.9rem;">No acknowledgment data for this year.</p>';
-    }
-
-    // === Section 2: Expenditure Overview ===
-    html += `<h4 style="color:#0f172a;margin:28px 0 12px;"><i class="fa-solid fa-arrow-up-from-bracket"></i> Expenditure Overview</h4>`;
-    if (data.expRows.length) {
-        html += `<div style="display:flex;gap:16px;margin-bottom:16px;">
-            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 20px;text-align:center;">
-                <div style="font-size:0.75rem;color:#64748b;">Total Expenditure</div>
-                <div style="font-size:1.25rem;font-weight:700;color:#e11d48;">${fmt(data.expTotal)}</div>
-            </div>
-        </div>`;
-        html += '<table class="report-table"><thead><tr><th>Month</th><th style="text-align:right;">Amount (₹)</th></tr></thead><tbody>';
-        for (const r of data.expRows) {
-            html += `<tr><td>${r.month}</td><td style="text-align:right;color:#e11d48;font-weight:600;">${fmt(r.amt)}</td></tr>`;
-        }
-        html += `<tr class="row-closing"><td style="font-weight:700;">Total</td><td style="text-align:right;color:#e11d48;font-weight:700;">${fmt(data.expTotal)}</td></tr></tbody></table>`;
-    } else {
-        html += '<p style="color:#64748b;font-size:0.9rem;">No expenditure data for this year.</p>';
-    }
-
-    // === Section 3: Expenditure by Person ===
-    if (data.expPRows.length) {
-        html += `<h4 style="color:#0f172a;margin:28px 0 12px;"><i class="fa-solid fa-user"></i> Expenditure by Person</h4>`;
-        html += '<table class="report-table"><thead><tr><th>Person</th><th>Month</th><th style="text-align:right;">Amount (₹)</th><th style="text-align:center;">#</th></tr></thead><tbody>';
-        let prev = '';
-        for (const r of data.expPRows) {
-            const sep = !r.isT && r.person !== prev ? 'border-top:1px solid #cbd5e1;' : '';
-            html += `<tr class="${r.isT ? 'row-closing' : ''}" style="${sep}">
-                <td style="font-weight:${r.isT ? 700 : 600};">${r.isT ? esc(r.person) + ' Total' : esc(r.person)}</td>
-                <td>${r.isT ? '<strong>Total</strong>' : r.month}</td>
-                <td style="text-align:right;color:#e11d48;font-weight:600;">${fmt(r.amt)}</td>
-                <td style="text-align:center;font-size:0.8rem;">${r.cnt || ''}</td>
-            </tr>`;
-            prev = r.person;
-        }
-        const eg = data.expPGrand;
-        html += `<tr class="row-closing" style="border-top:2px solid #94a3b8;"><td colspan="2" style="font-weight:700;font-size:0.9rem;">GRAND TOTAL</td>
-            <td style="text-align:right;color:#e11d48;font-weight:700;">${fmt(eg.amt)}</td><td style="text-align:center;font-weight:700;">${eg.cnt}</td>
-        </tr></tbody></table>`;
-    }
-
-    sheet.innerHTML = html;
-}
 

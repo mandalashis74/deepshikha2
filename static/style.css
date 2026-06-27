@@ -1303,6 +1303,20 @@ body.sidebar-hidden .workspace.has-bg::before {
     border-bottom: 2px double #cbd5e1;
 }
 
+.report-table .row-month-heading td {
+    background-color: #e2e8f0;
+    font-weight: 700;
+    padding: 6px 10px !important;
+    border-bottom: 1px solid #94a3b8;
+}
+
+.report-table .row-subtotal td {
+    background-color: #f1f5f9;
+    font-weight: 600;
+    border-top: 1px solid #94a3b8;
+    border-bottom: 1px solid #94a3b8;
+}
+
 .report-table .amt-dr {
     color: #059669;
     font-weight: 600;
