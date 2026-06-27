@@ -38,6 +38,9 @@ window.switchReportTab = function(tabId) {
     } else if (tabId === 'helpdesk-stats') {
         if (filterDates) filterDates.classList.add('hidden');
         if (filterYear) filterYear.classList.add('hidden');
+    } else if (tabId === 'floor-manager') {
+        if (filterDates) filterDates.classList.add('hidden');
+        if (filterYear) filterYear.classList.remove('hidden');
     } else {
         if (filterDates) filterDates.classList.add('hidden');
         if (filterYear) filterYear.classList.remove('hidden');
@@ -77,6 +80,10 @@ window.loadActiveReport = async function() {
             renderIncomeExpenditure(data);
         } else if (window.activeReportTab === 'helpdesk-stats') {
             await renderHelpdeskReport();
+        } else if (window.activeReportTab === 'floor-manager') {
+            const year = document.getElementById("rep-year").value;
+            const data = await getFloorManagerReport(year);
+            renderFloorManagerReport(data);
         }
     } catch (err) {
         console.error("Report loader error:", err);
@@ -1294,4 +1301,97 @@ window.exportLedgerToExcel = async function() {
         showToast("Could not export ledger.", "error");
     }
 };
+
+// ─── FLOOR MANAGER REPORT ──────────────────────────────────────────────────
+
+async function getFloorManagerReport(year) {
+    const { data: incomes, error } = await sbClient.from('income')
+        .select('id, flat_no, month, amount, collected_by, approved_by, deposited_by, deposit_status, status')
+        .eq('category', 'Monthly Maintenance')
+        .eq('year', String(year));
+    if (error) throw error;
+    if (!incomes) return { year, rows: [], grand: { collectedAmt:0, collectedCount:0, approvedAmt:0, approvedCount:0, depositedAmt:0, depositedCount:0 } };
+
+    const approved = incomes.filter(r => r.status !== 'pending' && r.status !== 'rejected');
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    const personData = {};
+    for (const r of approved) {
+        const m = r.month;
+        if (r.collected_by) {
+            if (!personData[r.collected_by]) personData[r.collected_by] = {};
+            if (!personData[r.collected_by][m]) personData[r.collected_by][m] = { colAmt:0, colCnt:0, aprAmt:0, aprCnt:0, depAmt:0, depCnt:0 };
+            personData[r.collected_by][m].colAmt += parseFloat(r.amount);
+            personData[r.collected_by][m].colCnt++;
+        }
+        if (r.approved_by) {
+            if (!personData[r.approved_by]) personData[r.approved_by] = {};
+            if (!personData[r.approved_by][m]) personData[r.approved_by][m] = { colAmt:0, colCnt:0, aprAmt:0, aprCnt:0, depAmt:0, depCnt:0 };
+            personData[r.approved_by][m].aprAmt += parseFloat(r.amount);
+            personData[r.approved_by][m].aprCnt++;
+        }
+        if (r.deposited_by && r.deposit_status === 'deposited') {
+            if (!personData[r.deposited_by]) personData[r.deposited_by] = {};
+            if (!personData[r.deposited_by][m]) personData[r.deposited_by][m] = { colAmt:0, colCnt:0, aprAmt:0, aprCnt:0, depAmt:0, depCnt:0 };
+            personData[r.deposited_by][m].depAmt += parseFloat(r.amount);
+            personData[r.deposited_by][m].depCnt++;
+        }
+    }
+
+    const people = Object.keys(personData).sort();
+    const rows = [];
+    for (const person of people) {
+        let tCol = 0, tApr = 0, tDep = 0, tColC = 0, tAprC = 0, tDepC = 0;
+        for (const m of monthNames) {
+            const d = personData[person][m] || {};
+            const ca = d.colAmt || 0, cc = d.colCnt || 0;
+            const aa = d.aprAmt || 0, ac = d.aprCnt || 0;
+            const da = d.depAmt || 0, dc = d.depCnt || 0;
+            if (ca || aa || da) rows.push({ person, month: m, ca, cc, aa, ac, da, dc, isT: false });
+            tCol += ca; tApr += aa; tDep += da; tColC += cc; tAprC += ac; tDepC += dc;
+        }
+        rows.push({ person, month: '', ca: tCol, cc: tColC, aa: tApr, ac: tAprC, da: tDep, dc: tDepC, isT: true });
+    }
+
+    const grand = { ca:0, cc:0, aa:0, ac:0, da:0, dc:0 };
+    for (const r of rows) { if (r.isT) { grand.ca += r.ca; grand.cc += r.cc; grand.aa += r.aa; grand.ac += r.ac; grand.da += r.da; grand.dc += r.dc; } }
+    return { year, people, rows, grand };
+}
+
+function renderFloorManagerReport(data) {
+    const sheet = document.getElementById("report-sheet");
+    if (!sheet) return;
+    if (!data.rows.length) { sheet.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">No data found for the selected year.</div>'; return; }
+
+    function fmt(v) { return v ? '₹' + Math.round(v).toLocaleString('en-IN') : ''; }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    let html = `<div style="margin-bottom:24px;"><h3 style="margin:0 0 4px;color:#0f172a;">Floor Manager Performance Report</h3><p style="margin:0;font-size:0.85rem;color:#64748b;">Calendar Year ${data.year}</p></div>`;
+    html += '<table class="report-table"><thead><tr><th>Floor Manager</th><th>Month</th><th style="text-align:right;">Collections (₹)</th><th style="text-align:center;">#</th><th style="text-align:right;">Approvals (₹)</th><th style="text-align:center;">#</th><th style="text-align:right;">Deposits (₹)</th><th style="text-align:center;">#</th></tr></thead><tbody>';
+
+    let prev = '';
+    for (const r of data.rows) {
+        const isT = r.isT;
+        const sep = !isT && r.person !== prev ? 'border-top:1px solid #cbd5e1;' : '';
+        html += `<tr class="${isT ? 'row-closing' : ''}" style="${sep}">
+            <td style="font-weight:${isT ? 700 : 600};"><span style="${isT ? '' : 'margin-left:' + (r.person === prev ? '0' : '0') + ';'}">${isT ? esc(r.person) + ' Total' : esc(r.person)}</span></td>
+            <td>${isT ? '<strong>Total</strong>' : r.month}</td>
+            <td style="text-align:right;color:#059669;font-weight:600;">${fmt(r.ca)}</td>
+            <td style="text-align:center;font-size:0.8rem;">${r.cc || ''}</td>
+            <td style="text-align:right;color:#2563eb;font-weight:600;">${fmt(r.aa)}</td>
+            <td style="text-align:center;font-size:0.8rem;">${r.ac || ''}</td>
+            <td style="text-align:right;color:#7c3aed;font-weight:600;">${fmt(r.da)}</td>
+            <td style="text-align:center;font-size:0.8rem;">${r.dc || ''}</td>
+        </tr>`;
+        prev = r.person;
+    }
+
+    const g = data.grand;
+    html += `<tr class="row-closing" style="border-top:2px solid #94a3b8;"><td colspan="2" style="font-weight:700;font-size:0.9rem;">GRAND TOTAL</td>
+        <td style="text-align:right;color:#059669;font-weight:700;">${fmt(g.ca)}</td><td style="text-align:center;font-weight:700;">${g.cc}</td>
+        <td style="text-align:right;color:#2563eb;font-weight:700;">${fmt(g.aa)}</td><td style="text-align:center;font-weight:700;">${g.ac}</td>
+        <td style="text-align:right;color:#7c3aed;font-weight:700;">${fmt(g.da)}</td><td style="text-align:center;font-weight:700;">${g.dc}</td>
+    </tr></tbody></table>`;
+    sheet.innerHTML = html;
+}
 
