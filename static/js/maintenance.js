@@ -2332,12 +2332,13 @@ window.acknowledgeDeposit = async function(id) {
 
 // ─── FLOOR MANAGER REPORT ──────────────────────────────────────────────
 
+let _fmReportData = [];
+
 window.showFloorManagerReport = async function(container, toolbar) {
-    toolbar.innerHTML = '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'pending\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+    toolbar.innerHTML = '';
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading data...</div>';
 
     const monthOrder = CAL_MONTHS;
-
     let allData = [];
     try {
         const { data } = await sbClient.from('income')
@@ -2349,7 +2350,6 @@ window.showFloorManagerReport = async function(container, toolbar) {
         if (data) allData = data;
     } catch { allData = []; }
 
-    // Sort by approved_by, then year, then month index
     allData.sort((a, b) => {
         const na = (a.approved_by || '').toLowerCase();
         const nb = (b.approved_by || '').toLowerCase();
@@ -2358,85 +2358,286 @@ window.showFloorManagerReport = async function(container, toolbar) {
         return monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month);
     });
 
+    const managers = [...new Set(allData.map(r => r.approved_by).filter(Boolean))].sort();
+    const years = [...new Set(allData.map(r => r.year).filter(Boolean))].sort();
+
+    function buildFilters() {
+        let fhtml = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Floor Manager<br><select id="fm-filter-mgr" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Managers</option>';
+        managers.forEach(m => { fhtml += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`; });
+        fhtml += '</select></label>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Month<br><select id="fm-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Months</option>';
+        monthOrder.forEach(m => { fhtml += `<option value="${m}">${m}</option>`; });
+        fhtml += '</select></label>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Year<br><select id="fm-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Years</option>';
+        years.forEach(y => { fhtml += `<option value="${y}">${y}</option>`; });
+        fhtml += '</select></label>';
+        fhtml += '<button class="btn btn-sm" style="background:var(--color-indigo);color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:0.8rem;" onclick="window._fmGenerateReport()"><i class="fa-solid fa-magnifying-glass"></i> Generate</button>';
+        fhtml += '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'pending\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
+        fhtml += '</div>';
+        return fhtml;
+    }
+
+    toolbar.innerHTML = buildFilters();
+
     if (!allData.length) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-circle-info" style="font-size:2rem;"></i><br><br>No approved payment records found.</div>';
         return;
     }
 
-    // Group by approved_by → month_year
-    const groups = {};
-    for (const r of allData) {
-        const key = r.approved_by || 'Unknown';
-        if (!groups[key]) groups[key] = {};
-        const mk = r.month + ' ' + r.year;
-        if (!groups[key][mk]) groups[key][mk] = { month: r.month, year: r.year, items: [] };
-        groups[key][mk].items.push(r);
-    }
+    window._fmGenerateReport = function() {
+        const selMgr = document.getElementById('fm-filter-mgr').value;
+        const selMonth = document.getElementById('fm-filter-month').value;
+        const selYear = document.getElementById('fm-filter-year').value;
 
-    let html = '';
-    let grandSrNo = 0;
-    let grandTotalAmt = 0;
-    const managers = Object.keys(groups).sort();
+        let filtered = allData;
+        if (selMgr) filtered = filtered.filter(r => r.approved_by === selMgr);
+        if (selMonth) filtered = filtered.filter(r => r.month === selMonth);
+        if (selYear) filtered = filtered.filter(r => r.year === selYear);
 
-    for (const manager of managers) {
-        const months = Object.keys(groups[manager]).sort((a, b) => {
-            const ma = groups[manager][a];
-            const mb = groups[manager][b];
-            if (ma.year !== mb.year) return parseInt(ma.year) - parseInt(mb.year);
-            return monthOrder.indexOf(ma.month) - monthOrder.indexOf(mb.month);
-        });
+        _fmReportData = filtered;
 
-        for (const mk of months) {
-            const g = groups[manager][mk];
-            const items = g.items;
-            let mgrTotal = 0;
+        // Show export buttons
+        const existingBtns = toolbar.querySelectorAll('.fm-export-btn');
+        existingBtns.forEach(b => b.remove());
+        const expSep = document.createElement('span');
+        expSep.className = 'fm-export-btn';
+        expSep.style.cssText = 'margin-left:8px;color:var(--text-muted);font-size:0.8rem;';
+        expSep.textContent = '| Export:';
+        toolbar.appendChild(expSep);
+        const xlsBtn = document.createElement('button');
+        xlsBtn.className = 'btn btn-sm fm-export-btn';
+        xlsBtn.innerHTML = '<i class="fa-solid fa-file-excel"></i> Excel';
+        xlsBtn.style.cssText = 'margin-left:4px;background:#1d6f42;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:0.75rem;';
+        xlsBtn.onclick = () => window._exportFMExcel(selMgr, selMonth, selYear);
+        toolbar.appendChild(xlsBtn);
+        const pdfBtn = document.createElement('button');
+        pdfBtn.className = 'btn btn-sm fm-export-btn';
+        pdfBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> PDF';
+        pdfBtn.style.cssText = 'margin-left:4px;background:#b91c1c;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:0.75rem;';
+        pdfBtn.onclick = () => window._exportFMPDF(selMgr, selMonth, selYear);
+        toolbar.appendChild(pdfBtn);
 
-            html += `<div style="margin:24px 0 8px;font-weight:700;font-size:1rem;color:var(--text-primary);">
-                <i class="fa-solid fa-user"></i> ${escapeHtml(manager)} — ${g.month} ${g.year}
-            </div>`;
-            html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th style="text-align:right;">Amount</th><th>Approved Date</th><th>Deposited Date</th></tr></thead><tbody>';
-
-            let srNo = 0;
-            for (const r of items) {
-                srNo++; grandSrNo++;
-                const amt = parseFloat(r.amount) || 0;
-                mgrTotal += amt;
-                const appAt = r.approved_at ? new Date(r.approved_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                const depAt = r.deposited_at && r.deposit_status === 'deposited' ? new Date(r.deposited_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                html += `<tr>
-                    <td style="text-align:center;">${srNo}</td>
-                    <td><strong>${escapeHtml(r.flat_no)}</strong></td>
-                    <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
-                    <td style="font-size:0.8rem;">${appAt}</td>
-                    <td style="font-size:0.8rem;">${depAt}</td>
-                </tr>`;
-            }
-            grandTotalAmt += mgrTotal;
-            html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
-                <td colspan="2" style="text-align:right;">Total for ${g.month} ${g.year}</td>
-                <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(mgrTotal)}</td>
-                <td colspan="2"></td>
-            </tr></tbody></table>`;
+        if (!filtered.length) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-circle-info" style="font-size:2rem;"></i><br><br>No records match the selected filters.</div>';
+            return;
         }
+
+        // Group by approved_by → month_year
+        const groups = {};
+        for (const r of filtered) {
+            const key = r.approved_by || 'Unknown';
+            if (!groups[key]) groups[key] = {};
+            const mk = r.month + ' ' + r.year;
+            if (!groups[key][mk]) groups[key][mk] = { month: r.month, year: r.year, items: [] };
+            groups[key][mk].items.push(r);
+        }
+
+        let html = '';
+        let grandSrNo = 0;
+        let grandTotalAmt = 0;
+        const mgrKeys = Object.keys(groups).sort();
+
+        for (const mgr of mgrKeys) {
+            const mks = Object.keys(groups[mgr]).sort((a, b) => {
+                const ma = groups[mgr][a];
+                const mb = groups[mgr][b];
+                if (ma.year !== mb.year) return parseInt(ma.year) - parseInt(mb.year);
+                return monthOrder.indexOf(ma.month) - monthOrder.indexOf(mb.month);
+            });
+            for (const mk of mks) {
+                const g = groups[mgr][mk];
+                const items = g.items;
+                let grpTotal = 0;
+                html += `<div style="margin:20px 0 6px;font-weight:700;font-size:0.95rem;color:var(--text-primary);">
+                    <i class="fa-solid fa-user"></i> ${escapeHtml(mgr)} — ${g.month} ${g.year}
+                </div>`;
+                html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th style="text-align:right;">Amount</th><th>Approved Date</th><th>Deposited Date</th></tr></thead><tbody>';
+                let srNo = 0;
+                for (const r of items) {
+                    srNo++; grandSrNo++;
+                    const amt = parseFloat(r.amount) || 0;
+                    grpTotal += amt;
+                    const appAt = r.approved_at ? new Date(r.approved_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                    const depAt = r.deposited_at && r.deposit_status === 'deposited' ? new Date(r.deposited_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                    html += `<tr>
+                        <td style="text-align:center;">${srNo}</td>
+                        <td><strong>${escapeHtml(r.flat_no)}</strong></td>
+                        <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
+                        <td style="font-size:0.8rem;">${appAt}</td>
+                        <td style="font-size:0.8rem;">${depAt}</td>
+                    </tr>`;
+                }
+                grandTotalAmt += grpTotal;
+                html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
+                    <td colspan="2" style="text-align:right;">Total for ${g.month} ${g.year}</td>
+                    <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(grpTotal)}</td>
+                    <td colspan="2"></td>
+                </tr></tbody></table>`;
+            }
+        }
+
+        html += `<div style="margin:20px 0;padding:14px;background:var(--bg-card);border:2px solid var(--color-indigo);border-radius:8px;text-align:center;">
+            <strong style="font-size:1.05rem;">GRAND TOTAL: ${formatCurrency(grandTotalAmt)} (${grandSrNo} transactions)</strong>
+        </div>`;
+        container.innerHTML = html;
+    };
+
+    // Auto-generate with no filters
+    window._fmGenerateReport();
+};
+
+window._exportFMExcel = function(selMgr, selMonth, selYear) {
+    if (typeof XLSX === 'undefined') { showToast('Excel library not loaded.', 'error'); return; }
+    const data = _fmReportData;
+    if (!data || !data.length) { showToast('No data to export.', 'error'); return; }
+
+    const label = (selMgr || 'All Managers') + '_' + (selMonth || 'All Months') + '_' + (selYear || 'All Years');
+    const header = ['Sr No.', 'Flat No.', 'Amount', 'Approved Date', 'Deposited Date', 'Approved By', 'Month', 'Year'];
+    const rows = [header];
+    data.forEach((r, i) => {
+        rows.push([
+            i + 1,
+            r.flat_no,
+            parseFloat(r.amount) || 0,
+            r.approved_at || '',
+            (r.deposited_at && r.deposit_status === 'deposited') ? r.deposited_at : '',
+            r.approved_by || '',
+            r.month,
+            r.year
+        ]);
+    });
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Floor Manager Report');
+    XLSX.writeFile(wb, 'FloorManagerReport_' + label.replace(/[^a-zA-Z0-9_]/g, '_') + '.xlsx');
+    showToast('Excel downloaded.', 'success');
+};
+
+window._exportFMPDF = function(selMgr, selMonth, selYear) {
+    if (typeof window.jspdf === 'undefined' && typeof jspdf === 'undefined') { showToast('PDF library not loaded.', 'error'); return; }
+    const data = _fmReportData;
+    if (!data || !data.length) { showToast('No data to export.', 'error'); return; }
+
+    const { jsPDF } = window.jspdf || window;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = 297, margin = 8, usableW = pageW - margin * 2;
+    const colW = [8, 20, 30, 35, 35, 50, 25, 25];
+    const colTotal = colW.reduce((a, b) => a + b, 0);
+    const colPercent = colW.map(w => w / colTotal);
+
+    function _pdfText(v) { return String(v).replace(/₹/g, 'Rs.').replace(/—/g, '-').replace(/[^\x20-\x7E\s]/g, '').substring(0, 40); }
+
+    let y = 15;
+    const lineH = 6;
+    const headerH = 8;
+
+    doc.setFontSize(14);
+    doc.text('Floor Manager Report', margin, y);
+    y += 6;
+    doc.setFontSize(9);
+    doc.text('Filter: ' + (selMgr || 'All Managers') + ' | ' + (selMonth || 'All Months') + ' | ' + (selYear || 'All Years'), margin, y);
+    y += 4;
+
+    const group = {};
+    for (const r of data) {
+        const key = r.approved_by || 'Unknown';
+        if (!group[key]) group[key] = [];
+        group[key].push(r);
+    }
+    const mgrs = Object.keys(group).sort();
+    let grandTotal = 0, grandCount = 0;
+
+    for (const mgr of mgrs) {
+        const items = group[mgr];
+        // Check page space
+        const needH = headerH + items.length * lineH + lineH + 6;
+        if (y + needH > 200) { doc.addPage(); y = 15; }
+
+        // Section header
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Floor Manager: ' + _pdfText(mgr), margin, y);
+        y += 5;
+
+        // Table header
+        const headers = ['Sr', 'Flat', 'Amount', 'Approved Date', 'Deposited Date', 'Approved By', 'Month', 'Year'];
+        let x = margin;
+        doc.setFontSize(7);
+        doc.setFont(undefined, 'bold');
+        headers.forEach((h, i) => {
+            doc.rect(x, y, colW[i] * 0.75, headerH);
+            doc.text(h, x + 1, y + 4);
+            x += colW[i] * 0.75;
+        });
+        y += headerH;
+
+        // Data rows
+        doc.setFont(undefined, 'normal');
+        let grpTotal = 0;
+        items.forEach((r, idx) => {
+            x = margin;
+            const vals = [
+                String(idx + 1),
+                _pdfText(r.flat_no),
+                'Rs.' + Math.round(parseFloat(r.amount)).toLocaleString('en-IN'),
+                r.approved_at ? new Date(r.approved_at).toLocaleDateString('en-IN') : '-',
+                (r.deposited_at && r.deposit_status === 'deposited') ? new Date(r.deposited_at).toLocaleDateString('en-IN') : '-',
+                _pdfText(r.approved_by),
+                r.month,
+                r.year
+            ];
+            grpTotal += parseFloat(r.amount) || 0;
+            doc.setFontSize(6.5);
+            vals.forEach((v, i) => {
+                doc.rect(x, y, colW[i] * 0.75, lineH);
+                doc.text(v, x + 1, y + 4);
+                x += colW[i] * 0.75;
+            });
+            y += lineH;
+        });
+        grandTotal += grpTotal;
+        grandCount += items.length;
+
+        // Group total
+        x = margin;
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(7);
+        doc.rect(x, y, (colW[0] + colW[1]) * 0.75, lineH);
+        doc.text('Total for ' + _pdfText(items[0].month) + ' ' + items[0].year, x + 1, y + 4);
+        x += (colW[0] + colW[1]) * 0.75;
+        let csum = 0;
+        for (let i = 2; i < colW.length; i++) {
+            const v = i === 2 ? 'Rs.' + Math.round(grpTotal).toLocaleString('en-IN') : '';
+            doc.rect(x, y, colW[i] * 0.75, lineH);
+            doc.text(v, x + 1, y + 4);
+            x += colW[i] * 0.75;
+        }
+        y += lineH + 2;
     }
 
-    html += `<div style="margin:24px 0;padding:16px;background:var(--bg-card);border:2px solid var(--color-indigo);border-radius:8px;text-align:center;">
-        <strong style="font-size:1.1rem;">GRAND TOTAL: ${formatCurrency(grandTotalAmt)} (${grandSrNo} transactions)</strong>
-    </div>`;
+    // Grand total
+    y += 2;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text('GRAND TOTAL: Rs.' + Math.round(grandTotal).toLocaleString('en-IN') + ' (' + grandCount + ' transactions)', margin, y);
 
-    container.innerHTML = html;
+    const label = (selMgr || 'AllManagers') + '_' + (selMonth || 'AllMonths') + '_' + (selYear || 'AllYears');
+    doc.save('FloorManagerReport_' + label.replace(/[^a-zA-Z0-9_]/g, '_') + '.pdf');
+    showToast('PDF downloaded.', 'success');
 };
 
 // ─── TREASURER REPORT ──────────────────────────────────────────────────
 
+let _trReportData = { ackData: [], expData: [] };
+
 window.showTreasurerReport = async function(container, toolbar) {
-    toolbar.innerHTML = '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'acknowledgement\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+    toolbar.innerHTML = '';
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading data...</div>';
 
     const monthOrder = CAL_MONTHS;
 
-    let ackData = [];
-    let expData = [];
+    let ackData = [], expData = [];
     try {
         const [incRes, expRes] = await Promise.all([
             sbClient.from('income')
@@ -2453,7 +2654,6 @@ window.showTreasurerReport = async function(container, toolbar) {
         if (expRes.data) expData = expRes.data;
     } catch { ackData = []; expData = []; }
 
-    // Sort acknowledged data
     ackData.sort((a, b) => {
         const na = (a.acknowledged_by || '').toLowerCase();
         const nb = (b.acknowledged_by || '').toLowerCase();
@@ -2462,131 +2662,376 @@ window.showTreasurerReport = async function(container, toolbar) {
         return monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month);
     });
 
-    let html = '';
+    const treasurers = [...new Set(ackData.map(r => r.acknowledged_by).filter(Boolean))].sort();
+    const years = [...new Set([...ackData, ...expData].map(r => r.year).filter(Boolean))].sort();
 
-    // === Section 1: Acknowledgments ===
-    if (ackData.length) {
-        const groups = {};
-        for (const r of ackData) {
-            const key = r.acknowledged_by || 'Unknown';
-            if (!groups[key]) groups[key] = {};
-            const mk = r.month + ' ' + r.year;
-            if (!groups[key][mk]) groups[key][mk] = { month: r.month, year: r.year, items: [] };
-            groups[key][mk].items.push(r);
-        }
-
-        let grandSrNo = 0;
-        let grandTotalAmt = 0;
-        const treasurers = Object.keys(groups).sort();
-
-        html += `<h4 style="color:var(--text-primary);margin:0 0 16px;"><i class="fa-solid fa-check-double"></i> Acknowledgments by Treasurer</h4>`;
-
-        for (const treasurer of treasurers) {
-            const months = Object.keys(groups[treasurer]).sort((a, b) => {
-                const ma = groups[treasurer][a];
-                const mb = groups[treasurer][b];
-                if (ma.year !== mb.year) return parseInt(ma.year) - parseInt(mb.year);
-                return monthOrder.indexOf(ma.month) - monthOrder.indexOf(mb.month);
-            });
-
-            for (const mk of months) {
-                const g = groups[treasurer][mk];
-                const items = g.items;
-                let grpTotal = 0;
-
-                html += `<div style="margin:20px 0 6px;font-weight:600;font-size:0.95rem;color:var(--text-primary);">
-                    <i class="fa-solid fa-user"></i> ${escapeHtml(treasurer)} — ${g.month} ${g.year}
-                </div>`;
-                html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th style="text-align:right;">Amount</th><th>Deposited Date</th><th>Acknowledged Date</th></tr></thead><tbody>';
-
-                let srNo = 0;
-                for (const r of items) {
-                    srNo++; grandSrNo++;
-                    const amt = parseFloat(r.amount) || 0;
-                    grpTotal += amt;
-                    const depAt = r.deposited_at && r.deposit_status === 'deposited' ? new Date(r.deposited_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                    const ackAt = r.acknowledged_at ? new Date(r.acknowledged_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                    html += `<tr>
-                        <td style="text-align:center;">${srNo}</td>
-                        <td><strong>${escapeHtml(r.flat_no)}</strong></td>
-                        <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
-                        <td style="font-size:0.8rem;">${depAt}</td>
-                        <td style="font-size:0.8rem;">${ackAt}</td>
-                    </tr>`;
-                }
-                grandTotalAmt += grpTotal;
-                html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
-                    <td colspan="2" style="text-align:right;">Total for ${g.month} ${g.year}</td>
-                    <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(grpTotal)}</td>
-                    <td colspan="2"></td>
-                </tr></tbody></table>`;
-            }
-        }
-
-        html += `<div style="margin:20px 0;padding:14px;background:var(--bg-card);border:2px solid var(--color-emerald);border-radius:8px;text-align:center;">
-            <strong>Total Acknowledged: ${formatCurrency(grandTotalAmt)} (${grandSrNo} transactions)</strong>
-        </div>`;
-    } else {
-        html += '<p style="color:var(--text-muted);margin:20px 0;">No acknowledged records found.</p>';
+    function buildFilters() {
+        let fhtml = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Treasurer<br><select id="tr-filter-treas" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Treasurers</option>';
+        treasurers.forEach(m => { fhtml += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`; });
+        fhtml += '</select></label>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Month<br><select id="tr-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Months</option>';
+        monthOrder.forEach(m => { fhtml += `<option value="${m}">${m}</option>`; });
+        fhtml += '</select></label>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Year<br><select id="tr-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Years</option>';
+        years.forEach(y => { fhtml += `<option value="${y}">${y}</option>`; });
+        fhtml += '</select></label>';
+        fhtml += '<button class="btn btn-sm" style="background:var(--color-emerald);color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:0.8rem;" onclick="window._trGenerateReport()"><i class="fa-solid fa-magnifying-glass"></i> Generate</button>';
+        fhtml += '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'acknowledgement\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
+        fhtml += '</div>';
+        return fhtml;
     }
 
-    // === Section 2: Expenditure ===
-    html += `<h4 style="color:var(--text-primary);margin:28px 0 16px;"><i class="fa-solid fa-arrow-up-from-bracket"></i> Expenditure</h4>`;
+    toolbar.innerHTML = buildFilters();
+
+    const hasAck = ackData.length > 0;
+    const hasExp = expData.length > 0;
+
+    if (!hasAck && !hasExp) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-circle-info" style="font-size:2rem;"></i><br><br>No acknowledged or expenditure records found.</div>';
+        return;
+    }
+
+    window._trGenerateReport = function() {
+        const selTreas = document.getElementById('tr-filter-treas').value;
+        const selMonth = document.getElementById('tr-filter-month').value;
+        const selYear = document.getElementById('tr-filter-year').value;
+
+        let fAck = ackData;
+        if (selTreas) fAck = fAck.filter(r => r.acknowledged_by === selTreas);
+        if (selMonth) fAck = fAck.filter(r => r.month === selMonth);
+        if (selYear) fAck = fAck.filter(r => r.year === selYear);
+
+        let fExp = expData;
+        if (selMonth) fExp = fExp.filter(r => r.month === selMonth);
+        if (selYear) fExp = fExp.filter(r => r.year === selYear);
+
+        _trReportData = { ackData: fAck, expData: fExp };
+
+        // Export buttons
+        const existingBtns = toolbar.querySelectorAll('.tr-export-btn');
+        existingBtns.forEach(b => b.remove());
+        const expSep = document.createElement('span');
+        expSep.className = 'tr-export-btn';
+        expSep.style.cssText = 'margin-left:8px;color:var(--text-muted);font-size:0.8rem;';
+        expSep.textContent = '| Export:';
+        toolbar.appendChild(expSep);
+        const xlsBtn = document.createElement('button');
+        xlsBtn.className = 'btn btn-sm tr-export-btn';
+        xlsBtn.innerHTML = '<i class="fa-solid fa-file-excel"></i> Excel';
+        xlsBtn.style.cssText = 'margin-left:4px;background:#1d6f42;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:0.75rem;';
+        xlsBtn.onclick = () => window._exportTRExcel(selTreas, selMonth, selYear);
+        toolbar.appendChild(xlsBtn);
+        const pdfBtn = document.createElement('button');
+        pdfBtn.className = 'btn btn-sm tr-export-btn';
+        pdfBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> PDF';
+        pdfBtn.style.cssText = 'margin-left:4px;background:#b91c1c;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:0.75rem;';
+        pdfBtn.onclick = () => window._exportTRPDF(selTreas, selMonth, selYear);
+        toolbar.appendChild(pdfBtn);
+
+        let html = '';
+
+        // Section 1: Acknowledgments
+        if (fAck.length) {
+            const groups = {};
+            for (const r of fAck) {
+                const key = r.acknowledged_by || 'Unknown';
+                if (!groups[key]) groups[key] = {};
+                const mk = r.month + ' ' + r.year;
+                if (!groups[key][mk]) groups[key][mk] = { month: r.month, year: r.year, items: [] };
+                groups[key][mk].items.push(r);
+            }
+            let grandSrNo = 0, grandTotalAmt = 0;
+            const trKeys = Object.keys(groups).sort();
+            html += `<h4 style="color:var(--text-primary);margin:0 0 12px;"><i class="fa-solid fa-check-double"></i> Acknowledgments by Treasurer</h4>`;
+            for (const tr of trKeys) {
+                const mks = Object.keys(groups[tr]).sort((a, b) => {
+                    const ma = groups[tr][a], mb = groups[tr][b];
+                    if (ma.year !== mb.year) return parseInt(ma.year) - parseInt(mb.year);
+                    return monthOrder.indexOf(ma.month) - monthOrder.indexOf(mb.month);
+                });
+                for (const mk of mks) {
+                    const g = groups[tr][mk];
+                    const items = g.items;
+                    let grpTotal = 0;
+                    html += `<div style="margin:16px 0 4px;font-weight:600;font-size:0.9rem;color:var(--text-primary);">
+                        <i class="fa-solid fa-user"></i> ${escapeHtml(tr)} — ${g.month} ${g.year}
+                    </div>`;
+                    html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th style="text-align:right;">Amount</th><th>Deposited Date</th><th>Acknowledged Date</th></tr></thead><tbody>';
+                    let srNo = 0;
+                    for (const r of items) {
+                        srNo++; grandSrNo++;
+                        const amt = parseFloat(r.amount) || 0;
+                        grpTotal += amt;
+                        const depAt = r.deposited_at && r.deposit_status === 'deposited' ? new Date(r.deposited_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                        const ackAt = r.acknowledged_at ? new Date(r.acknowledged_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                        html += `<tr><td style="text-align:center;">${srNo}</td><td><strong>${escapeHtml(r.flat_no)}</strong></td>
+                            <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
+                            <td style="font-size:0.8rem;">${depAt}</td><td style="font-size:0.8rem;">${ackAt}</td></tr>`;
+                    }
+                    grandTotalAmt += grpTotal;
+                    html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
+                        <td colspan="2" style="text-align:right;">Total for ${g.month} ${g.year}</td>
+                        <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(grpTotal)}</td>
+                        <td colspan="2"></td></tr></tbody></table>`;
+                }
+            }
+            html += `<div style="margin:16px 0;padding:12px;background:var(--bg-card);border:2px solid var(--color-emerald);border-radius:8px;text-align:center;">
+                <strong>Total Acknowledged: ${formatCurrency(grandTotalAmt)} (${grandSrNo} transactions)</strong></div>`;
+        } else {
+            html += '<p style="color:var(--text-muted);margin:16px 0;">No acknowledged records match filters.</p>';
+        }
+
+        // Section 2: Expenditure
+        html += `<h4 style="color:var(--text-primary);margin:24px 0 12px;"><i class="fa-solid fa-arrow-up-from-bracket"></i> Expenditure</h4>`;
+        if (fExp.length) {
+            const expByYear = {};
+            for (const r of fExp) {
+                const yr = r.year || 'Unknown';
+                if (!expByYear[yr]) expByYear[yr] = {};
+                if (!expByYear[yr][r.month]) expByYear[yr][r.month] = { items: [] };
+                expByYear[yr][r.month].items.push(r);
+            }
+            let grandExpTotal = 0, grandExpCnt = 0;
+            const yrs = Object.keys(expByYear).sort();
+            for (const yr of yrs) {
+                const mons = Object.keys(expByYear[yr]).sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+                for (const m of mons) {
+                    const items = expByYear[yr][m].items;
+                    let monthTotal = 0;
+                    html += `<div style="margin:14px 0 4px;font-weight:600;font-size:0.85rem;color:var(--text-primary);">
+                        <i class="fa-solid fa-calendar"></i> ${m} ${yr}</div>`;
+                    html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Head</th><th>Description</th><th style="text-align:right;">Amount</th><th>Date Spent</th><th>Created By</th></tr></thead><tbody>';
+                    let srNo = 0;
+                    for (const r of items) {
+                        srNo++;
+                        const amt = parseFloat(r.amount) || 0;
+                        monthTotal += amt;
+                        const dt = r.date_spent ? new Date(r.date_spent).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                        html += `<tr><td style="text-align:center;">${srNo}</td><td>${escapeHtml(r.expense_head || '—')}</td>
+                            <td style="font-size:0.8rem;">${escapeHtml(r.description || '—')}</td>
+                            <td style="text-align:right;font-weight:700;color:var(--color-rose);">${formatCurrency(amt)}</td>
+                            <td style="font-size:0.8rem;">${dt}</td>
+                            <td style="font-size:0.75rem;color:var(--text-secondary);">${escapeHtml(r.created_by || '—')}</td></tr>`;
+                    }
+                    grandExpTotal += monthTotal;
+                    grandExpCnt += items.length;
+                    html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
+                        <td colspan="3" style="text-align:right;">Total for ${m} ${yr}</td>
+                        <td style="text-align:right;color:var(--color-rose);">${formatCurrency(monthTotal)}</td>
+                        <td colspan="2"></td></tr></tbody></table>`;
+                }
+            }
+            html += `<div style="margin:16px 0;padding:12px;background:var(--bg-card);border:2px solid var(--color-rose);border-radius:8px;text-align:center;">
+                <strong>Total Expenditure: ${formatCurrency(grandExpTotal)} (${grandExpCnt} transactions)</strong></div>`;
+        } else {
+            html += '<p style="color:var(--text-muted);margin:16px 0;">No expenditure records match filters.</p>';
+        }
+
+        container.innerHTML = html;
+    };
+
+    window._trGenerateReport();
+};
+
+window._exportTRExcel = function(selTreas, selMonth, selYear) {
+    if (typeof XLSX === 'undefined') { showToast('Excel library not loaded.', 'error'); return; }
+    const { ackData, expData } = _trReportData;
+    if (!ackData.length && !expData.length) { showToast('No data to export.', 'error'); return; }
+
+    const label = (selTreas || 'AllTreasurers') + '_' + (selMonth || 'AllMonths') + '_' + (selYear || 'AllYears');
+    const wb = XLSX.utils.book_new();
+
+    if (ackData.length) {
+        const ackHeader = ['Sr No.', 'Flat No.', 'Amount', 'Deposited Date', 'Acknowledged Date', 'Acknowledged By', 'Month', 'Year'];
+        const ackRows = [ackHeader];
+        ackData.forEach((r, i) => {
+            ackRows.push([
+                i + 1, r.flat_no, parseFloat(r.amount) || 0,
+                (r.deposited_at && r.deposit_status === 'deposited') ? r.deposited_at : '',
+                r.acknowledged_at || '', r.acknowledged_by || '', r.month, r.year
+            ]);
+        });
+        const ws1 = XLSX.utils.aoa_to_sheet(ackRows);
+        XLSX.utils.book_append_sheet(wb, ws1, 'Acknowledgments');
+    }
 
     if (expData.length) {
-        // Group by year → month
+        const expHeader = ['Sr No.', 'Head', 'Description', 'Amount', 'Date Spent', 'Created By', 'Month', 'Year'];
+        const expRows = [expHeader];
+        expData.forEach((r, i) => {
+            expRows.push([
+                i + 1, r.expense_head || '', r.description || '', parseFloat(r.amount) || 0,
+                r.date_spent || '', r.created_by || '', r.month, r.year
+            ]);
+        });
+        const ws2 = XLSX.utils.aoa_to_sheet(expRows);
+        XLSX.utils.book_append_sheet(wb, ws2, 'Expenditure');
+    }
+
+    XLSX.writeFile(wb, 'TreasurerReport_' + label.replace(/[^a-zA-Z0-9_]/g, '_') + '.xlsx');
+    showToast('Excel downloaded.', 'success');
+};
+
+window._exportTRPDF = function(selTreas, selMonth, selYear) {
+    if (typeof window.jspdf === 'undefined' && typeof jspdf === 'undefined') { showToast('PDF library not loaded.', 'error'); return; }
+    const { ackData, expData } = _trReportData;
+    if (!ackData.length && !expData.length) { showToast('No data to export.', 'error'); return; }
+
+    const { jsPDF } = window.jspdf || window;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const margin = 8;
+    let y = 15;
+    const lineH = 6, headerH = 8;
+
+    function _pdfText(v) { return String(v).replace(/₹/g, 'Rs.').replace(/—/g, '-').replace(/[^\x20-\x7E\s]/g, '').substring(0, 40); }
+
+    doc.setFontSize(14);
+    doc.text('Treasurer Report', margin, y);
+    y += 6;
+    doc.setFontSize(9);
+    doc.text('Filter: ' + (selTreas || 'All Treasurers') + ' | ' + (selMonth || 'All Months') + ' | ' + (selYear || 'All Years'), margin, y);
+    y += 4;
+
+    // Section 1: Acknowledgments
+    if (ackData.length) {
+        const group = {};
+        for (const r of ackData) {
+            const key = r.acknowledged_by || 'Unknown';
+            if (!group[key]) group[key] = [];
+            group[key].push(r);
+        }
+        const trs = Object.keys(group).sort();
+        let grandTotal = 0, grandCount = 0;
+        const colW = [8, 20, 30, 35, 35, 50, 25, 25];
+        if (y > 15) { doc.addPage(); y = 15; }
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text('ACKNOWLEDGMENTS', margin, y);
+        y += 5;
+
+        for (const tr of trs) {
+            const items = group[tr];
+            if (y + headerH + items.length * lineH + lineH + 8 > 200) { doc.addPage(); y = 15; }
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.text('Treasurer: ' + _pdfText(tr), margin, y);
+            y += 5;
+            const headers = ['Sr', 'Flat', 'Amount', 'Deposited Date', 'Ack. Date', 'Ack. By', 'Month', 'Year'];
+            let x = margin;
+            doc.setFontSize(7);
+            doc.setFont(undefined, 'bold');
+            headers.forEach((h, i) => { doc.rect(x, y, colW[i] * 0.75, headerH); doc.text(h, x + 1, y + 4); x += colW[i] * 0.75; });
+            y += headerH;
+            doc.setFont(undefined, 'normal');
+            let grpTotal = 0;
+            items.forEach((r, idx) => {
+                x = margin;
+                const vals = [
+                    String(idx + 1), _pdfText(r.flat_no),
+                    'Rs.' + Math.round(parseFloat(r.amount)).toLocaleString('en-IN'),
+                    (r.deposited_at && r.deposit_status === 'deposited') ? new Date(r.deposited_at).toLocaleDateString('en-IN') : '-',
+                    r.acknowledged_at ? new Date(r.acknowledged_at).toLocaleDateString('en-IN') : '-',
+                    _pdfText(r.acknowledged_by), r.month, r.year
+                ];
+                grpTotal += parseFloat(r.amount) || 0;
+                doc.setFontSize(6.5);
+                vals.forEach((v, i) => { doc.rect(x, y, colW[i] * 0.75, lineH); doc.text(v, x + 1, y + 4); x += colW[i] * 0.75; });
+                y += lineH;
+            });
+            grandTotal += grpTotal; grandCount += items.length;
+            x = margin;
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(7);
+            doc.rect(x, y, (colW[0] + colW[1]) * 0.75, lineH);
+            doc.text('Total', x + 1, y + 4);
+            x += (colW[0] + colW[1]) * 0.75;
+            for (let i = 2; i < colW.length; i++) {
+                const v = i === 2 ? 'Rs.' + Math.round(grpTotal).toLocaleString('en-IN') : '';
+                doc.rect(x, y, colW[i] * 0.75, lineH);
+                doc.text(v, x + 1, y + 4);
+                x += colW[i] * 0.75;
+            }
+            y += lineH + 2;
+        }
+        y += 2;
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Total Acknowledged: Rs.' + Math.round(grandTotal).toLocaleString('en-IN') + ' (' + grandCount + ' transactions)', margin, y);
+        y += 8;
+    }
+
+    // Section 2: Expenditure
+    if (expData.length) {
+        const expColW = [8, 22, 40, 30, 30, 30, 20, 20];
+        if (y > 190) { doc.addPage(); y = 15; }
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text('EXPENDITURE', margin, y);
+        y += 5;
+
         const expByYear = {};
         for (const r of expData) {
             const yr = r.year || 'Unknown';
             if (!expByYear[yr]) expByYear[yr] = {};
-            if (!expByYear[yr][r.month]) expByYear[yr][r.month] = { items: [] };
-            expByYear[yr][r.month].items.push(r);
+            if (!expByYear[yr][r.month]) expByYear[yr][r.month] = [];
+            expByYear[yr][r.month].push(r);
         }
-
-        let grandExpTotal = 0;
-        let grandExpCnt = 0;
-        const years = Object.keys(expByYear).sort();
-
-        for (const yr of years) {
-            const months = Object.keys(expByYear[yr]).sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
-            for (const m of months) {
-                const items = expByYear[yr][m].items;
+        let grandExpTotal = 0, grandExpCnt = 0;
+        const yrs = Object.keys(expByYear).sort();
+        for (const yr of yrs) {
+            const mons = Object.keys(expByYear[yr]).sort((a, b) => CAL_MONTHS.indexOf(a) - CAL_MONTHS.indexOf(b));
+            for (const m of mons) {
+                const items = expByYear[yr][m];
+                if (y + headerH + items.length * lineH + lineH + 6 > 200) { doc.addPage(); y = 15; }
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'bold');
+                doc.text(m + ' ' + yr, margin, y);
+                y += 4;
+                const headers = ['Sr', 'Head', 'Description', 'Amount', 'Date Spent', 'Created By', 'Month', 'Year'];
+                let x = margin;
+                doc.setFontSize(6.5);
+                doc.setFont(undefined, 'bold');
+                headers.forEach((h, i) => { doc.rect(x, y, expColW[i] * 0.75, headerH); doc.text(h, x + 1, y + 4); x += expColW[i] * 0.75; });
+                y += headerH;
+                doc.setFont(undefined, 'normal');
                 let monthTotal = 0;
-                html += `<div style="margin:16px 0 6px;font-weight:600;font-size:0.9rem;color:var(--text-primary);">
-                    <i class="fa-solid fa-calendar"></i> ${m} ${yr}
-                </div>`;
-                html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Head</th><th>Description</th><th style="text-align:right;">Amount</th><th>Date Spent</th><th>Created By</th></tr></thead><tbody>';
-                let srNo = 0;
-                for (const r of items) {
-                    srNo++;
-                    const amt = parseFloat(r.amount) || 0;
-                    monthTotal += amt;
-                    const dt = r.date_spent ? new Date(r.date_spent).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                    html += `<tr>
-                        <td style="text-align:center;">${srNo}</td>
-                        <td>${escapeHtml(r.expense_head || '—')}</td>
-                        <td style="font-size:0.8rem;">${escapeHtml(r.description || '—')}</td>
-                        <td style="text-align:right;font-weight:700;color:var(--color-rose);">${formatCurrency(amt)}</td>
-                        <td style="font-size:0.8rem;">${dt}</td>
-                        <td style="font-size:0.75rem;color:var(--text-secondary);">${escapeHtml(r.created_by || '—')}</td>
-                    </tr>`;
+                items.forEach((r, idx) => {
+                    x = margin;
+                    const vals = [
+                        String(idx + 1), _pdfText(r.expense_head), _pdfText(r.description),
+                        'Rs.' + Math.round(parseFloat(r.amount)).toLocaleString('en-IN'),
+                        r.date_spent ? new Date(r.date_spent).toLocaleDateString('en-IN') : '-',
+                        _pdfText(r.created_by), r.month, r.year
+                    ];
+                    monthTotal += parseFloat(r.amount) || 0;
+                    doc.setFontSize(6);
+                    vals.forEach((v, i) => { doc.rect(x, y, expColW[i] * 0.75, lineH); doc.text(v, x + 1, y + 4); x += expColW[i] * 0.75; });
+                    y += lineH;
+                });
+                grandExpTotal += monthTotal; grandExpCnt += items.length;
+                x = margin;
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(6.5);
+                doc.rect(x, y, (expColW[0] + expColW[1] + expColW[2]) * 0.75, lineH);
+                doc.text('Total', x + 1, y + 4);
+                x += (expColW[0] + expColW[1] + expColW[2]) * 0.75;
+                for (let i = 3; i < expColW.length; i++) {
+                    const v = i === 3 ? 'Rs.' + Math.round(monthTotal).toLocaleString('en-IN') : '';
+                    doc.rect(x, y, expColW[i] * 0.75, lineH);
+                    doc.text(v, x + 1, y + 4);
+                    x += expColW[i] * 0.75;
                 }
-                grandExpTotal += monthTotal;
-                grandExpCnt += items.length;
-                html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
-                    <td colspan="3" style="text-align:right;">Total for ${m} ${yr}</td>
-                    <td style="text-align:right;color:var(--color-rose);">${formatCurrency(monthTotal)}</td>
-                    <td colspan="2"></td>
-                </tr></tbody></table>`;
+                y += lineH + 2;
             }
         }
-
-        html += `<div style="margin:20px 0;padding:14px;background:var(--bg-card);border:2px solid var(--color-rose);border-radius:8px;text-align:center;">
-            <strong>Total Expenditure: ${formatCurrency(grandExpTotal)} (${grandExpCnt} transactions)</strong>
-        </div>`;
-    } else {
-        html += '<p style="color:var(--text-muted);margin:20px 0;">No expenditure records found.</p>';
+        y += 2;
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Total Expenditure: Rs.' + Math.round(grandExpTotal).toLocaleString('en-IN') + ' (' + grandExpCnt + ' transactions)', margin, y);
     }
 
-    container.innerHTML = html;
+    const label = (selTreas || 'AllTreasurers') + '_' + (selMonth || 'AllMonths') + '_' + (selYear || 'AllYears');
+    doc.save('TreasurerReport_' + label.replace(/[^a-zA-Z0-9_]/g, '_') + '.pdf');
+    showToast('PDF downloaded.', 'success');
 };
