@@ -41,6 +41,9 @@ window.switchReportTab = function(tabId) {
     } else if (tabId === 'floor-manager') {
         if (filterDates) filterDates.classList.add('hidden');
         if (filterYear) filterYear.classList.remove('hidden');
+    } else if (tabId === 'treasurer') {
+        if (filterDates) filterDates.classList.add('hidden');
+        if (filterYear) filterYear.classList.remove('hidden');
     } else {
         if (filterDates) filterDates.classList.add('hidden');
         if (filterYear) filterYear.classList.remove('hidden');
@@ -84,6 +87,10 @@ window.loadActiveReport = async function() {
             const year = document.getElementById("rep-year").value;
             const data = await getFloorManagerReport(year);
             renderFloorManagerReport(data);
+        } else if (window.activeReportTab === 'treasurer') {
+            const year = document.getElementById("rep-year").value;
+            const data = await getTreasurerReport(year);
+            renderTreasurerReport(data);
         }
     } catch (err) {
         console.error("Report loader error:", err);
@@ -1392,6 +1399,162 @@ function renderFloorManagerReport(data) {
         <td style="text-align:right;color:#2563eb;font-weight:700;">${fmt(g.aa)}</td><td style="text-align:center;font-weight:700;">${g.ac}</td>
         <td style="text-align:right;color:#7c3aed;font-weight:700;">${fmt(g.da)}</td><td style="text-align:center;font-weight:700;">${g.dc}</td>
     </tr></tbody></table>`;
+    sheet.innerHTML = html;
+}
+
+// ─── TREASURER REPORT ─────────────────────────────────────────────────────
+
+async function getTreasurerReport(year) {
+    const [incRes, expRes] = await Promise.all([
+        sbClient.from('income')
+            .select('id, month, amount, acknowledged_by')
+            .eq('category', 'Monthly Maintenance')
+            .eq('year', String(year))
+            .eq('acknowledgement_status', 'acknowledged'),
+        sbClient.from('expenses')
+            .select('id, month, expense_head, description, amount, date_spent, created_by')
+            .eq('year', String(year))
+    ]);
+    if (incRes.error) throw incRes.error;
+    if (expRes.error) throw expRes.error;
+
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    // Acknowledged: per person per month
+    const ackData = {};
+    for (const r of (incRes.data || [])) {
+        if (!r.acknowledged_by) continue;
+        if (!ackData[r.acknowledged_by]) ackData[r.acknowledged_by] = {};
+        if (!ackData[r.acknowledged_by][r.month]) ackData[r.acknowledged_by][r.month] = { amt: 0, cnt: 0 };
+        ackData[r.acknowledged_by][r.month].amt += parseFloat(r.amount);
+        ackData[r.acknowledged_by][r.month].cnt++;
+    }
+
+    const ackPeople = Object.keys(ackData).sort();
+    const ackRows = [];
+    for (const person of ackPeople) {
+        let tAmt = 0, tCnt = 0;
+        for (const m of monthNames) {
+            const d = ackData[person][m] || {};
+            const a = d.amt || 0, c = d.cnt || 0;
+            if (a) ackRows.push({ person, month: m, amt: a, cnt: c, isT: false });
+            tAmt += a; tCnt += c;
+        }
+        ackRows.push({ person, month: '', amt: tAmt, cnt: tCnt, isT: true });
+    }
+    const ackGrand = { amt: 0, cnt: 0 };
+    for (const r of ackRows) { if (r.isT) { ackGrand.amt += r.amt; ackGrand.cnt += r.cnt; } }
+
+    // Expenditure: month-wise totals + per-person if created_by exists
+    const expMonth = {};
+    const expPerson = {};
+    for (const r of (expRes.data || [])) {
+        const amt = parseFloat(r.amount) || 0;
+        expMonth[r.month] = (expMonth[r.month] || 0) + amt;
+        if (r.created_by) {
+            if (!expPerson[r.created_by]) expPerson[r.created_by] = {};
+            if (!expPerson[r.created_by][r.month]) expPerson[r.created_by][r.month] = { amt: 0, cnt: 0 };
+            expPerson[r.created_by][r.month].amt += amt;
+            expPerson[r.created_by][r.month].cnt++;
+        }
+    }
+
+    const expRows = [];
+    let expTotal = 0;
+    for (const m of monthNames) {
+        const a = expMonth[m] || 0;
+        if (a) { expRows.push({ month: m, amt: a }); expTotal += a; }
+    }
+
+    const expPeople = Object.keys(expPerson).sort();
+    const expPRows = [];
+    for (const person of expPeople) {
+        let tAmt = 0, tCnt = 0;
+        for (const m of monthNames) {
+            const d = expPerson[person][m] || {};
+            const a = d.amt || 0, c = d.cnt || 0;
+            if (a) expPRows.push({ person, month: m, amt: a, cnt: c, isT: false });
+            tAmt += a; tCnt += c;
+        }
+        expPRows.push({ person, month: '', amt: tAmt, cnt: tCnt, isT: true });
+    }
+    const expPGrand = { amt: 0, cnt: 0 };
+    for (const r of expPRows) { if (r.isT) { expPGrand.amt += r.amt; expPGrand.cnt += r.cnt; } }
+
+    return { year, ackRows, ackGrand, expRows, expTotal, expPRows, expPGrand, expPeople };
+}
+
+function renderTreasurerReport(data) {
+    const sheet = document.getElementById("report-sheet");
+    if (!sheet) return;
+
+    function fmt(v) { return v ? '₹' + Math.round(v).toLocaleString('en-IN') : ''; }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    let html = `<div style="margin-bottom:24px;"><h3 style="margin:0 0 4px;color:#0f172a;">Treasurer Report</h3><p style="margin:0;font-size:0.85rem;color:#64748b;">Calendar Year ${data.year}</p></div>`;
+
+    // === Section 1: Acknowledgments by Treasurer ===
+    if (data.ackRows.length) {
+        html += `<h4 style="color:#0f172a;margin:20px 0 12px;"><i class="fa-solid fa-check-double"></i> Acknowledgments by Treasurer</h4>`;
+        html += '<table class="report-table"><thead><tr><th>Treasurer</th><th>Month</th><th style="text-align:right;">Amount (₹)</th><th style="text-align:center;">#</th></tr></thead><tbody>';
+        let prev = '';
+        for (const r of data.ackRows) {
+            const sep = !r.isT && r.person !== prev ? 'border-top:1px solid #cbd5e1;' : '';
+            html += `<tr class="${r.isT ? 'row-closing' : ''}" style="${sep}">
+                <td style="font-weight:${r.isT ? 700 : 600};">${r.isT ? esc(r.person) + ' Total' : esc(r.person)}</td>
+                <td>${r.isT ? '<strong>Total</strong>' : r.month}</td>
+                <td style="text-align:right;color:#7c3aed;font-weight:600;">${fmt(r.amt)}</td>
+                <td style="text-align:center;font-size:0.8rem;">${r.cnt || ''}</td>
+            </tr>`;
+            prev = r.person;
+        }
+        const ag = data.ackGrand;
+        html += `<tr class="row-closing" style="border-top:2px solid #94a3b8;"><td colspan="2" style="font-weight:700;font-size:0.9rem;">GRAND TOTAL</td>
+            <td style="text-align:right;color:#7c3aed;font-weight:700;">${fmt(ag.amt)}</td><td style="text-align:center;font-weight:700;">${ag.cnt}</td>
+        </tr></tbody></table>`;
+    } else {
+        html += '<p style="color:#64748b;font-size:0.9rem;">No acknowledgment data for this year.</p>';
+    }
+
+    // === Section 2: Expenditure Overview ===
+    html += `<h4 style="color:#0f172a;margin:28px 0 12px;"><i class="fa-solid fa-arrow-up-from-bracket"></i> Expenditure Overview</h4>`;
+    if (data.expRows.length) {
+        html += `<div style="display:flex;gap:16px;margin-bottom:16px;">
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 20px;text-align:center;">
+                <div style="font-size:0.75rem;color:#64748b;">Total Expenditure</div>
+                <div style="font-size:1.25rem;font-weight:700;color:#e11d48;">${fmt(data.expTotal)}</div>
+            </div>
+        </div>`;
+        html += '<table class="report-table"><thead><tr><th>Month</th><th style="text-align:right;">Amount (₹)</th></tr></thead><tbody>';
+        for (const r of data.expRows) {
+            html += `<tr><td>${r.month}</td><td style="text-align:right;color:#e11d48;font-weight:600;">${fmt(r.amt)}</td></tr>`;
+        }
+        html += `<tr class="row-closing"><td style="font-weight:700;">Total</td><td style="text-align:right;color:#e11d48;font-weight:700;">${fmt(data.expTotal)}</td></tr></tbody></table>`;
+    } else {
+        html += '<p style="color:#64748b;font-size:0.9rem;">No expenditure data for this year.</p>';
+    }
+
+    // === Section 3: Expenditure by Person ===
+    if (data.expPRows.length) {
+        html += `<h4 style="color:#0f172a;margin:28px 0 12px;"><i class="fa-solid fa-user"></i> Expenditure by Person</h4>`;
+        html += '<table class="report-table"><thead><tr><th>Person</th><th>Month</th><th style="text-align:right;">Amount (₹)</th><th style="text-align:center;">#</th></tr></thead><tbody>';
+        let prev = '';
+        for (const r of data.expPRows) {
+            const sep = !r.isT && r.person !== prev ? 'border-top:1px solid #cbd5e1;' : '';
+            html += `<tr class="${r.isT ? 'row-closing' : ''}" style="${sep}">
+                <td style="font-weight:${r.isT ? 700 : 600};">${r.isT ? esc(r.person) + ' Total' : esc(r.person)}</td>
+                <td>${r.isT ? '<strong>Total</strong>' : r.month}</td>
+                <td style="text-align:right;color:#e11d48;font-weight:600;">${fmt(r.amt)}</td>
+                <td style="text-align:center;font-size:0.8rem;">${r.cnt || ''}</td>
+            </tr>`;
+            prev = r.person;
+        }
+        const eg = data.expPGrand;
+        html += `<tr class="row-closing" style="border-top:2px solid #94a3b8;"><td colspan="2" style="font-weight:700;font-size:0.9rem;">GRAND TOTAL</td>
+            <td style="text-align:right;color:#e11d48;font-weight:700;">${fmt(eg.amt)}</td><td style="text-align:center;font-weight:700;">${eg.cnt}</td>
+        </tr></tbody></table>`;
+    }
+
     sheet.innerHTML = html;
 }
 
