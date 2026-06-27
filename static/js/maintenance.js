@@ -825,7 +825,7 @@ async function renderCollectionsData(container, month, year) {
                     ? `<span style="color:var(--color-emerald);font-weight:600;"><i class="fa-solid fa-check-double"></i> Acknowledged</span><br><span style="font-size:0.6rem;color:var(--text-muted);">by ${escapeHtml(currentCol.acknowledged_by || '—')}</span>`
                     : `<span style="color:var(--color-emerald);font-weight:600;"><i class="fa-solid fa-check-circle"></i> Deposited</span><br><span style="font-size:0.6rem;color:var(--text-muted);">by ${escapeHtml(currentCol.deposited_by || '—')}</span>`
                 : currentCol && currentCol.deposit_status !== 'deposited'
-                    ? `<span style="color:var(--color-orange);font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Pending Deposit</span>${hasMaintenancePermission('maintenance:collect') ? `<br><button class="btn btn-sm" style="font-size:0.6rem;padding:1px 6px;margin-top:2px;" onclick='markDeposited("${currentCol.id}")'><i class="fa-solid fa-hand-holding-dollar"></i> Mark Deposited</button>` : ''}`
+                    ? '<span style="color:var(--color-orange);font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Pending Deposit</span>'
                     : '<span style="color:var(--text-muted);">—</span>'
             }</td>
             <td style="font-size:0.8rem;color:var(--text-secondary);">${lastPaidDate ? lastPaidDate + ' (' + lastPaidStr + ')' : lastPaidStr}</td>
@@ -2082,31 +2082,70 @@ async function renderPendingApprovalsTab(container, toolbar) {
     // Exclude pending requests from unsold flats
     pendings = pendings.filter(p => !unsoldFlats.has(p.flat_no));
 
-    if (pendings.length === 0) {
+    // Also fetch approved-but-not-deposited records for marking deposit
+    let approvedForDeposit = [];
+    try {
+        const { data } = await sbClient.from('income')
+            .select('*')
+            .eq('category', 'Monthly Maintenance')
+            .eq('status', 'approved')
+            .or('deposit_status.is.null,deposit_status.neq.deposited')
+            .order('approved_at', { ascending: false });
+        if (data) approvedForDeposit = data;
+    } catch { approvedForDeposit = []; }
+    approvedForDeposit = approvedForDeposit.filter(p => !unsoldFlats.has(p.flat_no));
+
+    let html = '';
+
+    if (pendings.length === 0 && approvedForDeposit.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-circle-check" style="font-size:2rem;color:var(--color-emerald);"></i><br><br><strong>All caught up!</strong><br>No pending payment requests.</div>';
         return;
     }
 
-    let html = `<div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-secondary);">${pendings.length} payment request(s) awaiting approval</div>`;
-    html += '<table class="data-table"><thead><tr><th>Flat</th><th>Month</th><th>Amount</th><th>Payment Mode</th><th>Ref No.</th><th>Payment Date</th><th>Requested By</th><th>Actions</th></tr></thead><tbody>';
+    if (pendings.length > 0) {
+        html += `<div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-secondary);">${pendings.length} payment request(s) awaiting approval</div>`;
+        html += '<table class="data-table"><thead><tr><th>Flat</th><th>Month</th><th>Amount</th><th>Payment Mode</th><th>Ref No.</th><th>Payment Date</th><th>Requested By</th><th>Actions</th></tr></thead><tbody>';
 
-    for (const p of pendings) {
-        const requester = ownerMap[p.flat_no] || p.flat_no;
-        html += `<tr>
-            <td><strong>${escapeHtml(p.flat_no)}</strong></td>
-            <td>${escapeHtml(p.month)} ${escapeHtml(p.year)}</td>
-            <td style="font-weight:700;color:var(--color-emerald);">${formatCurrency(p.amount)}</td>
-            <td>${escapeHtml(p.payment_mode || '—')}</td>
-            <td style="font-size:0.8rem;">${escapeHtml(p.ref_number || '—')}</td>
-            <td style="font-size:0.8rem;">${p.payment_date || '—'}</td>
-            <td style="font-size:0.8rem;">${escapeHtml(requester)}</td>
-            <td>
-                <button class="btn btn-sm" style="background:var(--color-emerald);color:#fff;" onclick='approvePayment("${p.id}")'><i class="fa-solid fa-check"></i> Approve</button>
-                <button class="btn btn-sm" style="background:var(--color-rose);color:#fff;margin-left:4px;" onclick='rejectPayment("${p.id}")'><i class="fa-solid fa-xmark"></i> Reject</button>
-            </td>
-        </tr>`;
+        for (const p of pendings) {
+            const requester = ownerMap[p.flat_no] || p.flat_no;
+            html += `<tr>
+                <td><strong>${escapeHtml(p.flat_no)}</strong></td>
+                <td>${escapeHtml(p.month)} ${escapeHtml(p.year)}</td>
+                <td style="font-weight:700;color:var(--color-emerald);">${formatCurrency(p.amount)}</td>
+                <td>${escapeHtml(p.payment_mode || '—')}</td>
+                <td style="font-size:0.8rem;">${escapeHtml(p.ref_number || '—')}</td>
+                <td style="font-size:0.8rem;">${p.payment_date || '—'}</td>
+                <td style="font-size:0.8rem;">${escapeHtml(requester)}</td>
+                <td>
+                    <button class="btn btn-sm" style="background:var(--color-emerald);color:#fff;" onclick='approvePayment("${p.id}")'><i class="fa-solid fa-check"></i> Approve</button>
+                    <button class="btn btn-sm" style="background:var(--color-rose);color:#fff;margin-left:4px;" onclick='rejectPayment("${p.id}")'><i class="fa-solid fa-xmark"></i> Reject</button>
+                </td>
+            </tr>`;
+        }
+        html += '</tbody></table>';
     }
-    html += '</tbody></table>';
+
+    if (approvedForDeposit.length > 0) {
+        html += `<div style="margin:20px 0 12px;font-size:0.85rem;color:var(--text-secondary);">${approvedForDeposit.length} approved collection(s) awaiting deposit</div>`;
+        html += '<table class="data-table"><thead><tr><th>Flat</th><th>Month</th><th>Amount</th><th>Payment Mode</th><th>Approved By</th><th>Approved At</th><th>Actions</th></tr></thead><tbody>';
+
+        for (const d of approvedForDeposit) {
+            const approvedAt = d.approved_at ? new Date(d.approved_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+            html += `<tr>
+                <td><strong>${escapeHtml(d.flat_no)}</strong></td>
+                <td>${escapeHtml(d.month)} ${escapeHtml(d.year)}</td>
+                <td style="font-weight:700;color:var(--color-emerald);">${formatCurrency(d.amount)}</td>
+                <td>${escapeHtml(d.payment_mode || '—')}</td>
+                <td style="font-size:0.8rem;">${escapeHtml(d.approved_by || '—')}</td>
+                <td style="font-size:0.75rem;color:var(--text-secondary);">${approvedAt}</td>
+                <td>
+                    <button class="btn btn-sm" style="background:var(--color-indigo);color:#fff;" onclick='markDeposited("${d.id}")'><i class="fa-solid fa-hand-holding-dollar"></i> Mark Deposited</button>
+                </td>
+            </tr>`;
+        }
+        html += '</tbody></table>';
+    }
+
     container.innerHTML = html;
 }
 
