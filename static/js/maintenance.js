@@ -2358,7 +2358,7 @@ window.showFloorManagerReport = async function(container, toolbar) {
         return monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month);
     });
 
-    const managers = [...new Set(allData.map(r => r.approved_by).filter(Boolean))].sort();
+    const managers = [...new Set(allData.map(r => r.approved_by && r.approved_by.trim() ? r.approved_by : 'Unknown'))].sort();
     // Activity dates (approved_at) for month/year filter
     const actMonths = [...new Set(allData.map(r => r.approved_at).filter(Boolean).map(d => monthOrder[new Date(d).getMonth()]))].sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
     const actYears = [...new Set(allData.map(r => r.approved_at).filter(Boolean).map(d => new Date(d).getFullYear().toString()))].sort();
@@ -2395,7 +2395,13 @@ window.showFloorManagerReport = async function(container, toolbar) {
         const selDStatus = document.getElementById('fm-filter-dstatus').value;
 
         let filtered = allData;
-        if (selMgr) filtered = filtered.filter(r => r.approved_by === selMgr);
+        if (selMgr) {
+            if (selMgr === 'Unknown') {
+                filtered = filtered.filter(r => !r.approved_by || !r.approved_by.trim());
+            } else {
+                filtered = filtered.filter(r => r.approved_by === selMgr);
+            }
+        }
         if (selMonth) {
             filtered = filtered.filter(r => {
                 if (!r.approved_at) return false;
@@ -2442,7 +2448,7 @@ window.showFloorManagerReport = async function(container, toolbar) {
         // Group by approved_by only (no sub-group by fee month)
         const groups = {};
         for (const r of filtered) {
-            const key = r.approved_by || 'Unknown';
+            const key = r.approved_by && r.approved_by.trim() ? r.approved_by : 'Unknown';
             if (!groups[key]) groups[key] = [];
             groups[key].push(r);
         }
@@ -2668,7 +2674,7 @@ window.showTreasurerReport = async function(container, toolbar) {
         return monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month);
     });
 
-    const treasurers = [...new Set(ackData.map(r => r.acknowledged_by).filter(Boolean))].sort();
+    const treasurers = [...new Set(ackData.map(r => r.acknowledged_by && r.acknowledged_by.trim() ? r.acknowledged_by : 'Unknown'))].sort();
     // Activity dates (acknowledged_at) for month/year filter on acknowledgments
     const ackMonths = [...new Set(ackData.map(r => r.acknowledged_at).filter(Boolean).map(d => monthOrder[new Date(d).getMonth()]))].sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
     const ackYears = [...new Set(ackData.map(r => r.acknowledged_at).filter(Boolean).map(d => new Date(d).getFullYear().toString()))].sort();
@@ -2710,7 +2716,13 @@ window.showTreasurerReport = async function(container, toolbar) {
         const selDStatus = document.getElementById('tr-filter-dstatus').value;
 
         let fAck = ackData;
-        if (selTreas) fAck = fAck.filter(r => r.acknowledged_by === selTreas);
+        if (selTreas) {
+            if (selTreas === 'Unknown') {
+                fAck = fAck.filter(r => !r.acknowledged_by || !r.acknowledged_by.trim());
+            } else {
+                fAck = fAck.filter(r => r.acknowledged_by === selTreas);
+            }
+        }
         if (selMonth) {
             fAck = fAck.filter(r => {
                 if (!r.acknowledged_at) return false;
@@ -2760,7 +2772,7 @@ window.showTreasurerReport = async function(container, toolbar) {
         if (fAck.length) {
             const groups = {};
             for (const r of fAck) {
-                const key = r.acknowledged_by || 'Unknown';
+                const key = r.acknowledged_by && r.acknowledged_by.trim() ? r.acknowledged_by : 'Unknown';
                 if (!groups[key]) groups[key] = [];
                 groups[key].push(r);
             }
