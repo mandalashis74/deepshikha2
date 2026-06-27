@@ -2342,39 +2342,49 @@ window.showFloorManagerReport = async function(container, toolbar) {
     let allData = [];
     try {
         const { data } = await sbClient.from('income')
-            .select('id, flat_no, month, year, amount, approved_by, approved_at, deposited_by, deposited_at, deposit_status')
+            .select('id, flat_no, month, year, amount, collected_by, approved_by, approved_at, deposited_by, deposited_at, deposit_status, status, payment_date')
             .eq('category', 'Monthly Maintenance')
-            .eq('status', 'approved')
-            .not('approved_by', 'is', null)
+            .in('status', ['pending', 'approved'])
             .order('year', { ascending: true });
         if (data) allData = data;
     } catch { allData = []; }
 
+    // Determine person (approved_by for approved, collected_by for pending) and activity date
+    for (const r of allData) {
+        if (r.status === 'approved' && r.approved_by && r.approved_by.trim()) {
+            r._person = r.approved_by;
+            r._actDate = r.approved_at;
+        } else {
+            r._person = (r.collected_by && r.collected_by.trim()) ? r.collected_by : 'Unknown';
+            r._actDate = r.payment_date || null;
+        }
+    }
+
     allData.sort((a, b) => {
-        const na = (a.approved_by || '').toLowerCase();
-        const nb = (b.approved_by || '').toLowerCase();
+        const na = (a._person || '').toLowerCase();
+        const nb = (b._person || '').toLowerCase();
         if (na !== nb) return na < nb ? -1 : 1;
         if (a.year !== b.year) return parseInt(a.year) - parseInt(b.year);
         return monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month);
     });
 
-    const managers = [...new Set(allData.map(r => r.approved_by && r.approved_by.trim() ? r.approved_by : 'Unknown'))].sort();
-    // Activity dates (approved_at) for month/year filter
-    const actMonths = [...new Set(allData.map(r => r.approved_at).filter(Boolean).map(d => monthOrder[new Date(d).getMonth()]))].sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
-    const actYears = [...new Set(allData.map(r => r.approved_at).filter(Boolean).map(d => new Date(d).getFullYear().toString()))].sort();
+    const managers = [...new Set(allData.map(r => r._person))].sort();
+    // Activity dates for month/year filter
+    const actMonths = [...new Set(allData.map(r => r._actDate).filter(Boolean).map(d => monthOrder[new Date(d).getMonth()]))].sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+    const actYears = [...new Set(allData.map(r => r._actDate).filter(Boolean).map(d => new Date(d).getFullYear().toString()))].sort();
 
     function buildFilters() {
         let fhtml = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">';
         fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Floor Manager<br><select id="fm-filter-mgr" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Managers</option>';
         managers.forEach(m => { fhtml += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Approval Month<br><select id="fm-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Months</option>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Activity Month<br><select id="fm-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Months</option>';
         actMonths.forEach(m => { fhtml += `<option value="${m}">${m}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Approval Year<br><select id="fm-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Years</option>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Activity Year<br><select id="fm-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Years</option>';
         actYears.forEach(y => { fhtml += `<option value="${y}">${y}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Deposit Status<br><select id="fm-filter-dstatus" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All</option><option value="deposited">Deposited</option><option value="pending">Pending Deposit</option></select></label>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Status<br><select id="fm-filter-dstatus" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All</option><option value="deposited">Deposited</option><option value="pending">Pending Deposit</option><option value="unapproved">Unapproved</option></select></label>';
         fhtml += '<button class="btn btn-sm" style="background:var(--color-indigo);color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:0.8rem;" onclick="window._fmGenerateReport()"><i class="fa-solid fa-magnifying-glass"></i> Generate</button>';
         fhtml += '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'pending\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
         fhtml += '</div>';
@@ -2384,7 +2394,7 @@ window.showFloorManagerReport = async function(container, toolbar) {
     toolbar.innerHTML = buildFilters();
 
     if (!allData.length) {
-        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-circle-info" style="font-size:2rem;"></i><br><br>No approved payment records found.</div>';
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-circle-info" style="font-size:2rem;"></i><br><br>No payment records found.</div>';
         return;
     }
 
@@ -2395,27 +2405,23 @@ window.showFloorManagerReport = async function(container, toolbar) {
         const selDStatus = document.getElementById('fm-filter-dstatus').value;
 
         let filtered = allData;
-        if (selMgr) {
-            if (selMgr === 'Unknown') {
-                filtered = filtered.filter(r => !r.approved_by || !r.approved_by.trim());
-            } else {
-                filtered = filtered.filter(r => r.approved_by === selMgr);
-            }
-        }
+        if (selMgr) filtered = filtered.filter(r => r._person === selMgr);
+        // Filter by activity date
         if (selMonth) {
             filtered = filtered.filter(r => {
-                if (!r.approved_at) return false;
-                return monthOrder[new Date(r.approved_at).getMonth()] === selMonth;
+                if (!r._actDate) return false;
+                return monthOrder[new Date(r._actDate).getMonth()] === selMonth;
             });
         }
         if (selYear) {
             filtered = filtered.filter(r => {
-                if (!r.approved_at) return false;
-                return new Date(r.approved_at).getFullYear().toString() === selYear;
+                if (!r._actDate) return false;
+                return new Date(r._actDate).getFullYear().toString() === selYear;
             });
         }
         if (selDStatus === 'deposited') filtered = filtered.filter(r => r.deposit_status === 'deposited');
         else if (selDStatus === 'pending') filtered = filtered.filter(r => !r.deposit_status || r.deposit_status !== 'deposited');
+        else if (selDStatus === 'unapproved') filtered = filtered.filter(r => r.status === 'pending');
 
         _fmReportData = filtered;
 
@@ -2445,10 +2451,10 @@ window.showFloorManagerReport = async function(container, toolbar) {
             return;
         }
 
-        // Group by approved_by only (no sub-group by fee month)
+        // Group by person
         const groups = {};
         for (const r of filtered) {
-            const key = r.approved_by && r.approved_by.trim() ? r.approved_by : 'Unknown';
+            const key = r._person;
             if (!groups[key]) groups[key] = [];
             groups[key].push(r);
         }
@@ -2464,31 +2470,35 @@ window.showFloorManagerReport = async function(container, toolbar) {
             html += `<div style="margin:20px 0 6px;font-weight:700;font-size:1rem;color:var(--text-primary);">
                 <i class="fa-solid fa-user"></i> ${escapeHtml(mgr)}
             </div>`;
-            html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th>Fee Month</th><th style="text-align:right;">Amount</th><th>Deposit Status</th><th>Approved Date</th><th>Deposited Date</th></tr></thead><tbody>';
+            html += '<table class="data-table"><thead><tr><th style="width:50px;">Sr No.</th><th>Flat No.</th><th>Fee Month</th><th style="text-align:right;">Amount</th><th>Status</th><th>Activity Date</th></tr></thead><tbody>';
             let srNo = 0;
             for (const r of items) {
                 srNo++; grandSrNo++;
                 const amt = parseFloat(r.amount) || 0;
                 mgrTotal += amt;
+                const isApproved = r.status === 'approved';
                 const depositOk = r.deposit_status === 'deposited';
-                const depStatusHtml = depositOk
-                    ? '<span style="color:var(--color-emerald);font-weight:600;"><i class="fa-solid fa-check-circle"></i> Deposited</span>'
-                    : '<span style="color:var(--color-orange);font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Pending</span>';
-                const appAt = r.approved_at ? new Date(r.approved_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-                const depAt = depositOk ? new Date(r.deposited_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                let statusHtml;
+                if (!isApproved) {
+                    statusHtml = '<span style="color:var(--color-orange);font-weight:600;"><i class="fa-solid fa-clock"></i> Awaiting Approval</span>';
+                } else if (depositOk) {
+                    statusHtml = '<span style="color:var(--color-emerald);font-weight:600;"><i class="fa-solid fa-check-circle"></i> Deposited</span>';
+                } else {
+                    statusHtml = '<span style="color:var(--color-orange);font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Pending Deposit</span>';
+                }
+                const actDate = r._actDate ? new Date(r._actDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
                 html += `<tr>
                     <td style="text-align:center;">${srNo}</td>
                     <td><strong>${escapeHtml(r.flat_no)}</strong></td>
                     <td style="font-size:0.85rem;">${escapeHtml(r.month)} ${escapeHtml(r.year)}</td>
                     <td style="text-align:right;font-weight:700;color:var(--color-emerald);">${formatCurrency(amt)}</td>
-                    <td style="font-size:0.75rem;">${depStatusHtml}</td>
-                    <td style="font-size:0.8rem;">${appAt}</td>
-                    <td style="font-size:0.8rem;">${depAt}</td>
+                    <td style="font-size:0.75rem;">${statusHtml}</td>
+                    <td style="font-size:0.8rem;">${actDate}</td>
                 </tr>`;
             }
             grandTotalAmt += mgrTotal;
             html += `<tr style="font-weight:700;background:var(--bg-card);border-top:2px solid var(--border-color);">
-                <td colspan="4" style="text-align:right;">Total for ${escapeHtml(mgr)}</td>
+                <td colspan="3" style="text-align:right;">Total for ${escapeHtml(mgr)}</td>
                 <td style="text-align:right;color:var(--color-emerald);">${formatCurrency(mgrTotal)}</td>
                 <td colspan="2"></td>
             </tr></tbody></table>`;
@@ -2510,18 +2520,20 @@ window._exportFMExcel = function(selMgr, selMonth, selYear) {
     if (!data || !data.length) { showToast('No data to export.', 'error'); return; }
 
     const label = (selMgr || 'All Managers') + '_' + (selMonth || 'All Months') + '_' + (selYear || 'All Years');
-    const header = ['Sr No.', 'Flat No.', 'Fee Month', 'Amount', 'Deposit Status', 'Approved Date', 'Deposited Date', 'Approved By'];
+    const header = ['Sr No.', 'Flat No.', 'Fee Month', 'Amount', 'Status', 'Activity Date', 'Person'];
     const rows = [header];
     data.forEach((r, i) => {
+        const isApproved = r.status === 'approved';
+        const depositOk = r.deposit_status === 'deposited';
+        const statusStr = !isApproved ? 'Awaiting Approval' : depositOk ? 'Deposited' : 'Pending Deposit';
         rows.push([
             i + 1,
             r.flat_no,
             r.month + ' ' + r.year,
             parseFloat(r.amount) || 0,
-            (r.deposit_status === 'deposited') ? 'Deposited' : 'Pending Deposit',
-            r.approved_at || '',
-            (r.deposited_at && r.deposit_status === 'deposited') ? r.deposited_at : '',
-            r.approved_by || ''
+            statusStr,
+            r._actDate || '',
+            r._person || ''
         ]);
     });
     const wb = XLSX.utils.book_new();
@@ -2556,7 +2568,7 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
 
     const group = {};
     for (const r of data) {
-        const key = r.approved_by || 'Unknown';
+        const key = r._person;
         if (!group[key]) group[key] = [];
         group[key].push(r);
     }
@@ -2573,14 +2585,15 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
         doc.text('Floor Manager: ' + _pdfText(mgr), margin, y);
         y += 5;
 
-        const headers = ['Sr', 'Flat', 'Fee Month', 'Deposit', 'Amount', 'Approved Date', 'Deposited Date', 'Approved By', 'Month', 'Year'];
+        const headers = ['Sr', 'Flat', 'Fee Month', 'Status', 'Amount', 'Activity Date'];
+        let colW2 = [8, 20, 24, 30, 28, 30];
         let x = margin;
         doc.setFontSize(7);
         doc.setFont(undefined, 'bold');
         headers.forEach((h, i) => {
-            doc.rect(x, y, colW[i] * 0.75, headerH);
+            doc.rect(x, y, colW2[i] * 0.75, headerH);
             doc.text(h, x + 1, y + 4);
-            x += colW[i] * 0.75;
+            x += colW2[i] * 0.75;
         });
         y += headerH;
 
@@ -2588,22 +2601,22 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
         let grpTotal = 0;
         items.forEach((r, idx) => {
             x = margin;
+            const isApproved = r.status === 'approved';
+            const depositOk = r.deposit_status === 'deposited';
+            const statusStr = !isApproved ? 'Awaiting Approval' : depositOk ? 'Deposited' : 'Pending Deposit';
+            const actDate = r._actDate ? new Date(r._actDate).toLocaleDateString('en-IN') : '-';
             const vals = [
                 String(idx + 1),
                 _pdfText(r.flat_no),
                 _pdfText(r.month) + ' ' + r.year,
-                r.deposit_status === 'deposited' ? 'Deposited' : 'Pending',
+                statusStr,
                 'Rs.' + Math.round(parseFloat(r.amount)).toLocaleString('en-IN'),
-                r.approved_at ? new Date(r.approved_at).toLocaleDateString('en-IN') : '-',
-                (r.deposited_at && r.deposit_status === 'deposited') ? new Date(r.deposited_at).toLocaleDateString('en-IN') : '-',
-                _pdfText(r.approved_by),
-                r.month,
-                r.year
+                actDate
             ];
             grpTotal += parseFloat(r.amount) || 0;
             doc.setFontSize(6.5);
             vals.forEach((v, i) => {
-                doc.rect(x, y, colW[i] * 0.75, lineH);
+                doc.rect(x, y, colW2[i] * 0.75, lineH);
                 doc.text(v, x + 1, y + 4);
                 x += colW[i] * 0.75;
             });
@@ -2616,11 +2629,11 @@ window._exportFMPDF = function(selMgr, selMonth, selYear) {
         x = margin;
         doc.setFont(undefined, 'bold');
         doc.setFontSize(7);
-        doc.rect(x, y, (colW[0] + colW[1] + colW[2] + colW[3]) * 0.75, lineH);
+        doc.rect(x, y, (colW2[0] + colW2[1] + colW2[2]) * 0.75, lineH);
         doc.text('Total for ' + _pdfText(mgr), x + 1, y + 4);
-        x += (colW[0] + colW[1] + colW[2] + colW[3]) * 0.75;
-        for (let i = 4; i < colW.length; i++) {
-            const v = i === 4 ? 'Rs.' + Math.round(grpTotal).toLocaleString('en-IN') : '';
+        x += (colW2[0] + colW2[1] + colW2[2]) * 0.75;
+        for (let i = 3; i < colW2.length; i++) {
+            const v = i === 3 ? 'Rs.' + Math.round(grpTotal).toLocaleString('en-IN') : '';
             doc.rect(x, y, colW[i] * 0.75, lineH);
             doc.text(v, x + 1, y + 4);
             x += colW[i] * 0.75;
