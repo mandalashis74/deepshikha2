@@ -2375,17 +2375,16 @@ window.showFloorManagerReport = async function(container, toolbar) {
 
     function buildFilters() {
         let fhtml = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Floor Manager<br><select id="fm-filter-mgr" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Managers</option>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Floor Manager<br><select id="fm-filter-mgr" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._fmGenerateReport()"><option value="">All Managers</option>';
         managers.forEach(m => { fhtml += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Activity Month<br><select id="fm-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Months</option>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Activity Month<br><select id="fm-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._fmGenerateReport()"><option value="">All Months</option>';
         actMonths.forEach(m => { fhtml += `<option value="${m}">${m}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Activity Year<br><select id="fm-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Years</option>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Activity Year<br><select id="fm-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._fmGenerateReport()"><option value="">All Years</option>';
         actYears.forEach(y => { fhtml += `<option value="${y}">${y}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Status<br><select id="fm-filter-dstatus" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All</option><option value="deposited">Deposited</option><option value="pending">Pending Deposit</option><option value="unapproved">Unapproved</option></select></label>';
-        fhtml += '<button class="btn btn-sm" style="background:var(--color-indigo);color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:0.8rem;" onclick="window._fmGenerateReport()"><i class="fa-solid fa-magnifying-glass"></i> Generate</button>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Status<br><select id="fm-filter-dstatus" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._fmGenerateReport()"><option value="">All</option><option value="deposited">Deposited</option><option value="pending">Pending Deposit</option><option value="unapproved">Unapproved</option></select></label>';
         fhtml += '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'pending\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
         fhtml += '</div>';
         return fhtml;
@@ -2696,17 +2695,16 @@ window.showTreasurerReport = async function(container, toolbar) {
 
     function buildFilters() {
         let fhtml = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Treasurer<br><select id="tr-filter-treas" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Treasurers</option>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Treasurer<br><select id="tr-filter-treas" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._trGenerateReport()"><option value="">All Treasurers</option>';
         treasurers.forEach(m => { fhtml += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Acknowledgment Month<br><select id="tr-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Months</option>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Acknowledgment Month<br><select id="tr-filter-month" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._trGenerateReport()"><option value="">All Months</option>';
         ackMonths.forEach(m => { fhtml += `<option value="${m}">${m}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Acknowledgment Year<br><select id="tr-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All Years</option>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Acknowledgment Year<br><select id="tr-filter-year" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._trGenerateReport()"><option value="">All Years</option>';
         ackYears.forEach(y => { fhtml += `<option value="${y}">${y}</option>`; });
         fhtml += '</select></label>';
-        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Deposit Status<br><select id="tr-filter-dstatus" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;"><option value="">All</option><option value="deposited">Deposited</option><option value="pending">Pending Deposit</option></select></label>';
-        fhtml += '<button class="btn btn-sm" style="background:var(--color-emerald);color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:0.8rem;" onclick="window._trGenerateReport()"><i class="fa-solid fa-magnifying-glass"></i> Generate</button>';
+        fhtml += '<label style="font-size:0.8rem;color:var(--text-secondary);">Deposit Status<br><select id="tr-filter-dstatus" style="padding:5px 8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-primary);font-size:0.8rem;" onchange="window._trGenerateReport()"><option value="">All</option><option value="deposited">Deposited</option><option value="pending">Pending Deposit</option></select></label>';
         fhtml += '<button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.8rem;" onclick="window.switchMaintenanceTab(\'acknowledgement\')"><i class="fa-solid fa-arrow-left"></i> Back</button>';
         fhtml += '</div>';
         return fhtml;
