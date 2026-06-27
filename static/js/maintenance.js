@@ -106,6 +106,10 @@ window.openMaintenanceModal = async function() {
     if (pendingTab) {
         pendingTab.style.display = (window.hasPermission('income:approve') || window.hasPermission('income:create')) ? '' : 'none';
     }
+    const ackTab = document.querySelector('#maintenance-tabs .pill[data-mt="acknowledgement"]');
+    if (ackTab) {
+        ackTab.style.display = window.hasPermission('income:acknowledge') ? '' : 'none';
+    }
     await loadOwnersForMaintenance();
     await renderMaintenanceTab('collections');
 };
@@ -118,6 +122,10 @@ window.openFYStatementModal = async function() {
     const pendingTab = document.querySelector('#maintenance-tabs .pill[data-mt="pending"]');
     if (pendingTab) {
         pendingTab.style.display = (window.hasPermission('income:approve') || window.hasPermission('income:create')) ? '' : 'none';
+    }
+    const ackTab = document.querySelector('#maintenance-tabs .pill[data-mt="acknowledgement"]');
+    if (ackTab) {
+        ackTab.style.display = window.hasPermission('income:acknowledge') ? '' : 'none';
     }
     await loadOwnersForMaintenance();
     await renderMaintenanceTab('fy-statement');
@@ -142,6 +150,8 @@ async function renderMaintenanceTab(tab) {
         await renderCollectionsTab(container, toolbar);
     } else if (tab === 'pending') {
         await renderPendingApprovalsTab(container, toolbar);
+    } else if (tab === 'acknowledgement') {
+        await renderAcknowledgementTab(container, toolbar);
     } else if (tab === 'fy-statement') {
         await renderFYStatementTab(container, toolbar);
     }
@@ -810,11 +820,13 @@ async function renderCollectionsData(container, month, year) {
                                 ? '<span style="color:var(--text-muted);font-weight:400;">Exempt</span>'
                                 : '<span style="color:var(--color-rose);font-weight:700;">Due</span>'
             }</td>
-            <td style="font-size:0.75rem;">${currentCol && currentCol.deposit_status
-                ? currentCol.deposit_status === 'deposited'
-                    ? `<span style="color:var(--color-emerald);font-weight:600;"><i class="fa-solid fa-check-circle"></i> Deposited</span><br><span style="font-size:0.6rem;color:var(--text-muted);">by ${escapeHtml(currentCol.deposited_by || '—')}</span>`
-                    : `<span style="color:var(--color-orange);font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Pending Deposit</span>${hasMaintenancePermission('maintenance:collect') ? `<br><button class="btn btn-sm" style="font-size:0.6rem;padding:1px 6px;margin-top:2px;" onclick='markDeposited("${currentCol.id}")'><i class="fa-solid fa-hand-holding-dollar"></i> Mark Deposited</button>` : ''}`
-                : '<span style="color:var(--text-muted);">—</span>'
+            <td style="font-size:0.75rem;">${currentCol && (currentCol.acknowledgement_status === 'acknowledged' || currentCol.deposit_status === 'deposited')
+                ? currentCol.acknowledgement_status === 'acknowledged'
+                    ? `<span style="color:var(--color-emerald);font-weight:600;"><i class="fa-solid fa-check-double"></i> Acknowledged</span><br><span style="font-size:0.6rem;color:var(--text-muted);">by ${escapeHtml(currentCol.acknowledged_by || '—')}</span>`
+                    : `<span style="color:var(--color-emerald);font-weight:600;"><i class="fa-solid fa-check-circle"></i> Deposited</span><br><span style="font-size:0.6rem;color:var(--text-muted);">by ${escapeHtml(currentCol.deposited_by || '—')}</span>`
+                : currentCol && currentCol.deposit_status !== 'deposited'
+                    ? `<span style="color:var(--color-orange);font-weight:600;"><i class="fa-solid fa-hourglass-half"></i> Pending Deposit</span>${hasMaintenancePermission('maintenance:collect') ? `<br><button class="btn btn-sm" style="font-size:0.6rem;padding:1px 6px;margin-top:2px;" onclick='markDeposited("${currentCol.id}")'><i class="fa-solid fa-hand-holding-dollar"></i> Mark Deposited</button>` : ''}`
+                    : '<span style="color:var(--text-muted);">—</span>'
             }</td>
             <td style="font-size:0.8rem;color:var(--text-secondary);">${lastPaidDate ? lastPaidDate + ' (' + lastPaidStr + ')' : lastPaidStr}</td>
             <td>${isPending
@@ -2181,5 +2193,85 @@ window.markDeposited = async function(id) {
         }
     } catch (err) {
         showToast('Error marking deposit: ' + err.message, 'error');
+    }
+};
+
+async function renderAcknowledgementTab(container, toolbar) {
+    toolbar.innerHTML = '';
+    container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+
+    if (!window.hasPermission('income:acknowledge')) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-lock"></i><br>Access Denied</div>';
+        return;
+    }
+
+    let deposited = [];
+    let ownerMap = {};
+    try {
+        const { data: owners } = await sbClient.from('owners').select('flat_no, owner_name');
+        if (owners) {
+            owners.forEach(o => {
+                const name = window.displayStructured(o.owner_name, 'name') || o.owner_name || '';
+                ownerMap[o.flat_no] = name;
+            });
+        }
+    } catch {}
+    try {
+        const { data } = await sbClient.from('income')
+            .select('*')
+            .eq('category', 'Monthly Maintenance')
+            .eq('deposit_status', 'deposited')
+            .is('acknowledgement_status', null)
+            .order('deposited_at', { ascending: false });
+        if (data) deposited = data;
+    } catch { deposited = []; }
+
+    if (deposited.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);"><i class="fa-solid fa-circle-check" style="font-size:2rem;color:var(--color-emerald);"></i><br><br><strong>All caught up!</strong><br>No deposits pending acknowledgement.</div>';
+        return;
+    }
+
+    let html = `<div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-secondary);">${deposited.length} deposit(s) awaiting acknowledgement</div>`;
+    html += '<table class="data-table"><thead><tr><th>Flat</th><th>Owner</th><th>Month</th><th>Amount</th><th>Deposited By</th><th>Deposited At</th><th>Actions</th></tr></thead><tbody>';
+
+    for (const d of deposited) {
+        const ownerName = ownerMap[d.flat_no] || '—';
+        const depAt = d.deposited_at ? new Date(d.deposited_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+        html += `<tr>
+            <td><strong>${escapeHtml(d.flat_no)}</strong></td>
+            <td style="font-size:0.8rem;">${escapeHtml(ownerName)}</td>
+            <td>${escapeHtml(d.month)} ${escapeHtml(d.year)}</td>
+            <td style="font-weight:700;color:var(--color-emerald);">${formatCurrency(d.amount)}</td>
+            <td style="font-size:0.8rem;">${escapeHtml(d.deposited_by || '—')}</td>
+            <td style="font-size:0.75rem;color:var(--text-secondary);">${depAt}</td>
+            <td>
+                <button class="btn btn-sm" style="background:var(--color-emerald);color:#fff;" onclick='acknowledgeDeposit("${d.id}")'><i class="fa-solid fa-check-double"></i> Acknowledge</button>
+            </td>
+        </tr>`;
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+window.acknowledgeDeposit = async function(id) {
+    const { isConfirmed: ack } = await Swal.fire({ title: 'Confirm', text: 'Acknowledge receipt of this deposited amount?', icon: 'question', showCancelButton: true, confirmButtonColor: '#059669', confirmButtonText: 'Yes, acknowledge', cancelButtonText: 'Cancel' });
+    if (!ack) return;
+    try {
+        const approver = window.currentUserName || window.currentUserEmail || 'System';
+        const now = new Date().toISOString();
+        const { error: upErr } = await sbClient.from('income')
+            .update({
+                acknowledgement_status: 'acknowledged',
+                acknowledged_by: approver,
+                acknowledged_at: now
+            })
+            .eq('id', id);
+        if (upErr) throw upErr;
+        showToast('Deposit acknowledged.', 'success');
+        const container = document.getElementById('maintenance-container');
+        const toolbar = document.getElementById('maintenance-toolbar');
+        if (container && toolbar) await renderAcknowledgementTab(container, toolbar);
+    } catch (err) {
+        showToast('Error acknowledging deposit: ' + err.message, 'error');
     }
 };

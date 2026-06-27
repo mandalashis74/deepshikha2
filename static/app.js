@@ -704,7 +704,7 @@ window.loadRoles = async function() {
     }
 };
 
-const ALL_PERMS = ['dashboard:view','income:create','income:approve','income:delete','expense:create','expense:delete','history:view','reports:view','ledger:import','ledger:export','owners:upload','owners:edit_any','owners:edit_own','expense_heads:manage','expense_heads:create','expense_heads:delete','users:manage','users:role_change','tickets:assign','tickets:recommend','tickets:approve','tickets:resolve','tickets:close','tickets:reopen','tickets:archive','tickets:delete','tickets:comment','events:view','events:create','events:delete','events:contribute','events:perform','events:manage_vendors','events:manage_competitions','events:vote','events:score','events:upload_gallery','events:generate_passes','board:view','board:create','board:moderate','committee:view','committee:manage','meetings:view','meetings:create','meetings:manage','resolutions:view','documents:view','documents:upload','documents:delete','compliance:view','compliance:create','compliance:manage','vendors:view','vendors:create','vendors:manage','visitors:view','visitors:create','visitors:approve','assets:view','assets:create','assets:manage','polls:view','polls:create','polls:vote','parking:view','parking:assign','parking:manage','handover:view','handover:create','analytics:view','maintenance:view','maintenance:manage_rates','maintenance:collect','security:view','security:manage','gate:view','gate:guard'];
+const ALL_PERMS = ['dashboard:view','income:create','income:approve','income:acknowledge','income:delete','expense:create','expense:delete','history:view','reports:view','ledger:import','ledger:export','owners:upload','owners:edit_any','owners:edit_own','expense_heads:manage','expense_heads:create','expense_heads:delete','users:manage','users:role_change','tickets:assign','tickets:recommend','tickets:approve','tickets:resolve','tickets:close','tickets:reopen','tickets:archive','tickets:delete','tickets:comment','events:view','events:create','events:delete','events:contribute','events:perform','events:manage_vendors','events:manage_competitions','events:vote','events:score','events:upload_gallery','events:generate_passes','board:view','board:create','board:moderate','committee:view','committee:manage','meetings:view','meetings:create','meetings:manage','resolutions:view','documents:view','documents:upload','documents:delete','compliance:view','compliance:create','compliance:manage','vendors:view','vendors:create','vendors:manage','visitors:view','visitors:create','visitors:approve','assets:view','assets:create','assets:manage','polls:view','polls:create','polls:vote','parking:view','parking:assign','parking:manage','handover:view','handover:create','analytics:view','maintenance:view','maintenance:manage_rates','maintenance:collect','security:view','security:manage','gate:view','gate:guard'];
 
 window.getDefaultRoles = function() {
     return [
@@ -1597,6 +1597,7 @@ window.handleIncomeSubmit = async function(e) {
                     ref_number: refNumber || null,
                     payment_date: date,
                     status: paymentStatus,
+                    deposit_status: 'pending',
                     approved_by: null,
                     approved_at: null
                 };
@@ -1631,6 +1632,7 @@ window.handleIncomeSubmit = async function(e) {
                         ref_number: refNumber || null,
                         payment_date: date,
                         status: paymentStatus,
+                        deposit_status: 'pending',
                         approved_by: null,
                         approved_at: null
                     };
@@ -1677,6 +1679,7 @@ window.handleIncomeSubmit = async function(e) {
                 ref_number: refNumber || null,
                 payment_date: date,
                 status: paymentStatus,
+                deposit_status: category === 'Monthly Maintenance' ? 'pending' : null,
                 approved_by: null,
                 approved_at: null
             };

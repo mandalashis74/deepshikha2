@@ -327,6 +327,7 @@ const PERMISSION_GROUPS = [
         label: 'Income', actions: [
             { perm: 'income:create', col: 'add', label: 'Add' },
             { perm: 'income:approve', col: 'approve', label: 'Approve' },
+            { perm: 'income:acknowledge', col: 'ack', label: 'Acknowledge' },
             { perm: 'income:delete', col: 'delete', label: 'Delete' }
         ]
     },
@@ -519,6 +520,7 @@ const MATRIX_COLUMNS = [
     { key: 'edit', label: 'Edit' },
     { key: 'delete', label: 'Delete' },
     { key: 'approve', label: 'Approve' },
+    { key: 'ack', label: 'Ack' },
     { key: 'other', label: 'Other' }
 ];
 
