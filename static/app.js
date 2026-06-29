@@ -299,21 +299,49 @@ window.loadDashStats = async function() {
     
     // Collection progress (current month maintenance)
     const collectionData = await safeQuery('collection', async () => {
-        const { data: paid } = await sbClient.from('income')
+        const { data: paidFlats } = await sbClient.from('income')
             .select('flat_no')
             .eq('year', year)
             .eq('month', month)
             .eq('category', 'Monthly Maintenance');
-        const uniquePaid = new Set((paid || []).map(r => r.flat_no)).size;
+        const uniquePaid = new Set((paidFlats || []).map(r => r.flat_no));
         const target = occupied; // flats that should pay
-        return { paid: uniquePaid, target };
+        return { paid: uniquePaid.size, target, paidFlats: [...uniquePaid] };
     });
     if (collectionData) {
-        const { paid, target } = collectionData;
+        const { paid, target, paidFlats } = collectionData;
         const pctCol = target > 0 ? Math.round(paid / target * 100) : 0;
         document.getElementById('dash-collection-text').textContent = `${paid} / ${target}`;
         document.getElementById('dash-collection-bar').style.width = pctCol + '%';
         document.getElementById('dash-collection-pct').textContent = pctCol + '%';
+        // Click to show pending flats
+        const card = document.getElementById('dash-collection-text').closest('div')?.parentElement;
+        if (card) {
+            card.style.cursor = 'pointer';
+            card.onclick = async () => {
+                const { data: allOwners } = await sbClient.from('owners')
+                    .select('flat_no, owner_name')
+                    .neq('occupancy_status', 'unsold');
+                const allFlats = (allOwners || []).map(o => o.flat_no).sort((a, b) => {
+                    const na = parseInt(a, 10), nb = parseInt(b, 10);
+                    return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb;
+                });
+                const pending = allFlats.filter(f => !paidFlats.includes(f));
+                if (!pending.length) { showToast('All flats have paid for ' + month + ' ' + year + '!', 'success'); return; }
+                const rows = pending.map(f => {
+                    const owner = (allOwners || []).find(o => o.flat_no === f);
+                    const name = owner ? (window.displayStructured ? window.displayStructured(owner.owner_name, 'name') : owner.owner_name) : '—';
+                    return `<tr><td style="text-align:left;padding:4px 8px;"><strong>${f}</strong></td><td style="text-align:left;padding:4px 8px;">${name}</td></tr>`;
+                }).join('');
+                Swal.fire({
+                    title: `Pending Flats — ${month} ${year}`,
+                    html: `<div style="max-height:400px;overflow-y:auto;"><p style="margin:0 0 10px;font-size:0.9rem;color:var(--text-secondary);">${pending.length} flat(s) yet to pay</p><table style="width:100%;font-size:0.85rem;border-collapse:collapse;"><thead><tr style="background:rgba(99,102,241,0.08);"><th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--border-color);">Flat</th><th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--border-color);">Owner</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+                    width: 450,
+                    confirmButtonText: 'Close',
+                    confirmButtonColor: '#6366f1'
+                });
+            };
+        }
     }
     
     const recentIncome = await safeQuery('recent_income', async () => {
@@ -483,7 +511,7 @@ window.showMonthIncomeDetail = async function(month, year) {
     if (error) { showToast('Error fetching data.', 'error'); return; }
     if (!data || !data.length) { showToast('No income records for ' + month + ' ' + year, 'info'); return; }
     const total = data.reduce((s, r) => s + Number(r.amount || 0), 0);
-    let rows = data.map(r => `<tr><td style="text-align:left;">${r.flat_no}</td><td style="text-align:left;">${r.category || 'Maintenance'}</td><td style="text-align:right;">₹${Number(r.amount).toLocaleString('en-IN')}</td><td style="text-align:right;">${r.date_received ? new Date(r.date_received).toLocaleDateString('en-IN') : '—'}</td></tr>`).join('');
+    let rows = data.map(r => `<tr><td style="text-align:left;">${r.flat_no}</td><td style="text-align:left;">${r.category || 'Maintenance'}</td><td style="text-align:right;white-space:nowrap;">₹${Number(r.amount).toLocaleString('en-IN')}</td><td style="text-align:right;white-space:nowrap;">${r.date_received ? new Date(r.date_received).toLocaleDateString('en-IN') : '—'}</td></tr>`).join('');
     const content = `
         <div style="max-height:400px;overflow-y:auto;">
             <p style="margin:0 0 10px;font-size:0.9rem;color:var(--text-secondary);">Total Income: <strong style="color:var(--color-emerald);">₹${total.toLocaleString('en-IN')}</strong> (${data.length} entries)</p>
@@ -501,7 +529,7 @@ window.showMonthExpenseDetail = async function(month, year) {
     if (error) { showToast('Error fetching data.', 'error'); return; }
     if (!data || !data.length) { showToast('No expense records for ' + month + ' ' + year, 'info'); return; }
     const total = data.reduce((s, r) => s + Number(r.amount || 0), 0);
-    let rows = data.map(r => `<tr><td style="text-align:left;">${r.expense_head || '—'}</td><td style="text-align:left;">${r.description || '—'}</td><td style="text-align:right;">₹${Number(r.amount).toLocaleString('en-IN')}</td><td style="text-align:right;">${r.date_spent ? new Date(r.date_spent).toLocaleDateString('en-IN') : '—'}</td></tr>`).join('');
+    let rows = data.map(r => `<tr><td style="text-align:left;">${r.expense_head || '—'}</td><td style="text-align:left;">${r.description || '—'}</td><td style="text-align:right;white-space:nowrap;">₹${Number(r.amount).toLocaleString('en-IN')}</td><td style="text-align:right;white-space:nowrap;">${r.date_spent ? new Date(r.date_spent).toLocaleDateString('en-IN') : '—'}</td></tr>`).join('');
     const content = `
         <div style="max-height:400px;overflow-y:auto;">
             <p style="margin:0 0 10px;font-size:0.9rem;color:var(--text-secondary);">Total Expense: <strong style="color:var(--color-rose);">₹${total.toLocaleString('en-IN')}</strong> (${data.length} entries)</p>
