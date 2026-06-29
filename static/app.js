@@ -439,6 +439,20 @@ window.renderMonthlyChart = function(monthlyData) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            onClick: (e, activeEls) => {
+                if (!activeEls || !activeEls.length) return;
+                const idx = activeEls[0].index;
+                const dsIdx = activeEls[0].datasetIndex;
+                const monthShort = labels[idx];
+                const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                const fullMonth = monthNames.find(m => m.startsWith(monthShort)) || monthShort;
+                const year = new Date().getFullYear().toString();
+                if (dsIdx === 0) {
+                    window.showMonthIncomeDetail(fullMonth, year);
+                } else {
+                    window.showMonthExpenseDetail(fullMonth, year);
+                }
+            },
             plugins: {
                 legend: {
                     labels: { color: textColor, boxWidth: 10, padding: 8, font: { size: 10 } }
@@ -457,6 +471,43 @@ window.renderMonthlyChart = function(monthlyData) {
             }
         }
     });
+};
+
+window.showMonthIncomeDetail = async function(month, year) {
+    const { data, error } = await sbClient.from('income')
+        .select('id, flat_no, amount, date_received, category, event_name, remarks, status')
+        .eq('month', month)
+        .eq('year', year)
+        .or('status.eq.approved,status.is.null')
+        .order('flat_no');
+    if (error) { showToast('Error fetching data.', 'error'); return; }
+    if (!data || !data.length) { showToast('No income records for ' + month + ' ' + year, 'info'); return; }
+    const total = data.reduce((s, r) => s + Number(r.amount || 0), 0);
+    let rows = data.map(r => `<tr><td style="text-align:left;">${r.flat_no}</td><td style="text-align:left;">${r.category || 'Maintenance'}</td><td style="text-align:right;">₹${Number(r.amount).toLocaleString('en-IN')}</td><td style="text-align:right;">${r.date_received ? new Date(r.date_received).toLocaleDateString('en-IN') : '—'}</td></tr>`).join('');
+    const content = `
+        <div style="max-height:400px;overflow-y:auto;">
+            <p style="margin:0 0 10px;font-size:0.9rem;color:var(--text-secondary);">Total Income: <strong style="color:var(--color-emerald);">₹${total.toLocaleString('en-IN')}</strong> (${data.length} entries)</p>
+            <table class="data-table" style="width:100%;font-size:0.8rem;"><thead><tr><th style="text-align:left;">Flat</th><th style="text-align:left;">Category</th><th style="text-align:right;">Amount</th><th style="text-align:right;">Date</th></tr></thead><tbody>${rows}</tbody></table>
+        </div>`;
+    Swal.fire({ title: `Income — ${month} ${year}`, html: content, width: 600, confirmButtonText: 'Close', confirmButtonColor: '#6366f1' });
+};
+
+window.showMonthExpenseDetail = async function(month, year) {
+    const { data, error } = await sbClient.from('expenses')
+        .select('id, expense_head, description, amount, date_spent, created_by')
+        .eq('month', month)
+        .eq('year', year)
+        .order('date_spent');
+    if (error) { showToast('Error fetching data.', 'error'); return; }
+    if (!data || !data.length) { showToast('No expense records for ' + month + ' ' + year, 'info'); return; }
+    const total = data.reduce((s, r) => s + Number(r.amount || 0), 0);
+    let rows = data.map(r => `<tr><td style="text-align:left;">${r.expense_head || '—'}</td><td style="text-align:left;">${r.description || '—'}</td><td style="text-align:right;">₹${Number(r.amount).toLocaleString('en-IN')}</td><td style="text-align:right;">${r.date_spent ? new Date(r.date_spent).toLocaleDateString('en-IN') : '—'}</td></tr>`).join('');
+    const content = `
+        <div style="max-height:400px;overflow-y:auto;">
+            <p style="margin:0 0 10px;font-size:0.9rem;color:var(--text-secondary);">Total Expense: <strong style="color:var(--color-rose);">₹${total.toLocaleString('en-IN')}</strong> (${data.length} entries)</p>
+            <table class="data-table" style="width:100%;font-size:0.8rem;"><thead><tr><th style="text-align:left;">Head</th><th style="text-align:left;">Description</th><th style="text-align:right;">Amount</th><th style="text-align:right;">Date</th></tr></thead><tbody>${rows}</tbody></table>
+        </div>`;
+    Swal.fire({ title: `Expense — ${month} ${year}`, html: content, width: 600, confirmButtonText: 'Close', confirmButtonColor: '#6366f1' });
 };
 
 window.loadBuildingConfig = async function() {
@@ -1765,7 +1816,7 @@ window.handleExpenseSubmit = async function(e) {
         
         if (error) throw error;
         
-        window.logAudit('expense_created', { expense_head: expenseHead, description: desc, amount: amtVal });
+        window.logAudit('expense_created', { expense_head: head, description: desc, amount: amtVal });
         showToast(`Expense saved: ${desc}`);
         document.getElementById("exp-desc").value = "";
         document.getElementById("exp-amount").value = "";
