@@ -636,10 +636,24 @@ window.setupAuthListener = function() {
                         document.body.classList.add("sidebar-hidden");
                     }
                     
-                    const openTarget = new URLSearchParams(window.location.search).get('open');
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const openTarget = urlParams.get('open');
+                    const mode = urlParams.get('mode');
+                    
                     if (openTarget === 'board' && window.hasPermission('board:view')) {
                         setTimeout(() => openBoardModal(), 200);
                         window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                    if (mode === 'reset_password') {
+                        setTimeout(() => {
+                            if (typeof window.openPasswordModal === 'function') {
+                                window.openPasswordModal();
+                                showToast("Please set your new password.", "info");
+                            }
+                        }, 500);
+                        urlParams.delete('mode');
+                        const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+                        window.history.replaceState({}, document.title, newUrl);
                     }
                 } catch (err) {
                     console.error("Session initialization failed:", err);

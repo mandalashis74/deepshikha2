@@ -168,7 +168,12 @@ window.openUsersModal = async function() {
                     </button>
                 </td>
                 <td>
-                    <button class="btn btn-emerald" style="padding: 4px 8px; font-size: 0.8rem;" ${disableSelect} ${disableSave} onclick="updateUserRole('${p.id}')">Save Role</button>
+                    <div style="display:flex; gap:4px; align-items:center;">
+                        <button class="btn btn-emerald" style="padding: 4px 8px; font-size: 0.8rem;" ${disableSelect} ${disableSave} onclick="updateUserRole('${p.id}')">Save Role</button>
+                        ${(currentUserRole === 'admin' || currentUserRole === 'admin1' || currentUserRole === 'super_admin') ? 
+                            `<button class="btn btn-slate" style="padding: 4px 8px; font-size: 0.8rem;" title="Send Password Reset Email" onclick="adminResetPassword('${escapeHtml(p.email)}')"><i class="fa-solid fa-key"></i></button>` 
+                            : ''}
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -310,6 +315,36 @@ window.updateUserPassword = async function() {
     } catch (err) {
         console.error("Error updating password:", err);
         showToast("Failed to update password: " + err.message, "error");
+    }
+};
+
+window.adminResetPassword = async function(email) {
+    if (currentUserRole !== 'admin' && currentUserRole !== 'super_admin' && currentUserRole !== 'admin1') {
+        showToast("Access Denied.", "error");
+        return;
+    }
+    
+    const { isConfirmed } = await Swal.fire({
+        title: 'Reset Password',
+        text: `Send a password reset email to ${email}?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#4f46e5',
+        confirmButtonText: 'Send Reset Link'
+    });
+    
+    if (isConfirmed) {
+        try {
+            const { error } = await sbClient.auth.resetPasswordForEmail(email, {
+                redirectTo: window.location.origin + '/index.html?mode=reset_password'
+            });
+            if (error) throw error;
+            showToast("Password reset email sent successfully.", "success");
+            window.logAudit('password_reset_sent', { target_email: email });
+        } catch (err) {
+            console.error("Error sending reset email:", err);
+            showToast("Failed to send reset email: " + err.message, "error");
+        }
     }
 };
 
