@@ -171,7 +171,7 @@ window.openUsersModal = async function() {
                     <div style="display:flex; gap:4px; align-items:center;">
                         <button class="btn btn-emerald" style="padding: 4px 8px; font-size: 0.8rem;" ${disableSelect} ${disableSave} onclick="updateUserRole('${p.id}')">Save Role</button>
                         ${(currentUserRole === 'admin' || currentUserRole === 'admin1' || currentUserRole === 'super_admin') ? 
-                            `<button class="btn btn-slate" style="padding: 4px 8px; font-size: 0.8rem;" title="Send Password Reset Email" onclick="adminResetPassword('${escapeHtml(p.email)}')"><i class="fa-solid fa-key"></i></button>` 
+                            `<button class="btn btn-slate" style="padding: 4px 8px; font-size: 0.8rem;" title="Password Reset Options" onclick="adminResetPassword('${p.id}', '${escapeHtml(p.email)}')"><i class="fa-solid fa-key"></i></button>` 
                             : ''}
                     </div>
                 </td>
@@ -305,7 +305,8 @@ window.updateUserPassword = async function() {
     
     try {
         const { error } = await sbClient.auth.updateUser({
-            password: newPassword
+            password: newPassword,
+            data: { force_password_change: false }
         });
         
         if (error) throw error;
@@ -318,22 +319,26 @@ window.updateUserPassword = async function() {
     }
 };
 
-window.adminResetPassword = async function(email) {
+window.adminResetPassword = async function(userId, email) {
     if (currentUserRole !== 'admin' && currentUserRole !== 'super_admin' && currentUserRole !== 'admin1') {
         showToast("Access Denied.", "error");
         return;
     }
     
-    const { isConfirmed } = await Swal.fire({
+    const { isConfirmed, isDenied } = await Swal.fire({
         title: 'Reset Password',
-        text: `Send a password reset email to ${email}?`,
+        text: `How would you like to reset the password for ${email}?`,
         icon: 'question',
         showCancelButton: true,
+        showDenyButton: true,
         confirmButtonColor: '#4f46e5',
-        confirmButtonText: 'Send Reset Link'
+        denyButtonColor: '#ea580c',
+        confirmButtonText: 'Send Reset Link',
+        denyButtonText: 'Force Default Password'
     });
     
     if (isConfirmed) {
+        // Send reset link
         try {
             const { error } = await sbClient.auth.resetPasswordForEmail(email, {
                 redirectTo: window.location.origin + '/index.html?mode=reset_password'
@@ -344,6 +349,42 @@ window.adminResetPassword = async function(email) {
         } catch (err) {
             console.error("Error sending reset email:", err);
             showToast("Failed to send reset email: " + err.message, "error");
+        }
+    } else if (isDenied) {
+        // Set default password via Edge Function
+        const defaultPassword = 'Deep@' + new Date().getFullYear();
+        try {
+            const { data: { session }, error: sessionError } = await sbClient.auth.getSession();
+            if (sessionError || !session) throw new Error("No active session.");
+
+            const response = await fetch(`${window.buildingConfig?.supabase_url || 'https://xkpqkbberckxblkhseim.supabase.co'}/functions/v1/admin-reset-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                    targetUserId: userId,
+                    defaultPassword: defaultPassword
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || "Failed to reset password.");
+            }
+
+            showToast(`Password has been reset to: ${defaultPassword}`, "success");
+            window.logAudit('password_force_reset', { target_email: email });
+            
+            Swal.fire({
+                title: 'Password Reset',
+                html: `The password for <strong>${email}</strong> has been reset.<br><br>New Password: <code>${defaultPassword}</code><br><br>The user will be required to change it upon their next login.`,
+                icon: 'success'
+            });
+        } catch (err) {
+            console.error("Error resetting password to default:", err);
+            showToast("Failed to reset password: " + err.message, "error");
         }
     }
 };

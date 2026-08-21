@@ -689,6 +689,23 @@ window.handleUserSession = async function(user) {
     if (!sbClient) return;
     
     try {
+        if (user.user_metadata?.force_password_change) {
+            setTimeout(() => {
+                if (typeof window.openPasswordModal === 'function') {
+                    window.openPasswordModal();
+                    Swal.fire({
+                        title: 'Password Reset Required',
+                        text: 'An administrator has reset your password. You must change it now to continue.',
+                        icon: 'warning',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: true,
+                        confirmButtonText: 'Set New Password'
+                    });
+                }
+            }, 1000);
+        }
+        
         await window.loadRoles();
         
         let { data, error } = await sbClient.from('profiles').select('role, assigned_floors, name, address, contact_no, avatar_url').eq('id', user.id).maybeSingle();
