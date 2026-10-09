@@ -777,8 +777,12 @@ window.deleteEntry = async function(type, id, desc) {
         return;
     }
     
-    if (!hasPermission('income:delete') && !hasPermission('expense:delete')) {
-        showToast("Access Denied: You don't have permission to delete entries.", "error");
+    if (type === 'INCOME' && !hasPermission('income:delete')) {
+        showToast("Access Denied: You don't have permission to delete income entries.", "error");
+        return;
+    }
+    if (type === 'EXPENSE' && !hasPermission('expense:delete')) {
+        showToast("Access Denied: You don't have permission to delete expense entries.", "error");
         return;
     }
     
@@ -1411,7 +1415,7 @@ function renderHistoryTable(entries) {
 
         const canDelete = (entry.type === "INCOME" && hasPermission('income:delete')) || (entry.type === "EXPENSE" && hasPermission('expense:delete'));
         const deleteButton = canDelete
-            ? `<button class="btn-delete" title="Delete entry" onclick="deleteHistoryEntry('${entry.type}', ${entry.id}, '${window.escapeHtml(String(entry.description)).replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
+            ? `<button class="btn-delete" title="Delete entry" onclick="deleteHistoryEntry('${entry.type}', '${entry.id}', '${window.escapeHtml(String(entry.description)).replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
                     <i class="fa-solid fa-trash-can"></i>
                </button>`
             : '';
@@ -1446,8 +1450,12 @@ window.deleteHistoryEntry = async function(type, id, desc) {
         return;
     }
     
-    if (!hasPermission('income:delete') && !hasPermission('expense:delete')) {
-        showToast("Access Denied: You don't have permission to delete entries.", "error");
+    if (type === 'INCOME' && !hasPermission('income:delete')) {
+        showToast("Access Denied: You don't have permission to delete income entries.", "error");
+        return;
+    }
+    if (type === 'EXPENSE' && !hasPermission('expense:delete')) {
+        showToast("Access Denied: You don't have permission to delete expense entries.", "error");
         return;
     }
 

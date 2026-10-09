@@ -1186,7 +1186,7 @@ window.renderTable = function(entries) {
 
         const canDelete = (entry.type === "INCOME" && window.hasPermission('income:delete')) || (entry.type === "EXPENSE" && window.hasPermission('expense:delete'));
         const deleteButton = canDelete
-            ? `<button class="btn-delete" title="Delete entry" onclick="deleteEntry('${entry.type}', ${entry.id}, '${window.escapeHtml(String(entry.description)).replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
+            ? `<button class="btn-delete" title="Delete entry" onclick="deleteEntry('${entry.type}', '${entry.id}', '${window.escapeHtml(String(entry.description)).replace(/'/g, "\\'").replace(/"/g, "&quot;")}')">
                     <i class="fa-solid fa-trash-can"></i>
                </button>`
             : '';
